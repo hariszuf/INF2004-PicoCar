@@ -1,22 +1,68 @@
-# Build directory
-build/
+﻿# =========================
+# Build artifacts
+# =========================
 
-# Compiled Object files
+build/
+build_make/.build_profile
+
 *.o
 *.obj
+*.d
 *.a
 
-# Executables and Binaries
 *.elf
 *.bin
 *.hex
 *.uf2
 *.map
 
-# OS generated files
-.DS_Store
-Thumbs.db
 
-# IDE specific files
+# =========================
+# Host-generated tools
+# =========================
+
+build_make/tools/elf2uf2
+build_make/tools/elf2uf2.exe
+
+
+# =========================
+# IDE / editor files
+# =========================
+
 .vscode/
 .idea/
+
+.cproject
+.project
+.settings/
+
+
+# =========================
+# OS-generated files
+# =========================
+
+.DS_Store
+Thumbs.db
+desktop.ini
+
+
+# =========================
+# Temporary / backup files
+# =========================
+
+*.tmp
+*.temp
+*.bak
+*~
+*.swp
+*.swo
+
+
+# =========================
+# Local configuration / secrets
+# =========================
+
+config/wifi_credentials.h
+config/network_config.h
+config/udp_test_config.h
+config/tcp_test_config.h
