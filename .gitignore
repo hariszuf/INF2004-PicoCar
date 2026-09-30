@@ -1,0 +1,22 @@
+# Build directory
+build/
+
+# Compiled Object files
+*.o
+*.obj
+*.a
+
+# Executables and Binaries
+*.elf
+*.bin
+*.hex
+*.uf2
+*.map
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE specific files
+.vscode/
+.idea/
