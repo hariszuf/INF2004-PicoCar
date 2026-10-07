@@ -2,7 +2,8 @@
 # micro T-Kernel 3.0 BSP  makefile
 ################################################################################
 
-TEMP_SRCS = $(wildcard ../app_program/*.c)
+TEMP_SRCS = $(wildcard ../app_program/*.c) \
+            $(wildcard ../app_program/*/*.c)
 TEMP_OBJS = $(TEMP_SRCS:.c=.o)
 TEMP_DEPS = $(TEMP_SRCS:.c=.d)
 
