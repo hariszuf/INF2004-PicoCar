@@ -1,3 +1,4 @@
+
 #include <stdint.h>
 
 #include <tk/tkernel.h>
@@ -5,26 +6,20 @@
 
 #include "command.h"
 
-
 #define COMMAND_QUEUE_DEPTH    8U
 #define COMMAND_TASK_PRIORITY  6
 #define COMMAND_STACK_SIZE     4096
 
-
 LOCAL ID command_buffer_id = 0;
-
 LOCAL uint32_t command_dropped_count = 0U;
-
 
 #define COMMAND_MESSAGE_WORDS \
     ((sizeof(command_message_t) + sizeof(UW) - 1U) / sizeof(UW))
-
 
 LOCAL UW command_buffer_memory[
     (COMMAND_QUEUE_DEPTH * COMMAND_MESSAGE_WORDS)
     + (COMMAND_QUEUE_DEPTH * 4U)
 ];
-
 
 LOCAL T_CMBF command_buffer_config = {
     .mbfatr = TA_TFIFO,
@@ -33,11 +28,9 @@ LOCAL T_CMBF command_buffer_config = {
     .bufptr = command_buffer_memory
 };
 
-
 LOCAL const char *command_type_to_string(uint8_t type)
 {
     switch (type) {
-
         case COMMAND_TYPE_START:
             return "START";
 
@@ -55,7 +48,9 @@ LOCAL const char *command_type_to_string(uint8_t type)
     }
 }
 
-
+/*
+ * Command consumer task.
+ */
 LOCAL void command_task(INT stacd, void *exinf)
 {
     command_message_t message;
@@ -64,26 +59,20 @@ LOCAL void command_task(INT stacd, void *exinf)
     (void)stacd;
     (void)exinf;
 
-
     while (1) {
-
         received_size = tk_rcv_mbf(
             command_buffer_id,
             &message,
             TMO_FEVR
         );
 
-
         if (received_size != (INT)sizeof(command_message_t)) {
-
             tm_printf(
                 (UB *)"[Command] Invalid message size: %d\n",
                 received_size
             );
-
             continue;
         }
-
 
         tm_printf(
             (UB *)"[Command] type=%s seq=%u value=%d\n",
@@ -94,7 +83,6 @@ LOCAL void command_task(INT stacd, void *exinf)
     }
 }
 
-
 LOCAL T_CTSK command_task_config = {
     .itskpri = COMMAND_TASK_PRIORITY,
     .stksz   = COMMAND_STACK_SIZE,
@@ -102,12 +90,14 @@ LOCAL T_CTSK command_task_config = {
     .tskatr  = TA_HLNG | TA_RNG3
 };
 
-
-ER buddy1_command_start(void)
+/*
+ * PHASE 1: Create the message buffer.
+ */
+ER buddy1_command_init(void)
 {
-    ID task_id;
-    ER error_code;
-
+    if (command_buffer_id > 0) {
+        return E_OK;
+    }
 
     command_buffer_id = tk_cre_mbf(
         &command_buffer_config
@@ -117,6 +107,19 @@ ER buddy1_command_start(void)
         return command_buffer_id;
     }
 
+    return E_OK;
+}
+
+/*
+ * PHASE 2: Create and start the consumer task.
+ */
+ER buddy1_command_start(void)
+{
+    ID task_id;
+
+    if (command_buffer_id <= 0) {
+        return E_OBJ;
+    }
 
     task_id = tk_cre_tsk(
         &command_task_config
@@ -126,32 +129,25 @@ ER buddy1_command_start(void)
         return task_id;
     }
 
-
-    error_code = tk_sta_tsk(
-        task_id,
-        0
-    );
-
-    return error_code;
+    return tk_sta_tsk(task_id, 0);
 }
 
-
+/*
+ * Non-blocking command producer API.
+ */
 ER buddy1_command_submit(
     const command_message_t *message
 )
 {
     ER error_code;
 
-
     if (message == NULL) {
         return E_PAR;
     }
 
-
     if (command_buffer_id <= 0) {
         return E_OBJ;
     }
-
 
     error_code = tk_snd_mbf(
         command_buffer_id,
@@ -160,15 +156,12 @@ ER buddy1_command_submit(
         TMO_POL
     );
 
-
     if (error_code == E_TMOUT) {
         command_dropped_count++;
     }
 
-
     return error_code;
 }
-
 
 uint32_t buddy1_command_get_dropped_count(void)
 {
