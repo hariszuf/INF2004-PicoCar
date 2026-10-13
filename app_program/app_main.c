@@ -1,78 +1,105 @@
+
 #include <tk/tkernel.h>
 #include <tm/tmonitor.h>
 
-#include "buddy1/heartbeat.h"
-#include "buddy1/telemetry.h"
-#include "buddy1/command.h"
-#include "buddy1/network.h"
+#include "buddy1/buddy1.h"
 
+/*
+ * =====================================================
+ * APPLICATION ENTRY POINT
+ * =====================================================
+ *
+ * µT-Kernel calls usermain() after system startup.
+ *
+ * The application follows two phases:
+ *
+ * Phase 1: Initialise all subsystem resources.
+ * Phase 2: Start all subsystem tasks.
+ *
+ * Once the other buddies are implemented,
+ * they will be integrated into both phases.
+ */
 
 EXPORT INT usermain(void)
 {
     ER error_code;
 
     /*
-     * Start telemetry first.
+     * =================================================
+     * PHASE 1: SUBSYSTEM INITIALISATION
+     * =================================================
+     *
+     * All kernel IPC objects must be created
+     * before application tasks begin running.
      */
-    error_code = buddy1_telemetry_start();
+
+    error_code = buddy1_init();
 
     if (error_code < E_OK) {
         tm_printf(
-            (UB *)"[INIT] Telemetry start failed: %d\n",
+            (UB *)"[APP] Buddy 1 init failed: %d\n",
             error_code
         );
 
         return 1;
     }
 
+    /*
+     * Future subsystem initialisation:
+     *
+     * buddy2_init();
+     * buddy3_init();
+     * buddy4_init();
+     *
+     * These calls will be added when
+     * the respective buddies are ready.
+     */
+
 
     /*
-     * Start command subsystem.
+     * =================================================
+     * PHASE 2: SUBSYSTEM TASK STARTUP
+     * =================================================
+     *
+     * All required shared kernel objects
+     * should now be available.
      */
-    error_code = buddy1_command_start();
+
+    error_code = buddy1_start();
 
     if (error_code < E_OK) {
         tm_printf(
-            (UB *)"[INIT] Command start failed: %d\n",
+            (UB *)"[APP] Buddy 1 start failed: %d\n",
             error_code
         );
 
         return 1;
     }
 
-
     /*
-     * Start network status monitoring.
+     * Future subsystem startup:
+     *
+     * buddy2_start();
+     * buddy3_start();
+     * buddy4_start();
      */
-    error_code = buddy1_network_start();
-
-    if (error_code < E_OK) {
-        tm_printf(
-            (UB *)"[INIT] Network task start failed: %d\n",
-            error_code
-        );
-
-        return 1;
-    }
 
 
     /*
-     * Start heartbeat last because it publishes telemetry.
+     * =================================================
+     * SYSTEM RUNNING
+     * =================================================
      */
-    error_code = buddy1_heartbeat_start();
 
-    if (error_code < E_OK) {
-        tm_printf(
-            (UB *)"[INIT] Heartbeat start failed: %d\n",
-            error_code
-        );
-
-        return 1;
-    }
-
+    tm_printf(
+        (UB *)"[APP] All registered buddies started\n"
+    );
 
     /*
-     * Keep the initial µT-Kernel task alive.
+     * Keep the initial task asleep.
+     *
+     * Returning from usermain() would shut down
+     * the µT-Kernel application.
      */
     tk_slp_tsk(TMO_FEVR);
 

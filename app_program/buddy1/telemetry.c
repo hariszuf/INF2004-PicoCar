@@ -1,3 +1,4 @@
+
 #include <stdint.h>
 
 #include <tk/tkernel.h>
@@ -14,22 +15,19 @@
 /*
  * Kernel message buffer ID.
  *
- * It becomes valid after buddy1_telemetry_start().
+ * Created during Phase 1.
  */
 LOCAL ID telemetry_buffer_id = 0;
 
 
 /*
- * Number of messages that could not be queued.
+ * Count messages dropped due to a full queue.
  */
 LOCAL uint32_t telemetry_dropped_count = 0U;
 
 
 /*
- * Backing memory used by the µT-Kernel message buffer.
- *
- * Extra space is provided for the message-buffer bookkeeping
- * used internally by µT-Kernel.
+ * Backing memory for the telemetry message buffer.
  */
 #define TELEMETRY_MESSAGE_WORDS \
     ((sizeof(telemetry_message_t) + sizeof(UW) - 1U) / sizeof(UW))
@@ -41,7 +39,7 @@ LOCAL UW telemetry_buffer_memory[
 
 
 /*
- * µT-Kernel message-buffer configuration.
+ * Message buffer configuration.
  */
 LOCAL T_CMBF telemetry_buffer_config = {
     .mbfatr = TA_TFIFO,
@@ -52,12 +50,13 @@ LOCAL T_CMBF telemetry_buffer_config = {
 
 
 /*
- * Buddy 1 telemetry consumer task.
+ * Telemetry consumer task.
  *
- * For now this prints the received data.
+ * Receives telemetry messages from the kernel
+ * message buffer and prints them through USB.
  *
- * Later this is where messages will be encoded and passed
- * towards the MQTT/network layer.
+ * Later, this task will forward messages to
+ * the MQTT networking layer.
  */
 LOCAL void telemetry_task(INT stacd, void *exinf)
 {
@@ -69,17 +68,14 @@ LOCAL void telemetry_task(INT stacd, void *exinf)
 
     while (1) {
 
-        /*
-         * This task is allowed to block because its entire job is
-         * waiting for telemetry.
-         */
         received_size = tk_rcv_mbf(
             telemetry_buffer_id,
             &message,
             TMO_FEVR
         );
 
-        if (received_size != (INT)sizeof(telemetry_message_t)) {
+        if (received_size !=
+            (INT)sizeof(telemetry_message_t)) {
 
             tm_printf(
                 (UB *)"[Telemetry] Invalid message size: %d\n",
@@ -90,7 +86,7 @@ LOCAL void telemetry_task(INT stacd, void *exinf)
         }
 
         tm_printf(
-            (UB *)"[Telemetry] src=%u type=%u seq=%u value1=%d value2=%d\n",
+            (UB *)"[Telemetry-2Phase] src=%u type=%u seq=%u value1=%d value2=%d\n",
             (unsigned int)message.source,
             (unsigned int)message.type,
             (unsigned int)message.sequence,
@@ -112,14 +108,24 @@ LOCAL T_CTSK telemetry_task_config = {
 };
 
 
-ER buddy1_telemetry_start(void)
+/*
+ * =========================================================
+ * PHASE 1: INITIALISATION
+ * =========================================================
+ *
+ * Create the telemetry message buffer.
+ *
+ * No application task is started here.
+ */
+ER buddy1_telemetry_init(void)
 {
-    ID task_id;
-    ER error_code;
-
     /*
-     * Create the message buffer first.
+     * Avoid creating the message buffer twice.
      */
+    if (telemetry_buffer_id > 0) {
+        return E_OK;
+    }
+
     telemetry_buffer_id = tk_cre_mbf(
         &telemetry_buffer_config
     );
@@ -128,9 +134,32 @@ ER buddy1_telemetry_start(void)
         return telemetry_buffer_id;
     }
 
+    return E_OK;
+}
+
+
+/*
+ * =========================================================
+ * PHASE 2: TASK STARTUP
+ * =========================================================
+ *
+ * Create and start the telemetry consumer task.
+ *
+ * The message buffer must already exist.
+ */
+ER buddy1_telemetry_start(void)
+{
+    ID task_id;
 
     /*
-     * Then create the consumer task.
+     * Verify Phase 1 completed successfully.
+     */
+    if (telemetry_buffer_id <= 0) {
+        return E_OBJ;
+    }
+
+    /*
+     * Create the telemetry consumer task.
      */
     task_id = tk_cre_tsk(
         &telemetry_task_config
@@ -140,19 +169,23 @@ ER buddy1_telemetry_start(void)
         return task_id;
     }
 
-
     /*
      * Start the task.
      */
-    error_code = tk_sta_tsk(
+    return tk_sta_tsk(
         task_id,
         0
     );
-
-    return error_code;
 }
 
 
+/*
+ * =========================================================
+ * TELEMETRY SUBMISSION API
+ * =========================================================
+ *
+ * Non-blocking producer API used by other buddies.
+ */
 ER buddy1_telemetry_submit(
     const telemetry_message_t *message
 )
@@ -163,16 +196,15 @@ ER buddy1_telemetry_submit(
         return E_PAR;
     }
 
+    /*
+     * The message buffer must be initialised.
+     */
     if (telemetry_buffer_id <= 0) {
         return E_OBJ;
     }
 
-
     /*
-     * TMO_POL means POLL.
-     *
-     * If the message buffer is full, do NOT put the calling
-     * task to sleep waiting for space.
+     * TMO_POL prevents the producer from blocking.
      */
     error_code = tk_snd_mbf(
         telemetry_buffer_id,
@@ -181,11 +213,8 @@ ER buddy1_telemetry_submit(
         TMO_POL
     );
 
-
     /*
-     * A full queue produces E_TMOUT when using TMO_POL.
-     *
-     * Record the loss but do not block the producer.
+     * Count messages dropped when the buffer is full.
      */
     if (error_code == E_TMOUT) {
         telemetry_dropped_count++;
@@ -195,6 +224,9 @@ ER buddy1_telemetry_submit(
 }
 
 
+/*
+ * Retrieve the dropped-message counter.
+ */
 uint32_t buddy1_telemetry_get_dropped_count(void)
 {
     return telemetry_dropped_count;

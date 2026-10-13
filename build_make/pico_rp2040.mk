@@ -410,6 +410,7 @@ endif
 
 WIFI_INCLUDES := -I"$(WIFIDIR)" \
                  -I"../lib/libtm/sysdepend/pico_rp2040/usb" \
+                 -I"$(PICO_SDK_PATH)/src/common/pico_util/include" \
                  -I"$(CYW43_DRIVER_PATH)/src" \
                  -I"$(CYW43_DRIVER_PATH)/firmware" \
                  -I"$(CYW43_PICO_PATH)/include" \
