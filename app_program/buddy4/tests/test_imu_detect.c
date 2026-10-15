@@ -1,6 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
-#include "../app_program/buddy4/imu_detect.h"
+#include "../imu_detect.h"
 
 static imu_raw_t level = {.ax=0, .ay=0, .az=16384};
 static imu_raw_t ascent = {.ax=4200, .ay=0, .az=15830};
