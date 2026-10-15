@@ -1,32 +1,37 @@
 
 #include <stdio.h>
 #include "pico/stdlib.h"
-#include "ir_sensor.h"
+
+#define IR_MAIN_PIN     2
+#define IR_BACKUP_PIN   0
+#define IR_BARCODE_PIN  26
 
 int main(void)
 {
-    // Initialise USB serial
     stdio_init_all();
 
-    // Allow time for USB terminal connection
+    gpio_init(IR_MAIN_PIN);
+    gpio_set_dir(IR_MAIN_PIN, GPIO_IN);
+
+    gpio_init(IR_BACKUP_PIN);
+    gpio_set_dir(IR_BACKUP_PIN, GPIO_IN);
+
+    gpio_init(IR_BARCODE_PIN);
+    gpio_set_dir(IR_BARCODE_PIN, GPIO_IN);
+
     sleep_ms(3000);
 
-    printf("Starting IR Sensor Test...\n");
-
-    // Initialise IR sensors
-    ir_sensor_init();
+    printf("IR RAW SENSOR TEST\n");
 
     while (true)
     {
-        // Read all three sensors
-        ir_data_t data = ir_sensor_read();
+        int main = gpio_get(IR_MAIN_PIN);
+        int backup = gpio_get(IR_BACKUP_PIN);
+        int barcode = gpio_get(IR_BARCODE_PIN);
 
-        // Print only when a sensor reading changes
-        ir_sensor_log_changes(&data);
+        printf("Main GP2: %d | Backup GP0: %d | Barcode GP26: %d\n",
+               main, backup, barcode);
 
-        // Read every 100 milliseconds
-        sleep_ms(100);
+        sleep_ms(500);
     }
-
-    return 0;
 }
