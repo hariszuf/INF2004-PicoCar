@@ -3,6 +3,7 @@
 #include <tm/tmonitor.h>
 
 #include "buddy1/buddy1.h"
+#include "buddy5/buddy5.h"
 
 /*
  * =====================================================
@@ -44,6 +45,18 @@ EXPORT INT usermain(void)
         return 1;
     }
 
+
+    error_code = buddy5_init();
+
+    if (error_code < E_OK) {
+        tm_printf(
+            (UB *)"[APP] Buddy 5 init failed: %d\n",
+            error_code
+        );
+
+        return 1;
+    }
+
     /*
      * Future subsystem initialisation:
      *
@@ -70,6 +83,17 @@ EXPORT INT usermain(void)
     if (error_code < E_OK) {
         tm_printf(
             (UB *)"[APP] Buddy 1 start failed: %d\n",
+            error_code
+        );
+
+        return 1;
+    }
+
+    error_code = buddy5_start();
+
+    if (error_code < E_OK) {
+        tm_printf(
+            (UB *)"[APP] Buddy 5 start failed: %d\n",
             error_code
         );
 
