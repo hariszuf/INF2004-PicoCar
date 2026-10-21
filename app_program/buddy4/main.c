@@ -28,10 +28,14 @@ static int bus_read(void *context, uint8_t address, uint8_t *data,
 }
 
 /* Reprint on each observed USB connection so a new recording has a schema. */
-static void log_csv_header(void)
+static void log_csv_header(const buddy4_config_t *config)
 {
+    printf("# preliminary_six_position,imperfect_orientation_alignment,"
+           "mounting_offsets_need_recalibration=%d\n",
+           config->mounting_offsets_need_recalibration);
     printf("seq,poll_time_us,result,valid,sample_time_us,error_count,"
-           "raw_x,raw_y,raw_z,ax_g,ay_g,az_g,magnitude_g,"
+           "raw_x,raw_y,raw_z,ax_uncorrected_g,ay_uncorrected_g,az_uncorrected_g,"
+           "ax_corrected_g,ay_corrected_g,az_corrected_g,magnitude_g,"
            "pitch_deg,pitch_filtered_deg,roll_deg,roll_filtered_deg,"
            "terrain,side_tilt,transient_g,transient_event,"
            "wheel_height_cm,geometry_confirmed,side_event_active,"
@@ -59,7 +63,7 @@ static void log_csv_sample(uint32_t sequence, uint64_t poll_time_us,
                            buddy4_result_t result, const buddy4_output_t *output)
 {
     printf("%lu,%llu,%d,%d,%llu,%lu,"
-           "%d,%d,%d,%.4f,%.4f,%.4f,%.4f,"
+           "%d,%d,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,"
            "%.2f,%.2f,%.2f,%.2f,%s,%s,%.4f,%d,"
            "%.2f,%d,%d,%d,%.2f,%.2f\n",
            (unsigned long)sequence,
@@ -71,6 +75,9 @@ static void log_csv_sample(uint32_t sequence, uint64_t poll_time_us,
            (int)output->raw[0],
            (int)output->raw[1],
            (int)output->raw[2],
+           output->uncorrected_accel_g[0],
+           output->uncorrected_accel_g[1],
+           output->uncorrected_accel_g[2],
            output->accel_g[0],
            output->accel_g[1],
            output->accel_g[2],
@@ -127,7 +134,7 @@ int main(void)
         bool usb_connected = stdio_usb_connected();
         if (usb_connected) {
             if (!usb_was_connected) {
-                log_csv_header();
+                log_csv_header(&imu.config);
             }
             if (imu.output.event_ended) {
                 log_side_event_summary(&imu.output);
