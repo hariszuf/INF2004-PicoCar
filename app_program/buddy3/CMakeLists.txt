@@ -24,12 +24,12 @@ project(ir_sensor_test C CXX ASM)
 pico_sdk_init()
 
 add_executable(ir_sensor_test
-    main.c
-    ir_sensor.c
+    ir_motor_curve_test.c
 )
 
 target_link_libraries(ir_sensor_test
     pico_stdlib
+    hardware_pwm
 )
 
 pico_enable_stdio_usb(ir_sensor_test 1)
