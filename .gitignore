@@ -58,11 +58,14 @@ desktop.ini
 *.swo
 
 
+
 # =========================
 # Local configuration / secrets
 # =========================
 
-config/wifi_credentials.h
-config/network_config.h
-config/udp_test_config.h
-config/tcp_test_config.h
+/config/wifi_credentials.h
+/config/network_config.h
+/config/udp_test_config.h
+/config/tcp_test_config.h
+/config/mqtt_config.h
+
