@@ -7,60 +7,86 @@
 #include "pico/stdio_usb.h"
 #include "hardware/i2c.h"
 
-/* Pico W connections and detected LSM303D address */
-#define IMU_I2C             i2c0
-#define SDA_PIN             16
-#define SCL_PIN             17
-#define SENSOR_ADDR         0x1D
-#define I2C_TIMEOUT_US      5000
+/* Pico W and confirmed LSM303D */
+#define IMU_I2C                 i2c0
+#define SDA_PIN                 16
+#define SCL_PIN                 17
+#define SENSOR_ADDR             0x1D
+#define I2C_TIMEOUT_US          5000
 
 /* LSM303D registers */
-#define WHO_AM_I            0x0F
-#define CTRL0               0x1F
-#define CTRL1               0x20
-#define CTRL2               0x21
-#define CTRL3               0x22
-#define CTRL4               0x23
-#define CTRL7               0x26
-#define STATUS_A            0x27
-#define OUT_X_L_A           0x28
+#define WHO_AM_I                0x0F
+#define CTRL0                   0x1F
+#define CTRL1                   0x20
+#define CTRL2                   0x21
+#define CTRL3                   0x22
+#define CTRL4                   0x23
+#define CTRL7                   0x26
+#define STATUS_A                0x27
+#define OUT_X_L_A               0x28
 
-/* Sensor at 100 Hz; CSV logging scheduled at 50 Hz */
-#define SAMPLE_PERIOD_US    20000
-#define DATA_TIMEOUT_US     15000
+/* Sensor at 100 Hz; logging scheduled at 50 Hz */
+#define SAMPLE_PERIOD_US        20000
+#define DATA_TIMEOUT_US         15000
 
 /* +/-2 g, full signed 16-bit output */
-#define G_PER_COUNT         0.000061f
-#define RAD_TO_DEG          57.2957795131f
+#define G_PER_COUNT             0.000061f
+#define RAD_TO_DEG              57.2957795131f
+#define DEG_TO_RAD              0.0174532925199f
 
-/* Calibrated for your current sensor mounting */
-#define PITCH_SIGN          (+1.0f)
-#define PITCH_OFFSET_DEG    2.50f
-#define ROLL_SIGN           (+1.0f)
-#define ROLL_OFFSET_DEG     2.85f
+/* Calibration for your current mounting */
+#define PITCH_SIGN              (+1.0f)
+#define PITCH_OFFSET_DEG        2.50f
+#define ROLL_SIGN               (+1.0f)
+#define ROLL_OFFSET_DEG         2.85f
+#define ANGLE_ALPHA             0.15f
 
-#define ANGLE_ALPHA         0.15f
+/* Provisional tilt thresholds with hysteresis */
+#define PITCH_ENTER_DEG         6.0f
+#define PITCH_EXIT_DEG          3.0f
+#define ROLL_ENTER_DEG          4.0f
+#define ROLL_EXIT_DEG           2.0f
 
-/* Initial pitch thresholds */
-#define PITCH_ENTER_DEG     6.0f
-#define PITCH_EXIT_DEG      3.0f
+/* Measured wheel spacing */
+#define WHEEL_SPACING_CM        9.5f
 
-/* Initial sideways thresholds from your stationary tests */
-#define ROLL_ENTER_DEG      4.0f
-#define ROLL_EXIT_DEG       2.0f
+/* Stable-window settings for confirmed peak estimates */
+#define PEAK_CONFIRM_US         200000
+#define PEAK_ALLOWED_CHANGE_DEG 1.0f
+#define MAX_SAMPLE_GAP_US       (2 * SAMPLE_PERIOD_US)
 
-/* Preliminary bump/impact detection; does not measure height */
-#define BUMP_THRESHOLD_G    0.18f
-#define BUMP_REARM_G        0.08f
-#define BUMP_COOLDOWN_US    500000
-#define BASELINE_ALPHA      0.05f
+/* Preliminary acceleration-transient detector */
+#define BUMP_THRESHOLD_G        0.18f
+#define BUMP_REARM_G            0.08f
+#define BUMP_COOLDOWN_US        500000
+#define BASELINE_ALPHA          0.05f
+
+typedef struct {
+    int side;
+    uint64_t start_us;
+
+    bool peak_confirmed;
+    float peak_roll_deg;
+    float peak_height_cm;
+
+    bool window_active;
+    uint64_t window_start_us;
+    uint64_t last_sample_us;
+    float window_min_roll;
+    float window_max_roll;
+    float window_min_height;
+} side_event_t;
 
 static bool write_reg(uint8_t reg, uint8_t value)
 {
     uint8_t bytes[2] = {reg, value};
 
     return i2c_write_timeout_us(
-        IMU_I2C, SENSOR_ADDR, bytes, 2, false,
+        IMU_I2C,
+        SENSOR_ADDR,
+        bytes,
+        2,
+        false,
         I2C_TIMEOUT_US
     ) == 2;
 }
@@ -68,17 +94,25 @@ static bool write_reg(uint8_t reg, uint8_t value)
 static bool read_regs(uint8_t reg, uint8_t *data, size_t count)
 {
     if (count > 1) {
-        reg |= 0x80; /* Enable auto-increment. */
+        reg |= 0x80; /* Auto-increment */
     }
 
     if (i2c_write_timeout_us(
-            IMU_I2C, SENSOR_ADDR, &reg, 1, true,
+            IMU_I2C,
+            SENSOR_ADDR,
+            &reg,
+            1,
+            true,
             I2C_TIMEOUT_US) != 1) {
         return false;
     }
 
     return i2c_read_timeout_us(
-        IMU_I2C, SENSOR_ADDR, data, count, false,
+        IMU_I2C,
+        SENSOR_ADDR,
+        data,
+        count,
+        false,
         I2C_TIMEOUT_US
     ) == (int)count;
 }
@@ -101,9 +135,8 @@ static bool configure_sensor(void)
     /*
      * Stop sampling during configuration.
      * Disable FIFO and interrupt outputs.
-     * Select +/-2 g and 50 Hz anti-alias bandwidth.
-     * Retain gravity in acceleration output.
-     * Power down magnetometer.
+     * Select +/-2 g, 50 Hz anti-alias bandwidth.
+     * Retain gravity; magnetometer powered down.
      * Start at 100 Hz, block data update, XYZ enabled.
      */
     static const uint8_t settings[][2] = {
@@ -190,7 +223,7 @@ static int read_acceleration(int16_t raw[3])
         return 1;
     }
 
-    /* LSM303D uses full 16-bit data: no right shift. */
+    /* Full 16-bit LSM303D data: do not shift right. */
     raw[0] = decode_signed16(bytes[0], bytes[1]);
     raw[1] = decode_signed16(bytes[2], bytes[3]);
     raw[2] = decode_signed16(bytes[4], bytes[5]);
@@ -198,9 +231,10 @@ static int read_acceleration(int16_t raw[3])
     return 0;
 }
 
-/* Hysteresis classifier: +1, 0 or -1. */
-static int classify_angle(int previous, float angle,
-                          float enter_deg, float exit_deg)
+static int classify_angle(int previous,
+                          float angle,
+                          float enter_deg,
+                          float exit_deg)
 {
     if (angle >= enter_deg) {
         return 1;
@@ -223,32 +257,137 @@ static int classify_angle(int previous, float angle,
 
 static const char *terrain_name(int state)
 {
-    if (state > 0) {
-        return "UPHILL";
-    }
-
-    if (state < 0) {
-        return "DOWNHILL";
-    }
-
+    if (state > 0) return "UPHILL";
+    if (state < 0) return "DOWNHILL";
     return "FLAT";
 }
 
 static const char *side_name(int state)
 {
-    /*
-     * Mapping established from your labelled recordings.
-     * Valid while the sensor mounting and signs remain unchanged.
-     */
-    if (state > 0) {
-        return "RIGHT_WHEEL_UP";
-    }
-
-    if (state < 0) {
-        return "LEFT_WHEEL_UP";
-    }
-
+    /* Mapping established from your stationary tests */
+    if (state > 0) return "RIGHT_WHEEL_UP";
+    if (state < 0) return "LEFT_WHEEL_UP";
     return "SIDE_LEVEL";
+}
+
+static void finish_side_event(side_event_t *event,
+                              uint64_t timestamp,
+                              const char *reason)
+{
+    if (event->side == 0) {
+        return;
+    }
+
+    float duration_s =
+        (float)(timestamp - event->start_us) / 1000000.0f;
+
+    printf("# SIDE_EVENT_END,side=%s,reason=%s,"
+           "duration_s=%.2f,peak_confirmed=%d,"
+           "peak_roll_deg=%.2f,peak_wheel_height_cm=%.2f\n",
+           side_name(event->side),
+           reason,
+           duration_s,
+           event->peak_confirmed ? 1 : 0,
+           event->peak_roll_deg,
+           event->peak_height_cm);
+
+    *event = (side_event_t){0};
+}
+
+static void start_peak_window(side_event_t *event,
+                              uint64_t timestamp,
+                              float absolute_roll,
+                              float height_cm)
+{
+    event->window_active = true;
+    event->window_start_us = timestamp;
+    event->last_sample_us = timestamp;
+    event->window_min_roll = absolute_roll;
+    event->window_max_roll = absolute_roll;
+    event->window_min_height = height_cm;
+}
+
+static void update_side_event(side_event_t *event,
+                              int side,
+                              uint64_t timestamp,
+                              float roll,
+                              float height_cm)
+{
+    if (event->side != 0 && side != event->side) {
+        finish_side_event(
+            event,
+            timestamp,
+            side == 0 ? "RETURNED_TO_LEVEL" : "SIDE_CHANGED"
+        );
+    }
+
+    if (side == 0) {
+        return;
+    }
+
+    if (event->side == 0) {
+        *event = (side_event_t){0};
+        event->side = side;
+        event->start_us = timestamp;
+    }
+
+    float absolute_roll = fabsf(roll);
+
+    /*
+     * Require fresh consecutive samples.
+     * A long gap restarts the confirmation window.
+     */
+    if (!event->window_active ||
+        timestamp - event->last_sample_us > MAX_SAMPLE_GAP_US) {
+        start_peak_window(
+            event, timestamp, absolute_roll, height_cm
+        );
+        return;
+    }
+
+    event->last_sample_us = timestamp;
+
+    if (absolute_roll < event->window_min_roll) {
+        event->window_min_roll = absolute_roll;
+    }
+
+    if (absolute_roll > event->window_max_roll) {
+        event->window_max_roll = absolute_roll;
+    }
+
+    if (height_cm < event->window_min_height) {
+        event->window_min_height = height_cm;
+    }
+
+    /*
+     * Restart if roll changes too much within the window.
+     */
+    if (event->window_max_roll - event->window_min_roll >
+        PEAK_ALLOWED_CHANGE_DEG) {
+        start_peak_window(
+            event, timestamp, absolute_roll, height_cm
+        );
+        return;
+    }
+
+    if (timestamp - event->window_start_us >= PEAK_CONFIRM_US) {
+        /*
+         * Use the minimum sustained value from a stable window.
+         * This is a conservative confirmed estimate.
+         */
+        if (!event->peak_confirmed ||
+            event->window_min_roll > event->peak_roll_deg) {
+            event->peak_roll_deg = event->window_min_roll;
+        }
+
+        if (!event->peak_confirmed ||
+            event->window_min_height > event->peak_height_cm) {
+            event->peak_height_cm = event->window_min_height;
+        }
+
+        event->peak_confirmed = true;
+        event->window_active = false;
+    }
 }
 
 int main(void)
@@ -278,12 +417,17 @@ int main(void)
         }
 
         printf("# LSM303D ready: SDA=GP16 SCL=GP17 address=0x1D\n");
+        printf("# Wheel spacing: %.2f cm\n", WHEEL_SPACING_CM);
+        printf("# Stable peak window: 200 ms, maximum roll change: 1 degree\n");
+        printf("# Height is a preliminary wheel-height-difference estimate\n");
 
         printf("seq,time_us,raw_x,raw_y,raw_z,"
                "ax_g,ay_g,az_g,mag_g,"
                "pitch_deg,pitch_filtered_deg,"
                "roll_deg,roll_filtered_deg,"
-               "terrain,side_tilt,transient_g,bump_event,error_count\n");
+               "terrain,side_tilt,transient_g,bump_event,error_count,"
+               "wheel_height_cm,peak_wheel_height_cm,"
+               "side_event_active,peak_confirmed\n");
 
         uint32_t sequence = 0;
         unsigned consecutive_errors = 0;
@@ -298,6 +442,8 @@ int main(void)
 
         int terrain_state = 0;
         int side_state = 0;
+
+        side_event_t side_event = {0};
 
         uint64_t last_bump_us = 0;
         uint64_t next_sample_us = time_us_64();
@@ -320,6 +466,11 @@ int main(void)
                        error,
                        (unsigned long)error_count);
 
+                if (side_event.side != 0) {
+                    printf("# SIDE_EVENT_ABORTED: sensor read error\n");
+                }
+
+                side_event = (side_event_t){0};
                 filter_valid = false;
                 terrain_state = 0;
                 side_state = 0;
@@ -341,10 +492,8 @@ int main(void)
                 );
 
                 /*
-                 * Gravity-based chassis tilt estimates.
-                 * Suitable for the current mounting, including
-                 * its downward-facing Z axis.
-                 * Acceleration and braking can affect these angles.
+                 * Gravity-based tilt estimates for your mounting.
+                 * Acceleration, braking and handling affect them.
                  */
                 float pitch = PITCH_SIGN
                             * atan2f(ax, sqrtf(ay * ay + az * az))
@@ -405,10 +554,28 @@ int main(void)
                     ROLL_EXIT_DEG
                 );
 
+                /*
+                 * Preliminary geometric estimate.
+                 * Assumes modest pitch and rigid chassis.
+                 * This does not estimate full-width ramp height.
+                 */
+                float wheel_height_cm =
+                    WHEEL_SPACING_CM
+                    * sinf(fabsf(filtered_roll) * DEG_TO_RAD);
+
+                update_side_event(
+                    &side_event,
+                    side_state,
+                    timestamp,
+                    filtered_roll,
+                    wheel_height_cm
+                );
+
                 printf("%lu,%llu,%d,%d,%d,"
                        "%.4f,%.4f,%.4f,%.4f,"
                        "%.2f,%.2f,%.2f,%.2f,"
-                       "%s,%s,%.4f,%d,%lu\n",
+                       "%s,%s,%.4f,%d,%lu,"
+                       "%.2f,%.2f,%d,%d\n",
                        (unsigned long)sequence++,
                        (unsigned long long)timestamp,
                        (int)raw[0],
@@ -426,7 +593,11 @@ int main(void)
                        side_name(side_state),
                        transient,
                        bump_event,
-                       (unsigned long)error_count);
+                       (unsigned long)error_count,
+                       wheel_height_cm,
+                       side_event.peak_height_cm,
+                       side_event.side != 0 ? 1 : 0,
+                       side_event.peak_confirmed ? 1 : 0);
             }
 
             /* Skip missed slots instead of printing catch-up bursts. */
@@ -438,6 +609,8 @@ int main(void)
                     * SAMPLE_PERIOD_US;
             }
         }
+
+        /* A serial disconnect ends the recording, not a confirmed event. */
     }
 
     return 0;
