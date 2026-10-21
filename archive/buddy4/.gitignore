@@ -1,0 +1,2 @@
+# Preserve the historical reference binary as an archive artifact.
+!*.uf2

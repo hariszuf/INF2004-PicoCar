@@ -1,74 +1,148 @@
-// Buddy4 GY-511 (probable LSM303D) C/Pico SDK project for VS Code.
-// SDA=GP16, SCL=GP17, sensor address=0x1D.
-#include <stdio.h>
+#include "buddy4_imu.h"
+#include "hardware/i2c.h"
+#include "pico/stdio_usb.h"
 #include "pico/stdlib.h"
-#include "lsm303d.h"
-#include "terrain.h"
-#if BUDDY4_ENABLE_MQTT
-#include "mqtt_telemetry.h"
-#endif
 
-#define SAMPLE_DELAY_MS 20
-#define CALIBRATION_SAMPLES 100
+#include <stdio.h>
 
-int main(void) {
+#define IMU_I2C_BUS i2c0
+#define IMU_SDA_PIN 16
+#define IMU_SCL_PIN 17
+#define IMU_I2C_BAUD_HZ 100000
+#define CONFIG_RETRY_US 1000000
+
+static int bus_write(void *context, uint8_t address, const uint8_t *data,
+                     size_t count, bool no_stop)
+{
+    (void)context;
+    return i2c_write_timeout_us(IMU_I2C_BUS, address, data, count, no_stop,
+                                BUDDY4_I2C_TIMEOUT_US);
+}
+
+static int bus_read(void *context, uint8_t address, uint8_t *data,
+                    size_t count, bool no_stop)
+{
+    (void)context;
+    return i2c_read_timeout_us(IMU_I2C_BUS, address, data, count, no_stop,
+                               BUDDY4_I2C_TIMEOUT_US);
+}
+
+/* Reprint on each observed USB connection so a new recording has a schema. */
+static void log_csv_header(void)
+{
+    printf("seq,poll_time_us,result,valid,sample_time_us,error_count,"
+           "raw_x,raw_y,raw_z,ax_g,ay_g,az_g,magnitude_g,"
+           "pitch_deg,pitch_filtered_deg,roll_deg,roll_filtered_deg,"
+           "terrain,side_tilt,transient_g,transient_event,"
+           "wheel_height_cm,geometry_confirmed,side_event_active,"
+           "peak_confirmed,peak_roll_deg,peak_wheel_height_cm\n");
+}
+
+/* Keep event metadata out of the fixed-column sample rows. */
+static void log_side_event_summary(const buddy4_output_t *output)
+{
+    const side_event_t *event = &output->ended_event;
+    printf("# SIDE_EVENT_END,side=%s,reason=%s,start_us=%llu,end_us=%llu,"
+           "peak_confirmed=%d,peak_roll_deg=%.2f,peak_wheel_height_cm=%.2f\n",
+           buddy4_side_name(event->side),
+           output->side ? "SIDE_CHANGED" : "RETURNED_TO_LEVEL",
+           (unsigned long long)event->start_us,
+           (unsigned long long)output->timestamp_us,
+           event->peak_confirmed,
+           event->peak_roll_deg,
+           event->peak_height_cm);
+}
+
+/* All results use the same columns. Invalid rows retain the last fresh values;
+ * valid and sample_time_us distinguish these from a new measurement. */
+static void log_csv_sample(uint32_t sequence, uint64_t poll_time_us,
+                           buddy4_result_t result, const buddy4_output_t *output)
+{
+    printf("%lu,%llu,%d,%d,%llu,%lu,"
+           "%d,%d,%d,%.4f,%.4f,%.4f,%.4f,"
+           "%.2f,%.2f,%.2f,%.2f,%s,%s,%.4f,%d,"
+           "%.2f,%d,%d,%d,%.2f,%.2f\n",
+           (unsigned long)sequence,
+           (unsigned long long)poll_time_us,
+           (int)result,
+           output->valid,
+           (unsigned long long)output->timestamp_us,
+           (unsigned long)output->error_count,
+           (int)output->raw[0],
+           (int)output->raw[1],
+           (int)output->raw[2],
+           output->accel_g[0],
+           output->accel_g[1],
+           output->accel_g[2],
+           output->magnitude_g,
+           output->pitch_deg,
+           output->filtered_pitch_deg,
+           output->roll_deg,
+           output->filtered_roll_deg,
+           buddy4_terrain_name(output->terrain),
+           buddy4_side_name(output->side),
+           output->transient_g,
+           output->transient_event,
+           output->wheel_height_cm,
+           output->height_geometry_confirmed,
+           output->event.side != 0,
+           output->event.peak_confirmed,
+           output->event.peak_roll_deg,
+           output->event.peak_height_cm);
+}
+
+/* Standalone sensor monitor: sampling never depends on a USB connection. */
+int main(void)
+{
     stdio_init_all();
-    sleep_ms(2000); // USB serial monitor start-up.
-    printf("\nBuddy4 / GY-511: Pico SDK sensor test\n");
-    printf("SDA=GP16, SCL=GP17, I2C0, address=0x1D\n");
-    lsm303d_bus_init();
+    i2c_init(IMU_I2C_BUS, IMU_I2C_BAUD_HZ);
+    gpio_set_function(IMU_SDA_PIN, GPIO_FUNC_I2C);
+    gpio_set_function(IMU_SCL_PIN, GPIO_FUNC_I2C);
+    gpio_pull_up(IMU_SDA_PIN);
+    gpio_pull_up(IMU_SCL_PIN);
 
-    // Always leave the motor off or car wheels raised for this test.
-    while (!lsm303d_init()) {
-        printf("GY-511 not identified as LSM303D (WHO_AM_I must be 0x49).\n");
-        printf("Check I2C, wiring, or the sensor variant. Retrying...\n");
-        sleep_ms(1000);
-    }
-    printf("LSM303D identified. Keep car LEVEL and STILL for 2 seconds.\n");
+    buddy4_imu_t imu;
+    const buddy4_bus_t bus = {
+        .context = NULL,
+        .write = bus_write,
+        .read = bus_read,
+    };
+    buddy4_init(&imu, bus, buddy4_default_config());
 
-    float pitch_sum = 0.0f, magnitude_sum = 0.0f;
-    unsigned good_samples = 0;
-    while (good_samples < CALIBRATION_SAMPLES) {
-        accel_g_t a;
-        if (lsm303d_read_accel(&a)) {
-            pitch_sum += terrain_pitch_degrees(&a);
-            magnitude_sum += terrain_magnitude(&a);
-            ++good_samples;
-        } else {
-            printf("IMU calibration read failed; retrying...\n");
-        }
-        sleep_ms(SAMPLE_DELAY_MS);
-    }
-    terrain_detector_t detector;
-    terrain_init(&detector, pitch_sum/CALIBRATION_SAMPLES,
-                 magnitude_sum/CALIBRATION_SAMPLES);
-    printf("Calibrated: pitch baseline %.2f deg.\n", detector.baseline_pitch);
+    uint64_t next_sample_us = time_us_64();
+    uint64_t next_config_retry_us = 0;
+    uint32_t sequence = 0;
+    bool usb_was_connected = false;
 
-#if BUDDY4_ENABLE_MQTT
-    // Enable only after Stage 1 works. MQTT requires Pico W and local_config.h.
-    mqtt_telemetry_start();
-#endif
-
-    uint32_t samples = 0;
     while (true) {
-        accel_g_t a;
-        float pitch = 0.0f;
-        if (lsm303d_read_accel(&a)) {
-            terrain_t t = terrain_process(&detector, &a, &pitch);
-            if ((++samples % 25) == 0 || t == TERRAIN_POSSIBLE_HUMP) {
-                printf("X=%+.2f Y=%+.2f Z=%+.2f g | pitch=%+.1f deg | %s\n",
-                    a.x, a.y, a.z, pitch, terrain_name(t));
-            }
-#if BUDDY4_ENABLE_MQTT
-            // Publish at 1 Hz to avoid flooding the broker.
-            if ((samples % 50) == 0 || t == TERRAIN_POSSIBLE_HUMP) {
-                mqtt_telemetry_publish(terrain_name(t), pitch, a.x, a.y, a.z);
-            }
-            mqtt_telemetry_poll();
-#endif
-        } else {
-            printf("GY-511 read error\n");
+        sleep_until(from_us_since_boot(next_sample_us));
+        uint64_t now_us = time_us_64();
+        if (!imu.ready && now_us >= next_config_retry_us) {
+            buddy4_configure(&imu);
+            next_config_retry_us = now_us + CONFIG_RETRY_US;
         }
-        sleep_ms(SAMPLE_DELAY_MS);
+        buddy4_result_t result = buddy4_poll(&imu, now_us);
+
+        /* USB writes have a bounded SDK timeout; logging is best effort. */
+        bool usb_connected = stdio_usb_connected();
+        if (usb_connected) {
+            if (!usb_was_connected) {
+                log_csv_header();
+            }
+            if (imu.output.event_ended) {
+                log_side_event_summary(&imu.output);
+            }
+            log_csv_sample(sequence++, now_us, result, &imu.output);
+        }
+        usb_was_connected = usb_connected;
+
+        /* Skip missed slots instead of producing catch-up sample bursts. */
+        next_sample_us += BUDDY4_PERIOD_US;
+        now_us = time_us_64();
+        if (now_us >= next_sample_us) {
+            next_sample_us +=
+                ((now_us - next_sample_us) / BUDDY4_PERIOD_US + 1) *
+                BUDDY4_PERIOD_US;
+        }
     }
 }
