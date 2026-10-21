@@ -6,6 +6,8 @@
 
 #include "command.h"
 
+#include "mqtt_command_bridge.h"
+
 #define COMMAND_QUEUE_DEPTH    8U
 #define COMMAND_TASK_PRIORITY  6
 #define COMMAND_STACK_SIZE     4096
@@ -166,4 +168,86 @@ ER buddy1_command_submit(
 uint32_t buddy1_command_get_dropped_count(void)
 {
     return command_dropped_count;
+}
+
+/*
+ * MQTT command sequence counter.
+ * Only the MQTT networking owner task calls this bridge.
+ */
+static uint32_t mqtt_command_sequence = 0U;
+
+/*
+ * Compare an MQTT payload against an expected command.
+ * Use explicit lengths because MQTT payloads are binary data
+ * and are not guaranteed to be null-terminated.
+ */
+static uint8_t command_text_matches(
+    const char *payload,
+    uint16_t payload_length,
+    const char *expected,
+    uint16_t expected_length)
+{
+    uint16_t i;
+
+    if (payload_length != expected_length) {
+        return 0U;
+    }
+
+    for (i = 0U; i < expected_length; i++) {
+        if (payload[i] != expected[i]) {
+            return 0U;
+        }
+    }
+
+    return 1U;
+}
+
+/*
+ * MQTT -> µT-Kernel command bridge.
+ *
+ * Convert a command string into command_message_t
+ * and submit it using the existing non-blocking API.
+ */
+int32_t buddy1_mqtt_command_ingest(
+    const char *payload,
+    uint16_t payload_length)
+{
+    command_message_t message = {0};
+
+    if (payload == NULL) {
+        return (int32_t)E_PAR;
+    }
+
+    if (command_text_matches(payload, payload_length,
+                             "START", 5U) != 0U) {
+        message.type = COMMAND_TYPE_START;
+    }
+    else if (command_text_matches(payload, payload_length,
+                                  "STOP", 4U) != 0U) {
+        message.type = COMMAND_TYPE_STOP;
+    }
+    else if (command_text_matches(payload, payload_length,
+                                  "PAUSE", 5U) != 0U) {
+        message.type = COMMAND_TYPE_PAUSE;
+    }
+    else if (command_text_matches(payload, payload_length,
+                                  "RESUME", 6U) != 0U) {
+        message.type = COMMAND_TYPE_RESUME;
+    }
+    else {
+        return (int32_t)E_PAR;
+    }
+
+    /*
+     * Source 1 represents Wi-Fi/Buddy 1.
+     * No motor action is performed at this stage.
+     */
+    message.source = 1U;
+    message.flags = 0U;
+    message.value = 0;
+
+    mqtt_command_sequence++;
+    message.sequence = mqtt_command_sequence;
+
+    return (int32_t)buddy1_command_submit(&message);
 }
