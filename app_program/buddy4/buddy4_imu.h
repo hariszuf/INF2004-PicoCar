@@ -29,11 +29,15 @@ typedef enum {
 } buddy4_result_t;
 
 typedef struct {
+    /* Sensor XYZ: corrected = (uncorrected - bias) * scale. Identity: 0, 1. */
+    float accel_bias_g[3];
+    float accel_scale[3];
+    bool mounting_offsets_need_recalibration;
     float pitch_sign;
     float pitch_offset_deg;
     float roll_sign;
     float roll_offset_deg;
-    /* UNCONFIRMED: 10.85 cm provisional; measure axle wheel centres. */
+    /* Confirmed default wheel-centre spacing: 11.3 cm. */
     float centre_spacing_cm;
     bool centre_spacing_confirmed;
 } buddy4_config_t;
@@ -57,7 +61,8 @@ typedef struct {
     uint64_t timestamp_us;  /* Host acquisition time of last fresh sample. */
     uint32_t error_count;   /* Configuration/transfer failures; excludes stale. */
     int16_t raw[3];         /* X, Y, Z signed sensor counts. */
-    float accel_g[3];       /* X, Y, Z acceleration in g. */
+    float uncorrected_accel_g[3]; /* Sensor XYZ counts converted to g. */
+    float accel_g[3];       /* Corrected sensor XYZ in g; used for processing. */
     float magnitude_g;
     float pitch_deg;
     float roll_deg;
@@ -87,7 +92,8 @@ typedef struct {
     uint64_t last_bump_us;
 } buddy4_imu_t;
 
-/* Return tested mounting offsets and provisional, unconfirmed centre spacing. */
+/* Preliminary acceleration calibration; legacy mounting offsets need recalibration.
+ * Confirmed wheel-centre spacing is 11.3 cm. No startup auto-zero. */
 buddy4_config_t buddy4_default_config(void);
 
 /* Reset caller-owned state and store callbacks/configuration; no I/O occurs.

@@ -24,6 +24,8 @@ static int rd(void *ctx,uint8_t addr,uint8_t *p,size_t n,bool restart) {
 static void setup(buddy4_imu_t *s,fake_t *f) {
  memset(f,0,sizeof(*f)); f->regs[15]=0x49;
  buddy4_init(s,(buddy4_bus_t){f,wr,rd},buddy4_default_config());
+ /* Legacy event fixtures use identity acceleration calibration. */
+ for(int i=0;i<3;++i) { s->config.accel_bias_g[i]=0; s->config.accel_scale[i]=1; }
  assert(buddy4_configure(s)); f->regs[0x27]=8;
 }
 static void vector(fake_t *f,float x,float y,float z) {
@@ -122,7 +124,7 @@ static void test_error_recovery(void)
             assert(imu.output.event.peak_roll_deg < previous_peak);
             assert(fabsf(imu.output.event.peak_roll_deg - 6) < 0.01f);
             assert(fabsf(imu.output.event.peak_height_cm -
-                         10.85f * sinf(6 * 0.01745329252f)) < 0.01f);
+                         11.3f * sinf(6 * 0.01745329252f)) < 0.01f);
             assert(imu.output.error_count == errors_before + 2);
 
             /* New transient is allowed even inside the old event's cooldown. */
@@ -135,14 +137,59 @@ static void test_error_recovery(void)
     }
 }
 
+static void test_acceleration_calibration(void) {
+ buddy4_imu_t s; fake_t f; setup(&s,&f);
+ s.config=buddy4_default_config();
+ assert(s.config.mounting_offsets_need_recalibration);
+ assert(s.config.pitch_offset_deg==2.50f && s.config.roll_offset_deg==2.85f);
+ assert(buddy4_configure(&s));
+ vector(&f,0.25f,-0.4f,1.1f);
+ assert(buddy4_poll(&s,20000)==BUDDY4_FRESH);
+ const float bias[]={0.03799f,0.03790f,0.08411f};
+ const float scale[]={1.01301f,1.03419f,1.01223f};
+ float a[3];
+ for(int i=0;i<3;++i) {
+  int16_t raw=buddy4_decode_signed16(f.regs[0x28+2*i],f.regs[0x29+2*i]);
+  assert(s.output.raw[i]==raw);
+  assert(s.output.uncorrected_accel_g[i]==raw*0.000061f);
+  a[i]=(raw*0.000061f-bias[i])*scale[i];
+  assert(fabsf(s.output.accel_g[i]-a[i])<1e-6f);
+ }
+ float magnitude=sqrtf(a[0]*a[0]+a[1]*a[1]+a[2]*a[2]);
+ assert(fabsf(s.output.magnitude_g-magnitude)<1e-6f);
+ assert(fabsf(s.output.pitch_deg-(atan2f(a[0],hypotf(a[1],a[2]))*57.2957795131f-2.50f))<1e-4f);
+ assert(fabsf(s.output.roll_deg-(atan2f(a[1],hypotf(a[0],a[2]))*57.2957795131f-2.85f))<1e-4f);
+ /* A tilted first sample is never zeroed. */
+ assert(s.output.filtered_pitch_deg==s.output.pitch_deg);
+ assert(s.output.filtered_roll_deg==s.output.roll_deg);
+ vector(&f,0.25f,-0.4f,1.5f);
+ assert(buddy4_poll(&s,40000)==BUDDY4_FRESH);
+ assert(fabsf(s.output.transient_g-(s.output.magnitude_g-magnitude))<1e-6f);
+ assert(s.output.transient_event);
+ for(int i=0;i<3;++i) {
+  const float invalid[]={0,-1,NAN,INFINITY};
+  for(unsigned j=0;j<sizeof(invalid)/sizeof(invalid[0]);++j) {
+   s.config=buddy4_default_config(); s.config.accel_scale[i]=invalid[j];
+   int calls=f.calls; assert(!buddy4_configure(&s)); assert(f.calls==calls);
+  }
+  s.config=buddy4_default_config(); s.config.accel_bias_g[i]=NAN;
+  assert(!buddy4_configure(&s));
+ }
+ s.config=buddy4_default_config();
+ for(int i=0;i<3;++i) { s.config.accel_bias_g[i]=-0.1f; s.config.accel_scale[i]=0.5f; }
+ assert(buddy4_configure(&s)); assert(buddy4_poll(&s,60000)==BUDDY4_FRESH);
+ for(int i=0;i<3;++i) assert(fabsf(s.output.accel_g[i]-(s.output.uncorrected_accel_g[i]+0.1f)*0.5f)<1e-6f);
+}
+
 int main(void) {
+ test_acceleration_calibration();
  test_error_recovery();
  assert(buddy4_decode_signed16(0,0)==0); assert(buddy4_decode_signed16(255,127)==32767);
  assert(buddy4_decode_signed16(0,128)==-32768); assert(buddy4_decode_signed16(255,255)==-1);
  buddy4_imu_t s; fake_t f; setup(&s,&f);
  assert(f.regs[0x20]==0x6F && f.regs[0x21]==0xC0 && f.regs[0x26]==2);
  assert(f.regs[0x1F]==0 && f.regs[0x22]==0 && f.regs[0x23]==0);
- assert(s.config.centre_spacing_cm==10.85f && !s.config.centre_spacing_confirmed);
+ assert(s.config.centre_spacing_cm==11.3f && s.config.centre_spacing_confirmed);
  int configure_calls=f.calls;
  for(int k=1;k<=configure_calls;++k) {
   for(int short_transfer=0;short_transfer<2;++short_transfer) {
@@ -178,7 +225,7 @@ int main(void) {
  samples(&s,&f,&t,-10,0,60); assert(s.output.terrain==-1);
  samples(&s,&f,&t,0,0,60); assert(s.output.terrain==0);
  samples(&s,&f,&t,0,-10,60); assert(s.output.side==-1 && s.output.event.peak_confirmed);
- assert(fabsf(s.output.event.peak_height_cm-10.85f*sinf(10*0.01745329252f))<0.05f);
+ assert(fabsf(s.output.event.peak_height_cm-11.3f*sinf(10*0.01745329252f))<0.05f);
  /* Roll hysteresis holds the side at 3 degrees, exits below 2. */
  samples(&s,&f,&t,0,-3,60); assert(s.output.side==-1);
  samples(&s,&f,&t,0,0,60); assert(s.output.side==0);

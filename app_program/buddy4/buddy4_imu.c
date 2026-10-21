@@ -203,6 +203,10 @@ static void update_side_event(side_event_t *event,
 buddy4_config_t buddy4_default_config(void)
 {
     return (buddy4_config_t){
+        /* Preliminary six-position estimates; orientations imperfectly aligned. */
+        .accel_bias_g = {0.03799f, 0.03790f, 0.08411f},
+        .accel_scale = {1.01301f, 1.03419f, 1.01223f},
+        .mounting_offsets_need_recalibration = true,
         .pitch_sign = 1.0f,
         .pitch_offset_deg = 2.50f,
         .roll_sign = 1.0f,
@@ -278,6 +282,14 @@ bool buddy4_configure(buddy4_imu_t *imu)
         fabsf(imu->config.pitch_sign) != 1 ||
         fabsf(imu->config.roll_sign) != 1) {
         goto fail;
+    }
+
+    for (int axis = 0; axis < 3; ++axis) {
+        if (!isfinite(imu->config.accel_bias_g[axis]) ||
+            !isfinite(imu->config.accel_scale[axis]) ||
+            imu->config.accel_scale[axis] <= 0.0f) {
+            goto fail;
+        }
     }
 
     uint8_t identity;
@@ -362,7 +374,11 @@ buddy4_result_t buddy4_poll(buddy4_imu_t *imu, uint64_t timestamp_us)
     for (int axis = 0; axis < 3; ++axis) {
         output->raw[axis] = buddy4_decode_signed16(bytes[2 * axis],
                                                   bytes[2 * axis + 1]);
-        output->accel_g[axis] = output->raw[axis] * G_PER_COUNT;
+        /* Preserve sensor axes and counts; printed arrows do not remap axes. */
+        output->uncorrected_accel_g[axis] = output->raw[axis] * G_PER_COUNT;
+        output->accel_g[axis] =
+            (output->uncorrected_accel_g[axis] - imu->config.accel_bias_g[axis]) *
+            imu->config.accel_scale[axis];
     }
     float accel_x = output->accel_g[0];
     float accel_y = output->accel_g[1];
