@@ -199,6 +199,164 @@ and UDP/TCP echo profiles need additional local configuration; see the
 Upstream treats networking as a development profile. Record PicoCar hardware
 results using the [testing instructions](testing/README.md).
 
+
+## Buddy 1 — MQTT Communication
+
+Buddy 1 provides external Wi-Fi/MQTT communication for the
+PicoCar using lwIP and µT-Kernel 3.0.
+
+Buddy 1's MQTT development profile has also been built and tested on Windows using Pico SDK 2.3.1 and Arm GNU Toolchain 15.2.1.
+
+### Implemented functionality
+
+- Wi-Fi association, DHCP and DNS
+- MQTT connection to a Mosquitto broker
+- Periodic MQTT status heartbeat (5 seconds)
+- MQTT START/STOP command reception
+- Non-blocking command submission through µT-Kernel IPC
+- Telemetry forwarding from µT-Kernel message buffers to MQTT
+- Separate networking and application telemetry paths
+
+Current integration has been tested using a Raspberry Pi Pico W
+and Mosquitto running on a Windows laptop.
+
+Network reconnection, message loss under load, full-team
+integration and compact binary MQTT payloads require further testing
+or implementation.
+
+### MQTT configuration
+
+Copy the example configuration from the repository root.
+
+Windows PowerShell:
+
+```powershell
+Copy-Item .\config\mqtt_config.example.h .\config\mqtt_config.h
+```
+
+Linux / WSL:
+
+```bash
+cp config/mqtt_config.example.h config/mqtt_config.h
+```
+
+Edit `config/mqtt_config.h` and set `MQTT_BROKER_IP` to the
+IPv4 address of the computer running Mosquitto.
+
+The local `mqtt_config.h` is excluded from Git. Do not commit
+Wi-Fi passwords or other secrets.
+
+### MQTT topics
+
+| Topic | Direction | Purpose |
+|---|---|---|
+| `picocar/vehicle1/status` | Pico W → broker | MQTT connection heartbeat |
+| `picocar/vehicle1/telemetry` | Pico W → broker | µT-Kernel telemetry messages |
+| `picocar/vehicle1/command` | Broker → Pico W | Remote commands |
+
+### Build
+
+The verified Buddy 1 MQTT development profile uses:
+
+- `SMP=0`
+- `CONSOLE=usb_cdc`
+- `WIFI=cyw43`
+- `WIFI_JOIN=1`
+- `WIFI_NETIF=1`
+- `WIFI_DHCP=1`
+- `WIFI_DNS=1`
+- `WIFI_MQTT=1`
+- `BUDDY1_ONLY=1`
+
+From `build_make/`:
+
+```bash
+make BUDDY1_ONLY=1 SMP=0 CONSOLE=usb_cdc WIFI=cyw43 WIFI_JOIN=1 WIFI_NETIF=1 WIFI_DHCP=1 WIFI_DNS=1 WIFI_MQTT=1 PICO_SDK_PATH=/path/to/pico-sdk -j8
+```
+
+Replace `/path/to/pico-sdk` with the installed SDK path.
+
+The generated firmware is:
+
+`mtk3pico_smp0_usb_cdc_wifi_mqtt.uf2`
+
+The isolated Buddy 1 build does not validate compilation or
+runtime integration of all five subsystems.
+
+### Local MQTT broker
+
+For development, Mosquitto can listen on TCP port 1883.
+
+Example development configuration:
+
+```text
+listener 1883 0.0.0.0
+allow_anonymous true
+```
+
+This configuration is intended only for a trusted, isolated
+development network. It does not provide authentication or
+encrypted communication.
+
+The Pico W and the broker computer must have network
+connectivity to one another.
+
+### Windows testing
+
+Replace `BROKER_IP` with the actual broker IPv4 address.
+
+Subscribe to Pico W status:
+
+```powershell
+mosquitto_sub -h BROKER_IP -p 1883 -t "picocar/vehicle1/status" -v
+```
+
+Subscribe to telemetry:
+
+```powershell
+mosquitto_sub -h BROKER_IP -p 1883 -t "picocar/vehicle1/telemetry" -v
+```
+
+Publish START:
+
+```powershell
+mosquitto_pub -h BROKER_IP -p 1883 -t "picocar/vehicle1/command" -m "START"
+```
+
+Publish STOP:
+
+```powershell
+mosquitto_pub -h BROKER_IP -p 1883 -t "picocar/vehicle1/command" -m "STOP"
+```
+
+If Mosquitto is not available on PATH, use its full executable
+path, such as `C:\Program Files\mosquitto\mosquitto_pub.exe`.
+
+The Pico W serial monitor should display the received command
+and the corresponding µT-Kernel command consumer output.
+
+### Verified development results
+
+- Wi-Fi association, DHCP and DNS successful
+- MQTT broker connection and subscription successful
+- MQTT heartbeat received by the Windows subscriber
+- START and STOP received through µT-Kernel command IPC
+- µT-Kernel heartbeat telemetry received on the MQTT telemetry topic
+
+These results establish communication and IPC functionality only.
+They do not establish successful motor operation, robot navigation,
+automatic recovery or full-system integration.
+
+### Remaining work
+
+- Integrate telemetry from all five subsystems
+- Connect remote commands to the Vehicle Controller
+- Test communication loss and reconnection
+- Measure telemetry queue overflow and message loss
+- Implement the compact binary payload change requirement
+- Complete full-system integration and hardware validation
+```
+
 ## Troubleshooting
 
 | Symptom | Check |

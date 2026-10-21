@@ -34,6 +34,9 @@
 #if TM_WIFI_STATIC
 #include "network_config.h"
 #endif
+#if TM_WIFI_MQTT
+#include "mqtt_utk.h"
+#endif
 
 #define CYW43_POLL_MS        2
 /* Bounded so a reader can never wedge if the writer is starved; an exhausted
@@ -517,6 +520,11 @@ void cyw43_utk_task(int32_t stacd, void *exinf)
 #endif
 #if TM_WIFI_DNS
         update_dns_status();
+#endif
+#if TM_WIFI_MQTT
+        mqtt_utk_poll(
+            &cyw43_state.netif[CYW43_ITF_STA]
+        );
 #endif
 #if TM_WIFI_UDP
         if(radio_status.dns_complete && radio_status.dns_result == ERR_OK) {

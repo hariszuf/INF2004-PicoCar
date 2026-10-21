@@ -5,18 +5,14 @@
 #include <stdint.h>
 #include <tk/tkernel.h>
 
-/*
- * Telemetry source identifiers.
- */
+/* Telemetry source identifiers. */
 #define TELEMETRY_SOURCE_BUDDY1 ((uint8_t)1U)
 #define TELEMETRY_SOURCE_BUDDY2 ((uint8_t)2U)
 #define TELEMETRY_SOURCE_BUDDY3 ((uint8_t)3U)
 #define TELEMETRY_SOURCE_BUDDY4 ((uint8_t)4U)
 #define TELEMETRY_SOURCE_BUDDY5 ((uint8_t)5U)
 
-/*
- * Telemetry event types.
- */
+/* Telemetry types. */
 #define TELEMETRY_TYPE_HEARTBEAT   ((uint8_t)1U)
 #define TELEMETRY_TYPE_STATE       ((uint8_t)2U)
 #define TELEMETRY_TYPE_MOTOR_SPEED ((uint8_t)3U)
@@ -28,9 +24,10 @@
 #define TELEMETRY_TYPE_ULTRASONIC  ((uint8_t)9U)
 
 /*
- * Common telemetry message.
+ * Shared telemetry message.
  *
- * All buddies can submit telemetry using this structure.
+ * value_1 and value_2 are interpreted
+ * according to the telemetry type.
  */
 typedef struct
 {
@@ -45,32 +42,25 @@ typedef struct
 
 } telemetry_message_t;
 
-/*
- * Phase 1:
- * Create telemetry kernel objects.
- * No tasks are started here.
- */
+/* Initialize kernel message buffers. */
 ER buddy1_telemetry_init(void);
 
-/*
- * Phase 2:
- * Create and start the telemetry consumer task.
- */
+/* Start telemetry consumer task. */
 ER buddy1_telemetry_start(void);
 
-/*
- * Non-blocking telemetry submission.
- *
- * Other buddies can call this function without
- * waiting for Buddy 1 to process the message.
- */
+/* Non-blocking telemetry producer API. */
 ER buddy1_telemetry_submit(
     const telemetry_message_t *message
 );
 
-/*
- * Return the number of dropped telemetry messages.
- */
+/* Non-blocking MQTT outbox consumer API. */
+ER buddy1_mqtt_telemetry_receive(
+    telemetry_message_t *message
+);
+
+/* Diagnostic counters. */
 uint32_t buddy1_telemetry_get_dropped_count(void);
+
+uint32_t buddy1_mqtt_telemetry_get_dropped_count(void);
 
 #endif /* BUDDY1_TELEMETRY_H */
