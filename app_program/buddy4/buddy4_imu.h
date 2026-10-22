@@ -48,6 +48,14 @@ typedef struct {
     bool peak_confirmed;
     float peak_roll_deg;
     float peak_height_cm;
+    /* Experimental moving peak, independent of stability confirmation.
+     * Numeric fields are meaningful only when median_candidate_valid is true. */
+    bool median_candidate_valid;
+    float median_candidate_roll_deg;
+    float median_candidate_height_cm;
+    uint8_t median_count;
+    float median_roll[11];
+    uint64_t median_time_us[11];
     bool window_active;
     uint64_t window_start_us;
     uint64_t last_sample_us;
@@ -92,7 +100,7 @@ typedef struct {
     uint64_t last_bump_us;
 } buddy4_imu_t;
 
-/* Preliminary acceleration calibration; legacy mounting offsets need recalibration.
+/* Preliminary acceleration calibration; preserve the configured mounting offsets.
  * Confirmed wheel-centre spacing is 11.3 cm. No startup auto-zero. */
 buddy4_config_t buddy4_default_config(void);
 
@@ -108,7 +116,9 @@ bool buddy4_configure(buddy4_imu_t *imu);
 /* Check data-ready once and process at most one sample; never wait for freshness.
  * Supply monotonic host timestamps, normally at BUDDY4_PERIOD_US intervals.
  * Check output.valid: non-fresh calls retain measurements and their timestamp.
- * Stale samples restart peak confirmation. Transfer errors abort the event,
+ * Stale samples restart both estimator windows, retaining accepted event peaks.
+ * Completed-event snapshots survive errors/reconfiguration until the next event ends.
+ * Transfer errors abort the event,
  * clear ready and increment errors; reconfigure before polling resumes. */
 buddy4_result_t buddy4_poll(buddy4_imu_t *imu, uint64_t timestamp_us);
 

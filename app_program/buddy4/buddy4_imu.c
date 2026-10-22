@@ -117,6 +117,42 @@ static void start_peak_window(side_event_t *event,
     event->window_min_height = height_cm;
 }
 
+/* Fixed-size chronological window; insertion sort costs at most 55 comparisons. */
+static void update_median(side_event_t *event, uint64_t timestamp,
+                          float absolute_roll, float spacing_cm)
+{
+    unsigned n = event->median_count;
+    if (n && (timestamp <= event->median_time_us[n - 1] ||
+              timestamp - event->median_time_us[n - 1] > MAX_SAMPLE_GAP_US))
+        n = 0;
+    if (n == 11) {
+        memmove(event->median_roll, event->median_roll + 1, 10 * sizeof(float));
+        memmove(event->median_time_us, event->median_time_us + 1, 10 * sizeof(uint64_t));
+        n = 10;
+    }
+    event->median_roll[n] = absolute_roll;
+    event->median_time_us[n] = timestamp;
+    event->median_count = ++n;
+    if (n != 11) return;
+    uint64_t span = timestamp - event->median_time_us[0];
+    if (span < 190000 || span > 210000) return;
+    float sorted[11];
+    memcpy(sorted, event->median_roll, sizeof(sorted));
+    for (unsigned i = 1; i < 11; ++i) {
+        float value = sorted[i];
+        unsigned j = i;
+        while (j && sorted[j - 1] > value) {
+            sorted[j] = sorted[j - 1]; --j;
+        }
+        sorted[j] = value;
+    }
+    if (!event->median_candidate_valid || sorted[5] > event->median_candidate_roll_deg) {
+        event->median_candidate_roll_deg = sorted[5];
+        event->median_candidate_height_cm = spacing_cm * sinf(sorted[5] * DEG_TO_RAD);
+    }
+    event->median_candidate_valid = true;
+}
+
 static void update_side_event(side_event_t *event,
                               int side,
                               uint64_t timestamp,
@@ -265,7 +301,7 @@ static void reset_detection(buddy4_imu_t *imu)
     imu->last_bump_us = 0;
     imu->output.transient_g = 0.0f;
     imu->output.event = (side_event_t){0};
-    imu->output.ended_event = (side_event_t){0};
+    /* Retain the last completed event across errors/reconfiguration. */
     imu->output.terrain = 0;
     imu->output.side = 0;
 }
@@ -354,6 +390,7 @@ buddy4_result_t buddy4_poll(buddy4_imu_t *imu, uint64_t timestamp_us)
     }
     if (!(status & LSM303D_XYZ_DATA_READY)) {
         output->event.window_active = false;
+        output->event.median_count = 0;
         return BUDDY4_STALE;
     }
     if (!read_registers(imu, LSM303D_REG_OUT_X_L_A, bytes, sizeof(bytes))) {
@@ -363,6 +400,7 @@ buddy4_result_t buddy4_poll(buddy4_imu_t *imu, uint64_t timestamp_us)
     /* Repeated/backwards timestamps cannot count toward peak stability. */
     if (imu->has_sample && timestamp_us <= output->timestamp_us) {
         output->event.window_active = false;
+        output->event.median_count = 0;
         return BUDDY4_STALE;
     }
     bool sample_gap = imu->filter_valid &&
@@ -438,6 +476,10 @@ buddy4_result_t buddy4_poll(buddy4_imu_t *imu, uint64_t timestamp_us)
     }
     update_side_event(&output->event, output->side, timestamp_us,
                       output->filtered_roll_deg, output->wheel_height_cm);
+
+    if (output->event.side)
+        update_median(&output->event, timestamp_us,
+                      fabsf(output->filtered_roll_deg), imu->config.centre_spacing_cm);
 
     output->timestamp_us = timestamp_us;
     imu->has_sample = true;

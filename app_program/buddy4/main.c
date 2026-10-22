@@ -39,7 +39,7 @@ static void log_csv_header(const buddy4_config_t *config)
            "pitch_deg,pitch_filtered_deg,roll_deg,roll_filtered_deg,"
            "terrain,side_tilt,transient_g,transient_event,"
            "wheel_height_cm,geometry_confirmed,side_event_active,"
-           "peak_confirmed,peak_roll_deg,peak_wheel_height_cm\n");
+           "peak_confirmed,peak_roll_deg,peak_wheel_height_cm,median_candidate_valid,median_candidate_roll_deg,median_candidate_height_cm\n");
 }
 
 /* Keep event metadata out of the fixed-column sample rows. */
@@ -47,14 +47,15 @@ static void log_side_event_summary(const buddy4_output_t *output)
 {
     const side_event_t *event = &output->ended_event;
     printf("# SIDE_EVENT_END,side=%s,reason=%s,start_us=%llu,end_us=%llu,"
-           "peak_confirmed=%d,peak_roll_deg=%.2f,peak_wheel_height_cm=%.2f\n",
+           "peak_confirmed=%d,peak_roll_deg=%.2f,peak_wheel_height_cm=%.2f,median_candidate_valid=%d,median_candidate_roll_deg=%.3f,median_candidate_height_cm=%.3f\n",
            buddy4_side_name(event->side),
            output->side ? "SIDE_CHANGED" : "RETURNED_TO_LEVEL",
            (unsigned long long)event->start_us,
            (unsigned long long)output->timestamp_us,
            event->peak_confirmed,
            event->peak_roll_deg,
-           event->peak_height_cm);
+           event->peak_height_cm, event->median_candidate_valid,
+           event->median_candidate_roll_deg,event->median_candidate_height_cm);
 }
 
 /* All results use the same columns. Invalid rows retain the last fresh values;
@@ -65,7 +66,7 @@ static void log_csv_sample(uint32_t sequence, uint64_t poll_time_us,
     printf("%lu,%llu,%d,%d,%llu,%lu,"
            "%d,%d,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,"
            "%.2f,%.2f,%.2f,%.2f,%s,%s,%.4f,%d,"
-           "%.2f,%d,%d,%d,%.2f,%.2f\n",
+           "%.2f,%d,%d,%d,%.2f,%.2f,%d,%.3f,%.3f\n",
            (unsigned long)sequence,
            (unsigned long long)poll_time_us,
            (int)result,
@@ -95,7 +96,8 @@ static void log_csv_sample(uint32_t sequence, uint64_t poll_time_us,
            output->event.side != 0,
            output->event.peak_confirmed,
            output->event.peak_roll_deg,
-           output->event.peak_height_cm);
+           output->event.peak_height_cm, output->event.median_candidate_valid,
+           output->event.median_candidate_roll_deg,output->event.median_candidate_height_cm);
 }
 
 /* Standalone sensor monitor: sampling never depends on a USB connection. */
