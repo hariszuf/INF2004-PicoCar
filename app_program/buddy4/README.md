@@ -1,108 +1,113 @@
 # Buddy 4 — IMU, Motion and Terrain Monitoring
 
-**Project:** INF2004 Autonomous PicoCar
-**Checkpoint:** 22 October 2026
-**Status:** All planned prototype modules implemented. Selected hardware checks passed; full validation remains incomplete.
+**Project:** INF2004 Autonomous PicoCar  
+**Checkpoint:** 22 October 2026  
+**Status:** Planned prototype modules implemented; software checks passed and selected hardware tests completed. Full assignment integration and validation remain incomplete.
 
-This README records the current settings, instructions, experimental results, limitations, and remaining work so development can continue without the original chat.
+This README preserves the current configuration, build instructions, experimental results, limitations and deferred work so development can continue without the original chat.
 
-## 1. My responsibility
+## 1. Responsibilities and current status
 
-The project brief assigns Buddy 4:
+Buddy 4 covers:
 
-- Calibrate the IMU.
-- Detect tilt, humps and peak height.
-- Classify motion and detect collision.
-- Report turn rate and motion events.
+- IMU calibration.
+- Tilt, terrain and hump detection.
+- Preliminary peak-height estimation.
+- Motion classification.
+- Preliminary possible-impact detection.
+- Estimated turn rate and motion events.
 
-Expected deliverables:
+Expected deliverables include the IMU processing module, hump-detection algorithm and terrain analysis report.
 
-1. IMU processing module.
-2. Hump-detection algorithm.
-3. Terrain analysis report.
+| Area | Current status |
+|---|---|
+| Prototype processing modules | Implemented |
+| Host regressions and CSV checks | Passed at checkpoint |
+| Standalone and integration firmware builds | Passed at checkpoint |
+| Selected physical checks | Completed; results below |
+| General height accuracy | Not established |
+| Collision discrimination | Unvalidated |
+| Numerical yaw-rate accuracy | Unvalidated |
+| Final µT-Kernel/team integration | KIV |
+| Terrain analysis report | KIV |
+| Professor clarification | KIV |
 
-Our implementation includes preliminary methods for these features. Implementing a feature does not mean its accuracy or reliability has been fully validated.
+No additional prototype features are currently planned. Deferred work must not be described as completed.
 
-Report writing and final µT-Kernel integration are currently deferred.
+## 2. Confirmed hardware
 
-## 2. Hardware and wiring
-
-| Item | Confirmed setting |
+| Item | Setting |
 |---|---|
 | Microcontroller | Raspberry Pi Pico W |
-| Sensor | **LSM303D**, not LSM303DLHC |
+| Actual sensor | **LSM303D**, not LSM303DLHC |
 | Gyroscope | None |
 | Communication | I²C0, 100 kHz |
-| SDA | GP16 — physical pin 21 |
-| SCL | GP17 — physical pin 22 |
-| Sensor supply | 3.3 V, common GND |
-| I²C address | `0x1D` |
-| Identification register | `WHO_AM_I`, address `0x0F` |
+| SDA | GP16, physical pin 21 |
+| SCL | GP17, physical pin 22 |
+| Supply | 3.3 V with common GND |
+| Sensor address | `0x1D` |
+| Identification register | `WHO_AM_I`, `0x0F` |
 | Expected identification | `0x49` |
-| Sensor output rate | 100 Hz |
-| IMU processing period | 20 ms, approximately 50 Hz |
-| Accelerometer range | ±2 g |
-| Raw conversion | Signed 16-bit, little-endian; **no right shift** |
+| Accelerometer output rate | 100 Hz |
+| Processing interval | 20 ms, approximately 50 Hz |
+| Range | ±2 g |
+| Conversion | Signed 16-bit little-endian; no right shift |
 | Nominal sensitivity | `0.000061 g/count` |
-| Wheel centre-to-centre spacing | **11.3 cm**, measured |
+| Wheel centre spacing | **11.3 cm**, measured |
 | Chassis supports | Two drive wheels and a ball caster |
 
-The board’s printed X/Y arrows did not match the expected measured channels during calibration. Processing preserves the sensor’s reported axes; do not silently swap them.
+Processing preserves the sensor’s reported axes. Do not swap axes based only on the board’s printed arrows.
 
-### Geometry history
+### Wheel-spacing history
 
-Earlier dimensions were misunderstood:
+- **9.5 cm:** gap between tyres.
+- **12.2 cm:** outside-to-outside measurement.
+- **10.85 cm:** earlier provisional midpoint.
+- **11.3 cm:** subsequently measured centre-to-centre; current Buddy 4 setting.
 
-- **9.5 cm** was the gap between the tyres.
-- **12.2 cm** was outside-to-outside width.
-- **10.85 cm** was a provisional midpoint.
-- **11.3 cm** was subsequently measured directly centre-to-centre and is the current Buddy 4 setting.
+Buddy 2 retains its original **12.2 cm** setting. Team reconciliation is pending; do not silently change another buddy’s geometry.
 
-Buddy 2 retains its original **12.2 cm** geometry setting. Do not change it without agreement with its owner. Its heading calculation and Buddy 4’s yaw estimate therefore use different spacing values.
-
-## 3. Active files
+## 3. Files and ownership
 
 | File | Purpose |
 |---|---|
-| `buddy4_imu.c/.h` | Sensor configuration/acquisition, acceleration calibration, pitch/roll, terrain states, side events and peak estimators |
-| `buddy4_motion.c/.h` | Encoder-based estimated motion classification |
+| `buddy4_imu.c/.h` | Acquisition, calibration, tilt, terrain, side events and peak estimators |
+| `buddy4_motion.c/.h` | Encoder-based motion classification |
 | `buddy4_impact.c/.h` | Observational possible-impact detector |
-| `buddy4_encoder_yaw.c/.h` | Encoder-based estimated yaw rate |
-| `main.c` | Standalone IMU monitor and CSV output; no motor control |
-| `CMakeLists.txt` | Standalone firmware and native IMU test build |
-| `pico_sdk_import.cmake` | SDK import helper |
-| `tests/` | Original standalone IMU tests |
-| `../integration_test/` | Separate Buddy 2+3+4 driving-test application and broader regression tests |
+| `buddy4_encoder_yaw.c/.h` | Encoder-based yaw-rate estimate |
+| `main.c` | Standalone IMU monitor and CSV logging |
+| `tests/test_imu.c` | Authoritative IMU/calibration/recovery regression suite |
+| `CMakeLists.txt` | Standalone firmware and native IMU tests |
+| `pico_sdk_import.cmake` | Pico SDK import |
+| [`../integration_test/`](../integration_test/) | Separate driving-test application and broader tests |
 
-Older terrain, driver, MQTT and standalone experiments were archived outside the active application folders. Consult `archive/buddy4/` and its manifest before deleting historical files.
-
-The original tested all-in-one `IMUProject.c` and historical UF2 were preserved. Archived UF2 files are not current firmware.
+Historical experiments are archived under the repository’s `archive/buddy4/` area. Consult its manifest before deleting anything. Historical UF2 files are not current firmware.
 
 ### Integration boundaries
 
-- Buddy 2 owns motors and wheel encoders.
+- Buddy 2 owns motor and encoder processing.
 - Buddy 3 owns line-following decisions.
-- Buddy 4 observes sensor/motion data.
-- `integration_test` supplies the test scheduler and controls.
-- Existing Buddy 2/3 source and tuning have been preserved.
-- The current driving application is **standalone Pico SDK/CMake**, not final µT-Kernel integration.
-- Do not compile multiple standalone `main()` files into one executable.
+- Buddy 4 provides observational processing.
+- `integration_test` supplies temporary controls and a cooperative scheduler.
+- Buddy 2/3 source and tuning were preserved.
+- Current test applications use **Pico SDK/CMake**, not final µT-Kernel integration.
+- Only one application `main()` belongs in each executable.
 
-## 4. Current calibration
+## 4. Calibration
 
-Acceleration correction is applied independently to each reported sensor axis:
+Raw counts are preserved. Each axis is converted to g before correction:
 
 ```c
 corrected_g = (uncorrected_g - bias_g) * scale;
 ```
 
-| Axis | Bias to subtract, g | Scale |
+| Axis | Bias, g | Scale |
 |---|---:|---:|
 | X | 0.03799 | 1.01301 |
 | Y | 0.03790 | 1.03419 |
 | Z | 0.08411 | 1.01223 |
 
-Current default mounting/geometry settings:
+Current configuration:
 
 ```c
 .accel_bias_g = {0.03799f, 0.03790f, 0.08411f},
@@ -116,15 +121,15 @@ Current default mounting/geometry settings:
 .centre_spacing_confirmed = true,
 ```
 
-These coefficients are **preliminary six-position estimates**. Edge orientations were imperfectly aligned.
+The acceleration coefficients are preliminary six-position estimates; orientations were imperfectly aligned.
 
-Raw counts and uncorrected acceleration remain available in the standalone CSV. Corrected acceleration drives magnitude, angles and transient processing.
+Corrected acceleration drives magnitude, tilt and transient processing. Standalone logging preserves raw counts, uncorrected acceleration and corrected acceleration.
 
-There is no automatic startup zeroing. Starting the car on a slope must not redefine that slope as level.
+There is **no startup auto-zero** or assumption that the car starts level.
 
-If the sensor is remounted or its bracket moves, recheck the mounting offsets. A confirmed geometry flag confirms the measured spacing, not the accuracy of the height model.
+Recheck mounting offsets if the sensor or bracket moves. The confirmed-spacing flag confirms the measurement, not the accuracy of the height model.
 
-## 5. Tilt and terrain detection
+## 5. Tilt and terrain
 
 Angle smoothing alpha: **0.15**.
 
@@ -133,7 +138,7 @@ Angle smoothing alpha: **0.15**.
 | Pitch | ±6° | ±3° |
 | Roll | ±4° | ±2° |
 
-Current mounting convention:
+Mounting convention:
 
 - Positive pitch: `UPHILL`.
 - Negative pitch: `DOWNHILL`.
@@ -141,199 +146,150 @@ Current mounting convention:
 - Positive roll: `RIGHT_WHEEL_UP`.
 - Small roll: `SIDE_LEVEL`.
 
-Labels describe chassis orientation. The IMU cannot independently tell whether one wheel rose or the opposite wheel dropped.
+These labels describe chassis orientation. The sensor cannot independently distinguish one wheel rising from the opposite wheel dropping.
 
-A one-wheel obstacle can create both pitch and roll. The ball caster’s contact position also affects chassis orientation.
+A single-wheel obstacle can produce both pitch and roll. Ball-caster contact also affects chassis orientation.
 
-## 6. Preliminary wheel-height estimation
+## 6. Preliminary height estimation
 
-Current geometric estimate:
+The geometric estimate is:
 
 ```text
 wheel_height_difference_cm
     = centre_spacing_cm × sin(abs(filtered_roll))
 ```
 
-This estimates a wheel-height difference from chassis tilt. It is **not independently validated hump height**.
+It estimates wheel-height difference from chassis roll. It does not directly measure the obstacle surface.
 
-Limitations include:
+Limitations include combined pitch/roll, mounting alignment, tyre deformation, caster geometry, acceleration, vibration and slip.
 
-- Combined pitch and roll.
-- Sensor mounting alignment.
-- Tyre compression and contact geometry.
-- Ball-caster support geometry.
-- Vehicle acceleration and vibration.
-- Wheel slip.
-- Imperfect acceleration calibration.
+A full-width obstacle can raise both wheels equally with little roll; this formula cannot recover its height.
 
-A full-width ramp can raise both wheels equally while producing little roll. Its height cannot be obtained from this roll-only formula.
+### Original stable estimator
 
-Do not assume a moving ramp crossing has a known height merely because a 2.5 cm book was used in separate stationary tests.
+Requires fresh samples spanning at least **200 ms**, roll variation no greater than **1°**, and adjacent gaps no greater than **40 ms**.
 
-### Original stability estimator
-
-Requires:
-
-- Fresh samples spanning at least **200 ms**.
-- Filtered absolute roll variation no greater than **1°**.
-- No sample gap greater than **40 ms**.
-
-It retains the highest conservative stable-window estimate.
-
-This rule worked for held positions but sometimes severely underestimated or failed to confirm moving peaks.
+It retains the highest accepted stable estimate. Moving peaks can be underestimated or remain unconfirmed.
 
 ### Experimental rolling-median estimator
 
-Runs alongside the original estimator:
+- Uses **11 filtered absolute-roll samples**.
+- Requires strictly increasing timestamps.
+- Adjacent gaps must be ≤40 ms.
+- Accepted window span is **190–210 ms**.
+- Retains the highest accepted median during each side event.
+- Uses fixed-size storage and explicit validity.
 
-- Fixed window of **11 filtered absolute-roll samples**.
-- Strictly increasing timestamps.
-- Adjacent gaps no greater than **40 ms**.
-- Total accepted window span **190–210 ms**.
-- Highest accepted window median retained per side event.
-- Fixed-size storage; no dynamic allocation.
-- Explicit `median_candidate_valid`.
+An invalid candidate means **unconfirmed**, not zero height.
 
-A false candidate-validity flag means **unconfirmed**, not measured zero height.
+Event transitions and transfer failures reset or abort active processing according to the API. Completed-event results remain available according to its snapshot contract.
 
-Event end and side reversal reset active candidate state. Transfer failure aborts active detection. Completed-event snapshots are retained according to the current API contract.
-
-Median filtering rejects isolated spikes in its input window, but an acceleration disturbance can persist through the upstream angle filter. It does not guarantee rejection of every handling or driving artifact.
+Filtering does not guarantee rejection of sustained handling or driving disturbances.
 
 ## 7. Motion classification
 
-Uses Buddy 2’s reported signed encoder wheel speeds.
+Uses Buddy 2’s signed encoder wheel speeds:
 
-States:
+`UNKNOWN`, `STOPPED`, `FORWARD`, `REVERSE`, `TURNING_LEFT`, `TURNING_RIGHT`.
 
-- `UNKNOWN`
-- `STOPPED`
-- `FORWARD`
-- `REVERSE`
-- `TURNING_LEFT`
-- `TURNING_RIGHT`
-
-Provisional defaults:
-
-| Setting | Value |
+| Setting | Provisional value |
 |---|---:|
 | Enter stopped | Maximum absolute wheel speed ≤0.5 cm/s |
 | Exit stopped | Maximum absolute wheel speed >0.8 cm/s |
-| Enter turn | Absolute right-minus-left speed ≥1.5 cm/s |
-| Hold confirmed turn | Signed difference magnitude ≥1.0 cm/s |
-| State confirmation | 100 ms |
+| Turn entry | Absolute right-minus-left speed ≥1.5 cm/s |
+| Turn holding | Difference magnitude ≥1.0 cm/s in the confirmed direction |
+| Confirmation | 100 ms |
 | Stale expiry | 100 ms |
 
-During a pending transition, the previous confirmed state may persist while observations remain fresh.
+Opposing slow wheel speeds can cancel in their mean while failing turn thresholds. `UNKNOWN` is intentional when evidence is insufficient.
 
-Invalid/stale observations produce `UNKNOWN`. Opposing slow wheel speeds can cancel in their mean while failing the turn threshold; `UNKNOWN` is intentional in that case.
+Repeated logged timestamps are not independent updates. Invalid/stale observations invalidate classification.
 
-Single-phase encoder direction is inferred from commanded direction. Labels are estimated motion, not independent ground truth.
+Single-phase encoder direction follows commanded direction, so classification is an estimate rather than independent motion ground truth.
 
 ## 8. Possible-impact detector
 
-Separate from the older `bump_event`.
+This detector is separate from the existing `bump_event`.
 
-Provisional criteria:
-
-| Setting | Value |
+| Setting | Provisional value |
 |---|---:|
 | Signal | Absolute magnitude deviation from tracked nonzero baseline |
 | Trigger | ≥0.30 g |
 | Confirmation | At least two fresh samples spanning 20 ms |
-| Maximum sample gap | 40 ms |
+| Maximum gap | 40 ms |
 | Cooldown | 500 ms |
-| Rearm | Two calm samples ≤0.10 g, with cooldown satisfied |
+| Rearming | Two calm samples ≤0.10 g with cooldown satisfied |
 | Baseline time constant | 500 ms |
 
-Stationary acceleration includes gravity; the detector does not assume a zero-g resting magnitude.
+Stationary acceleration includes gravity.
 
-Outputs include:
+Outputs include validity, a one-sample event, cumulative count, timestamps, magnitude, baseline and deviation. Invalid data, missing samples and reversed timestamps reset pending detection appropriately.
 
-- Detector validity.
-- One-input-sample `possible_impact` event.
-- Cumulative event count.
-- Sample/event timestamps.
-- Magnitude, baseline and deviation.
+**No motor command or safety stop depends on this detector.**
 
-It is observational only. No motor commands or safety stops depend on it.
+Ramps, braking, vibration and handling can resemble impacts. Synthetic tests passed; collision discrimination remains unvalidated. Do not deliberately crash the car or strike the sensor.
 
-Ramps, braking, vibration and handling may resemble impacts. Synthetic tests passed and selected normal-driving runs produced no false flags. **Actual collision discrimination remains unvalidated.**
-
-Do not deliberately crash the car or strike the sensor to test it.
-
-## 9. Estimated turn rate
-
-Encoder-based formula:
+## 9. Encoder yaw-rate estimate
 
 ```text
-yaw_rate_rad_s = (right_speed_cm_s − left_speed_cm_s)
-                / centre_spacing_cm
+yaw_rate_rad_s
+    = (right_speed_cm_s − left_speed_cm_s) / spacing_cm
 
-yaw_rate_deg_s = yaw_rate_rad_s × 180 / pi
+yaw_rate_deg_s
+    = yaw_rate_rad_s × 180 / pi
 ```
 
+- Default spacing: **11.3 cm**.
 - Positive: left/counterclockwise viewed from above.
 - Negative: right/clockwise.
-- Spacing: configurable, default **11.3 cm**.
-- Freshness limit: provisional **100 ms**.
-- No extra filtering beyond the wheel-speed inputs.
+- Freshness limit: **100 ms**.
+- No extra filtering beyond wheel-speed inputs.
 - Invalid/stale input clears validity.
 
-Output names explicitly identify `encoder_yaw_rate_estimate`.
+This is an **odometry-based estimate**, not gyroscope measurement.
 
-This is **not gyroscope rate or independently measured IMU yaw rate**. Accuracy depends on encoder direction assumptions, speed estimation, geometry and slip.
-
-Professor agreement is still needed on whether this method satisfies the brief’s turn-rate requirement.
+Slip, geometry and command-inferred encoder direction limit accuracy. Professor acceptance against the turn-rate requirement remains pending.
 
 ## 10. Build instructions
 
-Tools used:
+Tools used at the checkpoint:
 
 - Pico SDK **2.3.1**
 - Arm toolchain **15_2_Rel1**
-- Installed CMake **v4.3.4**
-- Ninja **v1.13.2**
+- CMake **4.3.4**
+- Ninja **1.13.2**
 
-Commands below use the current Windows installation layout. Adjust paths on another computer.
+Adjust installation paths on another computer. Save source changes before building.
 
 ### Standalone Buddy 4
 
-Run in a VS Code PowerShell terminal:
-
-```powershell
-cd app_program/buddy4 # from the repository root
-
-$cm = "$env:USERPROFILE/.pico-sdk/cmake/v4.3.4/bin/cmake.exe"
-
-& $cm -S . -B build -G Ninja "-DCMAKE_MAKE_PROGRAM=$env:USERPROFILE/.pico-sdk/ninja/v1.13.2/ninja.exe" -DPICO_BOARD=pico_w
-```
-
-Only if configuration succeeds:
-
-```powershell
-& $cm --build build --target buddy4
-```
-
-Firmware:
-
-```text
-app_program/buddy4/build/buddy4.uf2
-```
-
-After source edits, save and rebuild. Do not flash an old archived UF2.
-
-Do not run these standalone commands from the parent `app_program` directory: that selects a different CMake project.
-
-### Integration driving-test firmware
-
-Run from the repository root:
+From the repository root:
 
 ```powershell
 $env:PATH = "$env:USERPROFILE\.pico-sdk\toolchain\15_2_Rel1\bin;$env:USERPROFILE\.pico-sdk\ninja\v1.13.2;" + $env:PATH
 
 $cm = "$env:USERPROFILE/.pico-sdk/cmake/v4.3.4/bin/cmake.exe"
 
+& $cm -S app_program/buddy4 -B app_program/buddy4/build -G Ninja "-DPICO_SDK_PATH=$env:USERPROFILE/.pico-sdk/sdk/2.3.1" -DPICO_BOARD=pico_w -DPICO_NO_PICOTOOL=0 "-Dpicotool_DIR=$env:USERPROFILE/.pico-sdk/picotool/2.3.1/picotool"
+```
+
+Only if configuration succeeds:
+
+```powershell
+& $cm --build app_program/buddy4/build --target buddy4
+```
+
+Output:
+
+```text
+app_program/buddy4/build/buddy4.uf2
+```
+
+### Integration test
+
+From the repository root, with the same tools configured:
+
+```powershell
 & $cm -S app_program/integration_test -B app_program/integration_test/build -G Ninja "-DPICO_SDK_PATH=$env:USERPROFILE/.pico-sdk/sdk/2.3.1" -DPICO_BOARD=pico_w -DPICO_NO_PICOTOOL=0 "-Dpicotool_DIR=$env:USERPROFILE/.pico-sdk/picotool/2.3.1/picotool"
 ```
 
@@ -343,249 +299,219 @@ Only if configuration succeeds:
 & $cm --build app_program/integration_test/build --target buddy234_driving_test
 ```
 
-Firmware:
+Output:
 
 ```text
 app_program/integration_test/build/buddy234_driving_test.uf2
 ```
 
-### Regression suite
+### Regression runner
 
-From repository root:
+From the repository root:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File app_program/integration_test/test.ps1
+
+python app_program/integration_test/test_csv_schema.py
 ```
 
-The runner covers the currently registered module, scheduler, control and schema tests. Inspect its output; do not assume a previous pass applies after new edits.
+The host runner requires its documented native compiler/Python environment. Consult the integration README for prerequisites.
 
-The original standalone IMU suite has now been reconciled with the deliberately updated calibration defaults. `tests/test_imu.c` is authoritative; the former integration copy is a compatibility include. Independent expected-value calculations, functional assertions and tolerances are preserved. Production calibration is unchanged. See the verified checkpoint below.
+Do not assume a previous test pass applies after new edits.
 
-## 11. Flash and serial capture
+## 11. Flashing and serial recording
 
 1. Switch motor power off.
 2. Close the serial monitor and disconnect Pico USB.
-3. Hold the Pico W’s BOOTSEL button while reconnecting USB.
-4. Release BOOTSEL when `RPI-RP2` appears.
-5. Copy the newly built UF2 onto that drive.
-6. The Pico restarts and the drive disappears.
-7. Open its USB COM port in VS Code Serial Monitor at **115200**.
-8. Enable DTR if required.
+3. Hold BOOTSEL while reconnecting USB.
+4. Release when `RPI-RP2` appears.
+5. Copy the newly built UF2 to that drive.
+6. Open the Pico USB serial port at **115200**.
+7. Enable DTR if required.
 
-COM4 was used during recorded sessions, but the port can change.
+COM4 was used previously, but the port may change.
 
-The standalone firmware does not drive motors. The integration firmware supports explicit driving commands.
+Standalone firmware monitors the IMU without driving motors. Integration firmware supports explicit driving commands.
 
-Capture the full header and `# CONTROL` / `# SIDE_EVENT_END` lines. Long CSV rows wrap visually; that is expected.
+Capture the CSV header and event/control summaries. Visual line wrapping is normal. Exclude malformed fragments without shifting columns.
 
-Logging is best effort. Some captures contain malformed fragments, particularly around terminal command messages. Reject malformed rows rather than silently shifting their columns.
+Current schemas:
 
-Historical schema sizes changed as features were added:
-
-| Version | Integration columns |
+| Application | Columns |
 |---|---:|
-| Initial driving integration | 48 |
-| Median candidate | 51 |
-| Motion classification | 54 |
-| Possible-impact detector | 62 |
-| Encoder yaw rate | 66 |
-| Timed turn controls | **69** |
+| Standalone | 33 |
+| Integration | 69 |
 
-Standalone CSV currently has **33 columns**.
-
-Always use the header matching that firmware. Filter fresh IMU analysis using `valid=1`; check sample timestamps and validity fields for other modules separately.
+Older captures have different schemas. Always use the matching header and module-specific validity/timestamps.
 
 ## 12. Integration controls
 
-Commands are uppercase and sent one at a time.
+Send uppercase commands one at a time.
 
 | Key | Action |
 |---|---|
-| `M` | Select manual straight mode; no black line needed |
-| `L` | Select line-following mode |
+| `M` | Select manual straight mode |
+| `L` | Select line following |
 | `A` | Select timed left rotation |
 | `D` | Select timed right rotation |
-| `R` | Explicitly rearm while stopped and healthy |
-| `G` | Start selected mode after rearming |
+| `R` | Rearm while stopped and healthy |
+| `G` | Start after rearming |
 | `S` or space | Stop and latch off |
 
-Manual target: **+3/+3 cm/s**.
+Targets:
 
-Timed turn targets:
+- Manual: **+3/+3 cm/s**.
+- Left rotation: **−2/+2 cm/s**.
+- Right rotation: **+2/−2 cm/s**.
+- Turn timeout: approximately **1 second**, then brake/latch.
 
-- Left: **−2/+2 cm/s**.
-- Right: **+2/−2 cm/s**.
-- Timeout: approximately **1 second**, then brake/latch with `TURN_TEST_TIMEOUT`.
+Select mode first, then send **R → G**. Mode selection revokes rearming. `G` alone after stopping does not restart.
 
-Mode selection while stopped revokes rearming. `G` alone after a stop does not restart motion.
+Boot and fault recovery remain stopped. USB loss, prolonged invalid IMU data and motor faults latch off. Line-loss stopping applies to line-following mode.
 
-Boot remains stopped. USB loss, prolonged invalid IMU data, motor faults and serial stop latch off. Line-loss stopping applies to line-following mode only. Recovery does not restart automatically.
+These controls support testing. Final autonomous driving follows Buddy 3’s black-line decisions.
 
-These are temporary test controls. Final autonomous operation follows the black line through Buddy 3 while Buddy 4 observes.
+Serial stop is not a hardware emergency stop. Keep the physical power cutoff accessible. Cooperative timing does not guarantee a hard real-time stop.
 
-Serial stop is not a hardware emergency stop. Keep the physical motor-power cutoff accessible. The cooperative timeout is not a hard real-time stopping guarantee.
+## 13. Verified software checkpoint
 
-## 13. What has been completed
+The following passed at the 22 October 2026 checkpoint:
 
-### Implemented and software-tested
+| Check | Result |
+|---|---|
+| Authoritative IMU/calibration/recovery suite | Pass |
+| Native CTest | 1/1 pass |
+| Median window/lifecycle tests | Pass |
+| Motion classification tests | Pass |
+| Possible-impact synthetic tests | Pass |
+| Encoder yaw-rate tests | Pass |
+| Integration mode/control/safety tests | Pass |
+| Scheduler tests | Pass |
+| Buddy 2 motion simulation | 39 checks, 0 failures |
+| Buddy 3 line simulation | 5 checks, 0 failures |
+| CSV schemas and argument counts | Pass |
+| Standalone firmware build | Pass |
+| Integration firmware build | Pass |
 
-- LSM303D identification, configuration and signed data conversion.
-- Configurable acceleration and mounting calibration.
-- Pitch/roll and terrain/side hysteresis.
-- Side-event lifecycle and original stable peak estimator.
-- Experimental moving median estimator.
-- Encoder-based motion classification.
-- Observational possible-impact detector.
-- Encoder yaw-rate estimate.
-- Separate standalone and driving-test builds.
-- CSV schema checks and module regression tests.
-- Manual start/stop/rearm and timed-turn controls.
+`tests/test_imu.c` is authoritative. The former integration IMU test copy is a compatibility include; median tests reuse authoritative fixtures. Calibration expectations were reconciled without removing functional checks or weakening tolerances.
 
-### Observed on hardware
+**No remaining test/build failures were reported.** Two existing Buddy 3 unsigned-comparison warnings remain.
 
-- Level baseline near zero after calibration.
-- Correct left/right stationary tilt labels.
-- Unassisted one-wheel ramp crossings detected in both directions.
+Buddy 2/3 were byte-for-byte unchanged during checkpoint verification. No algorithms, thresholds, calibration, motor tuning, controls or safety behaviour changed in that verification pass.
+
+Software checks do not establish physical accuracy or safety. No flashing, motor operation, staging, commit or push occurred during that software-only checkpoint.
+
+## 14. Hardware observations
+
+Observed during selected tests:
+
+- Level baseline near zero after mounting calibration.
+- Correct stationary left/right tilt labels.
+- Unassisted single-wheel hump crossings on both sides.
 - Return to side-level after crossings.
-- Forward/stopped motion labels during flat driving.
-- Left/right turn labels and yaw-rate signs.
-- Supported-wheel start/stop and timed turn behaviour.
+- Forward/stopped labels during flat driving.
+- Correct left/right turn direction and yaw-rate sign.
+- Start/stop/rearm and timed turn behaviour.
 - `G` alone after stopping did not restart.
-- No possible-impact events in the reviewed normal straight/turn runs.
 
-These observations do not prove all fault-stop paths or operating conditions have been physically validated.
+These observations do not establish every fault path or operating condition.
 
-## 14. Recorded results for the report
+### Stationary calibration checks
 
-The figures below came from serial recordings reviewed during development. They are recorded observations, not guaranteed performance specifications.
-
-Some early capture sections included repositioning. Where noted, settled portions were used.
-
-### A. Before acceleration calibration
-
-For a known **2.5 cm book**, with corrected 11.3 cm wheel spacing but before acceleration correction:
-
-| Position | Mean estimate |
-|---|---:|
-| Left wheel raised | 3.00 cm |
-| Right wheel raised | 2.67 cm |
-| Level | Approximately 0.13 cm |
-
-This showed systematic error and left/right asymmetry.
-
-Earlier apparently better results using 9.5 cm spacing must not be presented as final calibrated accuracy. The geometry was wrong.
-
-### B. After acceleration calibration and mounting-offset update
-
-Level-ground check:
+After acceleration calibration and mounting-offset adjustment:
 
 | Measurement | Result |
 |---|---:|
-| Complete valid samples | 693 |
+| Complete valid level samples | 693 |
 | Duration | 13.84 s |
 | Mean filtered pitch | −0.23° |
 | Mean filtered roll | −0.33° |
-| Mean corrected acceleration magnitude | 0.992 g |
+| Mean corrected magnitude | 0.992 g |
 | Reported errors | 0 |
-| Labels | FLAT / SIDE_LEVEL throughout |
+| Terrain/side labels | FLAT / SIDE_LEVEL |
 
-A preceding calibration check averaged **1.001 g** over 706 valid samples. These are different recordings; do not combine them as one dataset.
+Separate known **2.5 cm book** tests:
 
-Known 2.5 cm book after calibration:
-
-| Position | Mean estimate |
-|---|---:|
-| Left wheel raised | 2.74 cm |
-| Right wheel raised | 2.63 cm |
-| Return to level | 0.03 cm |
-
-Confirmed stable peaks in that recording were approximately **2.81 cm left / 2.78 cm right**.
-
-Calibration improved consistency, but did not establish precise height accuracy.
-
-### C. Flat driving
-
-First reviewed slow flat run:
-
-- Running duration approximately **5.3 s**.
-- Encoder distance increased approximately **15.1 cm**.
-- Mean reported wheel speeds: **2.89 cm/s left / 2.74 cm/s right**.
-- No false terrain, side-tilt or bump flags.
-- No new IMU errors or skipped updates within the reviewed recording.
-- Operator reported straight movement and normal stopping.
-
-An additional run:
-
-- Running duration approximately **5.6 s**.
-- Encoder distance increased approximately **15.9 cm**.
-- Mean speeds: **2.86 cm/s left / 2.79 cm/s right**.
-- No false tilt/bump detections.
-- Error counter stayed constant at 10 during that recording.
-
-Some error counters increased between separate sessions. Constant counters within a run mean no additional errors in that run—not that the entire experiment had no errors.
-
-### D. Why the moving peak estimator changed
-
-With the original 200 ms / 1° stability rule:
-
-| Moving crossing | Confirmed estimate |
-|---|---:|
-| Early left crossing 1 | 1.19 cm |
-| Early left crossing 2 | 1.04 cm |
-| Early right crossing | 2.39 cm |
-| Later left repeat | 1.00 cm |
-| Later right repeat | Unconfirmed |
-
-The later right repeat reached **14.47° filtered roll** and **2.82 cm instantaneous estimate**, but no stable window qualified.
-
-An unconfirmed zero peak is not a zero-height obstacle.
-
-Offline rolling-median exploration produced:
-
-| Recording | Candidate estimate |
-|---|---:|
-| Early left 1 | 2.35 cm |
-| Early left 2 | 2.45 cm |
-| Early right | 2.46 cm |
-| Later left repeat | 2.19 cm |
-| Later right repeat | 2.77 cm |
-
-These are exploratory replay results, not independent height validation. The candidate was subsequently implemented alongside the original filter.
-
-### E. Latest paired hardware crossings with median candidate
-
-Same ramp and direction, per operator confirmation:
-
-| Run | Original stable estimator | Median candidate |
+| Position | Before acceleration correction | After correction |
 |---|---:|---:|
-| Left | 2.192 cm | **2.349 cm** |
-| Right | 2.375 cm | **2.523 cm** |
+| Left wheel raised | 3.00 cm | 2.74 cm |
+| Right wheel raised | 2.67 cm | 2.63 cm |
 
-- Median difference: **0.174 cm**, approximately 0.17 cm.
-- Left event duration: **2.24 s**.
-- Right event duration: **2.62 s**.
-- Both returned near level.
-- No new IMU errors or skipped updates in either reviewed run.
-- Four malformed left rows and two malformed right rows were excluded.
+These are stationary tests and must not be substituted for moving-hump ground truth.
 
-**The actual ramp height was not verified for these moving crossings.** Do not calculate percentage height accuracy against the 2.5 cm book—the book was a separate test.
+### Flat driving
 
-Further broad replay was deferred at the user’s request. Existing limited replay and hardware evidence should be described honestly.
+Two reviewed slow runs:
 
-### F. New motion/impact/yaw straight-driving check
+| Measurement | Run 1 | Run 2 |
+|---|---:|---:|
+| Running duration | ~5.3 s | ~5.6 s |
+| Encoder distance increase | ~15.1 cm | ~15.9 cm |
+| Mean left speed | 2.89 cm/s | 2.86 cm/s |
+| Mean right speed | 2.74 cm/s | 2.79 cm/s |
 
-- **619 complete rows**, two incomplete rows excluded.
-- All complete rows had valid IMU data.
-- Zero reported IMU errors and skipped updates.
-- Labels followed STOPPED → FORWARD → STOPPED.
-- Mean estimated yaw rate while running: approximately **−0.10°/s**.
-- Brief yaw estimates ranged approximately **−3.72 to +4.48°/s**.
+No false tilt/bump flags or additional IMU errors were observed within those recordings. A constant cumulative error counter does not mean all earlier sessions were error-free.
+
+A later motion/impact/yaw check retained **619 complete rows**, excluding two incomplete rows:
+
+- Valid IMU data in all complete rows.
+- Zero reported IMU errors/skipped updates.
+- STOPPED → FORWARD → STOPPED.
+- Mean running yaw estimate approximately **−0.10°/s**.
 - No possible-impact events.
-- Operator confirmed straight movement and normal stopping.
 
-This checks behaviour and false flags in one normal run. It is not independent yaw-rate accuracy measurement.
+This was a behavioural check, not yaw-rate accuracy validation.
 
-### G. One-second physical turn checks
+## 15. Latest six moving-hump trials
+
+### Setup
+
+- Same hump and crossing direction.
+- Measured peak surface height: **2.2–2.3 cm**.
+- Three left-wheel and three right-wheel crossings.
+- Manual target: **3.0 cm/s per wheel**.
+- Unassisted movement.
+- One wheel crosses the hump while the other remains on the lower surface.
+- A false estimator-validity flag means unconfirmed.
+
+### Results
+
+| Trial | Stable estimate, cm | Median estimate, cm | Side-event duration |
+|---|---:|---:|---:|
+| Left 1 | 2.272 | 2.387 | 2.36 s |
+| Right 1 | 2.322 | 2.427 | 2.64 s |
+| Left 2 | 2.420 | 2.510 | 2.38 s |
+| Right 2 | 2.235 | 2.319 | 2.42 s |
+| Left 3 | Unconfirmed | 2.500 | 2.46 s |
+| Right 3 | 2.273 | 2.339 | 2.52 s |
+
+Summary:
+
+| Measurement | Result |
+|---|---:|
+| Correct crossing-side labels | 6/6 |
+| Median confirmation | 6/6 |
+| Stable confirmation | 5/6 |
+| Median range | 2.319–2.510 cm |
+| Mean left median estimate | 2.466 cm |
+| Mean right median estimate | 2.362 cm |
+| Overall mean median estimate | 2.414 cm |
+
+All six crossings returned to FLAT / SIDE_LEVEL.
+
+Analysis retained **3,913 complete rows** and excluded **12 malformed numeric fragments**. No IMU errors or skipped updates were reported within these captures.
+
+No possible-impact pulses appeared in the reviewed capture rows. Cumulative impact counts increased between some captures; this does not establish zero false detections throughout the whole session.
+
+### Interpretation
+
+The overall mean estimate was approximately **0.114–0.214 cm above** the measured 2.2–2.3 cm range.
+
+This is limited reference-height testing on **one hump at one target speed**. It does not establish general accuracy across other heights, shapes, surfaces or speeds.
+
+The median estimator confirmed every recorded crossing. The stable estimator missed one moving peak. Neither result proves that all future humps will be detected or measured accurately.
+
+## 16. Timed-turn observations
 
 | Measurement | Left test | Right test |
 |---|---:|---:|
@@ -593,233 +519,83 @@ This checks behaviour and false flags in one normal run. It is not independent y
 | TURNING label rows | 24 | 42 |
 | UNKNOWN rows | 25 | 6 |
 | STOPPED rows | 1 | 2 |
-| Mean encoder yaw estimate while running | +10.38°/s | −10.60°/s |
+| Mean running yaw estimate | +10.38°/s | −10.60°/s |
 
-- Operator confirmed actual left/right rotation without help.
-- Both timeout summaries appeared approximately 1 second after start.
-- No new IMU errors, skipped updates or possible-impact events.
-- Final motion state returned to STOPPED.
-- Mean rates include startup/slow-speed portions.
-- No independent reference angle/time measurement was made.
+Both rotations were physically confirmed by the operator, timed out after approximately one second and ended stopped.
 
-### H. Slow-turn UNKNOWN investigation
+No independent reference angle/time measurement was made, so numerical yaw accuracy remains unknown.
 
-The left turn’s wheel-speed difference briefly fell below the **1.0 cm/s hold threshold**. After losing the label, it needed ≥1.5 cm/s entry evidence continuously for 100 ms.
+### Why UNKNOWN appeared
 
-Opposing low speeds also cancelled in the mean, producing UNKNOWN when neither forward/reverse nor turn evidence qualified.
+The left turn briefly fell below the **1.0 cm/s turn-holding threshold**. Re-entry then required **1.5 cm/s** evidence for **100 ms**.
 
-Logged examples:
+Opposing low speeds can also cancel in their mean without meeting turn thresholds.
 
-| Encoder time, s | Left/right speeds, cm/s | Result |
-|---|---|---|
-| 106.400167 | −0.807 / +0.402 | UNKNOWN |
-| 106.520165 | −1.373 / +0.926 | TURNING_LEFT |
-| 106.600158 | −0.741 / +0.209 | UNKNOWN; difference +0.950 |
-| 106.980109 | −1.032 / +0.850 | TURNING_LEFT restored |
+An investigation retained 697 complete rows. Running observations contained:
 
-An investigation retained **697 complete rows**. It identified repeated logged observations:
+- Left: 41 distinct encoder timestamps in 50 rows.
+- Right: 39 distinct timestamps in 50 rows.
 
-- Left: 41 distinct encoder timestamps from 50 running rows.
-- Right: 39 distinct encoder timestamps from 50 running rows.
+Duplicates were not treated as fresh decisions. Logged sample ages were approximately 1.55–21.44 ms, below the 100 ms stale limit.
 
-Repeated observations must not count as fresh classifier updates.
+Not every internal update was recorded, preventing exact reconstruction of all transitions. Thresholds were preserved; UNKNOWN remains preferable to an unsupported label.
 
-Observed sample ages were approximately **1.55–21.44 ms**, below the 100 ms stale limit. No logged evidence established timestamp invalidity as the main cause.
+## 17. Remaining work and KIV items
 
-Not every internal motor update was logged, so exact replay could not reconstruct every transition. Keep thresholds unchanged rather than tune to one recording.
+### Current position
 
-UNKNOWN is preferable to an unsupported motion claim.
+Prototype coding and the recorded software checkpoint are complete. No extra feature development or repeated testing is currently scheduled.
 
-## 15. Report plan — not yet written
+Save the verified work using GitHub Desktop if it has not already been committed. Do not claim a commit or push without confirmation.
 
-When preparing the terrain analysis report, include:
+### KIV
 
-1. **Scope and hardware**
-   - Buddy 4 requirements.
-   - Confirmed LSM303D identity and lack of gyroscope.
-   - Wiring and chassis support arrangement.
-
-2. **Software architecture**
-   - Reusable modules and public interfaces.
-   - Bounded I²C, validity/timestamps, error recovery.
-   - Standalone testing versus final RTOS integration.
-
-3. **Calibration**
-   - Six orientations and imperfect alignment.
-   - Bias/scale formula and coefficients.
-   - Mounting offsets and wheel-spacing correction.
-   - Before/after results.
-
-4. **Algorithms**
-   - Pitch/roll and hysteresis.
-   - Side-event segmentation.
-   - Stable-window versus median peak estimator.
-   - Motion classification.
-   - Possible-impact criteria.
-   - Encoder yaw-rate formula and assumptions.
-
-5. **Experiments and evidence**
-   - Known-height stationary book tests.
-   - Flat driving and starts/stops.
-   - One-wheel crossings in both directions.
-   - Timed turns.
-   - Software regression tests separately from physical tests.
-
-6. **Limitations**
-   - No independently validated moving hump height.
-   - Possible-impact flag is not confirmed collision classification.
-   - Single-phase encoder direction assumptions and slip.
-   - Slow-turn UNKNOWN periods.
-   - Logging fragments and excluded rows.
-   - Geometry discrepancy with Buddy 2.
-   - Limited speeds, surfaces, heights and repetitions.
-
-7. **Remaining work and conclusions**
-   - State what was demonstrated and what was not.
-   - Do not claim production-ready reliability or invent grading accuracy targets.
-
-Preserve serial recordings in the repository’s testing/logs area where appropriate. Keep original captures and a clearly documented cleaned-data procedure.
-
-Do not invent missing raw evidence from summary statistics.
-
-## 16. Remaining checkpoints
-
-### Current cleanup task
-
-- Completed in this checkpoint: reconcile original IMU test expectations with the deliberately updated defaults; retain independent checks.
-- Preserve independent functional checks and tolerances.
-- Identify one authoritative regression suite.
-- Run the full current runner, schema checks and both builds.
-- Correct outdated README claims.
-- Review the diff for unrelated/generated files or secrets.
-- Save a verified Git checkpoint using GitHub Desktop.
-
-The cleanup prompt was provided, but its completion has not yet been confirmed in this handover.
-
-### Validation still incomplete
-
-- Numerical accuracy and repeatability of moving hump-height estimates.
-- Detection of broader hump shapes, including full-width obstacles.
-- Possible-impact/collision discrimination.
-- Reverse-motion labels on hardware.
-- Broader speeds, surfaces, curves and repeated trials.
-- Independently referenced yaw-rate accuracy.
-- Full physical verification of every safety/fault path.
-- Professor acceptance of encoder-estimated turn rate and expected height accuracy.
-
-No deliberate crashing or sensor striking is required.
-
-### Deferred
-
-- Final vehicle-controller and µT-Kernel integration.
-- Team reconciliation of wheel geometry.
+- Final µT-Kernel and team-controller integration.
 - Terrain analysis report.
-- Final demonstration preparation.
+- Professor clarification on expected height accuracy and encoder-based turn rate.
+- Further possible-impact/collision validation.
+- Team reconciliation of 11.3/12.2 cm geometry.
 
-## 17. Known issues and development notes
+### Unresolved limitations
 
-- Two pre-existing Buddy 3 compiler warnings were reported during builds.
-- Original IMU test expectations historically used old offsets/flags; current integration test copies were updated. Verify current repository state before claiming this is resolved.
-- A right motor stopped during testing because its wire was loose. It worked after reconnection; code/tuning was not changed.
-- Earlier sensor error counts rose during handling between recordings. Secure connectors and inspect per-run counter changes.
-- Do not raise motor duty to mask a loose connection.
-- Do not repeatedly recalibrate to every small baseline variation.
-- Do not change thresholds simply to eliminate UNKNOWN labels.
-- The final car follows a black line; A/D/M commands belong to test firmware.
-- Sensor prototype coding is complete; the full assignment is not fully validated or integrated.
+- Broad moving-height accuracy is not established.
+- Roll-only height does not cover general full-width obstacles.
+- Collision discrimination is unvalidated.
+- Numerical encoder yaw accuracy is unvalidated.
+- Slow turns can legitimately remain UNKNOWN.
+- Not every physical safety/fault path has been tested.
+- Reverse classification has synthetic coverage but has not been established by the recorded hardware checks.
 
-## 18. GitHub Desktop checkpoint instructions
+These are limitations to disclose, not claims that every additional experiment is required by the professor.
+
+## 18. Report notes for later
+
+The report has not yet been written. When resumed, include:
+
+1. **Hardware and scope:** LSM303D identity, no gyroscope, wiring and chassis supports.
+2. **Architecture:** module ownership, validity/timestamps, error recovery and standalone versus RTOS integration.
+3. **Calibration:** coefficients, imperfect alignment, mounting offsets and corrected geometry.
+4. **Algorithms:** tilt hysteresis, side events, stable/median estimators, motion classification, possible impact and encoder yaw.
+5. **Evidence:** stationary book tests, flat driving, six measured-hump crossings and timed turns.
+6. **Software verification:** host tests and builds, clearly separated from hardware evidence.
+7. **Limitations:** small test set, estimate bias, unvalidated collision/yaw accuracy, UNKNOWN periods and geometry discrepancy.
+8. **Remaining integration:** state exactly what is deferred.
+
+Preserve original serial captures and document excluded rows. Do not invent missing raw evidence or describe exploratory replay as independent measurement.
+
+## 19. GitHub Desktop checkpoint
 
 1. Select the correct repository and branch.
-2. Review each changed file.
-3. Include intended Buddy 4 and integration-test changes only.
-4. Exclude generated builds/binaries, credentials and unrelated teammate work.
+2. Review the changed files.
+3. Include intended Buddy 4 and integration-test changes.
+4. Exclude generated builds, binaries, credentials and unrelated teammate work.
 5. Commit after verification.
-6. Push origin when ready.
+6. Push when ready.
 
-Suggested commit message:
+Suggested message:
 
 ```text
-Add Buddy 4 calibrated terrain and motion monitoring prototype
+Checkpoint Buddy 4 prototype, verified tests and hardware observations
 ```
 
-Do not claim a push occurred unless GitHub Desktop or Git confirms it.
-
-
-## Verified software checkpoint (22 October 2026)
-
-No production algorithms, thresholds, calibration, motor tuning, controls or safety
-behavior changed during this verification. Buddy 2/3 remained byte-for-byte unchanged.
-No report or micro-T-Kernel integration, flashing, motor operation, staging, commit
-or push was performed. Earlier operator observations above are distinct from this
-software-only checkpoint and are not independent measurement validation.
-
-`tests/test_imu.c` is the authoritative IMU/calibration/recovery suite. Native CMake
-and integration test.ps1 use it directly. integration_test/test_imu_updated.c is
-only a compatibility include; test_median.c reuses authoritative fixtures and checks
-the internal median windows. No functional checks/tolerances were removed. Literal
-expected bias/scale/offset calculations remain independent of implementation values;
-explicit sign, bias/scale and geometry assertions are included. All other module,
-scheduler and control suites are described in the integration README.
-
-Exact commands run from the repository root:
-
-```powershell
-# From the repository root; GCC and Python must already be on PATH.
-$checkpointTools = Join-Path $env:USERPROFILE '.pico-sdk'
-$checkpointCmake = Join-Path $checkpointTools 'cmake/v4.3.4/bin/cmake.exe'
-$checkpointHostGcc = (Get-Command gcc).Source
-$env:PATH = "$(Join-Path $checkpointTools 'ninja/v1.13.2');$(Join-Path $checkpointTools 'toolchain/15_2_Rel1/bin');" + $env:PATH
-
-powershell -NoProfile -ExecutionPolicy Bypass -File app_program/integration_test/test.ps1
-python app_program/integration_test/test_csv_schema.py
-
-& $checkpointCmake -S app_program/buddy4 -B app_program/integration_test/build-buddy4-host -G Ninja -DBUDDY4_HOST_TESTS=ON "-DCMAKE_C_COMPILER=$checkpointHostGcc"
-& $checkpointCmake --build app_program/integration_test/build-buddy4-host
-& (Join-Path $checkpointTools 'cmake/v4.3.4/bin/ctest.exe') --test-dir app_program/integration_test/build-buddy4-host --output-on-failure
-
-& $checkpointCmake -S app_program/buddy4 -B app_program/integration_test/build-buddy4 -G Ninja "-DPICO_SDK_PATH=$checkpointTools/sdk/2.3.1" -DPICO_BOARD=pico_w -DPICO_NO_PICOTOOL=0 "-Dpicotool_DIR=$checkpointTools/picotool/2.3.1/picotool"
-& $checkpointCmake --build app_program/integration_test/build-buddy4 --target buddy4
-
-& $checkpointCmake -S app_program/integration_test -B app_program/integration_test/build -G Ninja "-DPICO_SDK_PATH=$checkpointTools/sdk/2.3.1" -DPICO_BOARD=pico_w -DPICO_NO_PICOTOOL=0 "-Dpicotool_DIR=$checkpointTools/picotool/2.3.1/picotool"
-& $checkpointCmake --build app_program/integration_test/build --target buddy234_driving_test
-```
-
-Verification checkpoint: 2026-10-22 (Asia/Singapore). Native GCC 15.2.0,
-Arm GCC 15.2.1, Pico SDK 2.3.1, CMake 4.3.4, Ninja 1.13.2; board pico_w.
-
-| Check | Result |
-| --- | --- |
-| Authoritative IMU/calibration/configuration/recovery suite | Pass |
-| Standalone native CTest | 1/1 pass |
-| Median peak window/lifecycle regressions | Pass |
-| Encoder motion classification | Pass |
-| Possible-impact synthetic tests | Pass |
-| Encoder yaw-rate estimate | Pass |
-| Integration controls, safety and both timed turn modes | Pass |
-| Cooperative scheduler | Pass |
-| Buddy 2 motion simulation | 39 checks, 0 failures |
-| Buddy 3 line simulation | 5 checks, 0 failures |
-| CSV schemas/printf argument counts | Pass: standalone 33, integration 69 columns |
-| Standalone buddy4 and integration buddy234_driving_test builds | Pass |
-
-No remaining test/build failures. Buddy 3 line_follow.c:127/136 emits two existing
-unsigned comparison warnings because turn escalation is disabled at zero; no
-Buddy 3 source was changed. Tests are synthetic host checks and compile/link
-verification, not hardware accuracy or safety validation. No firmware was flashed
-and no motors were operated. Existing recording analysis is observational evidence,
-not validation of the prototype's measurement accuracy.
-
-
-Remaining limitations: preliminary height accuracy is unverified; possible-impact
-logging is not validated collision discrimination; slow turns may legitimately
-remain UNKNOWN; encoder yaw rate is estimated and professor acceptance remains
-unresolved. Single-phase direction is command-inferred; slip, uneven terrain and
-tyre deformation limit odometry. Buddy 2 retains 12.2 cm geometry while Buddy 4 uses
-11.3 cm; team reconciliation is still needed. Report and micro-T-Kernel integration
-remain deferred. Software passes do not establish hardware accuracy or safety.
-
-Pending-source review found no generated binaries/build trees, hardcoded user paths
-or matching common credential patterns in the source selection. Local build files
-and the retained integration hash snapshot are ignored, not deleted. This scoped
-scan is not a full credential audit. Nothing was staged.
+Commit/push status must be checked separately.
