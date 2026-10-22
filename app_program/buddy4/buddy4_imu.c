@@ -203,14 +203,14 @@ static void update_side_event(side_event_t *event,
 buddy4_config_t buddy4_default_config(void)
 {
     return (buddy4_config_t){
-        /* Preliminary six-position estimates; orientations imperfectly aligned. */
+        /* Preliminary acceleration calibration */
         .accel_bias_g = {0.03799f, 0.03790f, 0.08411f},
         .accel_scale = {1.01301f, 1.03419f, 1.01223f},
-        .mounting_offsets_need_recalibration = true,
+        .mounting_offsets_need_recalibration = false,
         .pitch_sign = 1.0f,
-        .pitch_offset_deg = 2.50f,
+        .pitch_offset_deg = 0.97f,
         .roll_sign = 1.0f,
-        .roll_offset_deg = 2.85f,
+        .roll_offset_deg = -0.25f,
         .centre_spacing_cm = 11.3f,
         .centre_spacing_confirmed = true,
     };
