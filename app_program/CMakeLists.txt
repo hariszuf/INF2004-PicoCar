@@ -35,17 +35,19 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-# Autonomous line following (Buddy 3) on top of Motion Control (Buddy 2).
-# To run the Buddy 2 square-route test instead, use "Buddy 2/test/motion_demo_main.c"
+# Autonomous line following (Buddy 3) on top of Motion Control (Buddy 2), with
+# Buddy 4 IMU slope / hump reports passed to Buddy 2 (it sets speed and power).
+# To run the Buddy 2 square-route test instead, use "buddy2/test/motion_demo_main.c"
 # in place of the line_follow_demo_main.c line and remove the Buddy 3 sources.
 add_executable(EmbeddedProject
-        "Buddy 3/test/line_follow_demo_main.c"
-        "Buddy 3/line_follow.c"
-        "Buddy 3/line_sensors.c"
-        "Buddy 2/motion_control.c"
-        "Buddy 2/motion_pid.c"
-        "Buddy 2/motion_motor.c"
-        "Buddy 2/motion_encoder.c"
+        "buddy3/test/line_follow_demo_main.c"
+        "buddy3/line_follow.c"
+        "buddy3/line_sensors.c"
+        "buddy2/motion_control.c"
+        "buddy2/motion_pid.c"
+        "buddy2/motion_motor.c"
+        "buddy2/motion_encoder.c"
+        "buddy4/buddy4_imu.c"
 )
 
 pico_set_program_name(EmbeddedProject "EmbeddedProject")
@@ -61,13 +63,17 @@ target_link_libraries(EmbeddedProject
         hardware_gpio
         hardware_pwm
         hardware_clocks
-        hardware_sync)
+        hardware_sync
+        hardware_i2c
+        m)
 
 # Add the standard include files to the build
 target_include_directories(EmbeddedProject PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
-        "${CMAKE_CURRENT_LIST_DIR}/Buddy 2"
-        "${CMAKE_CURRENT_LIST_DIR}/Buddy 3"
+        "${CMAKE_CURRENT_LIST_DIR}/buddy2"
+        "${CMAKE_CURRENT_LIST_DIR}/buddy3"
+        "${CMAKE_CURRENT_LIST_DIR}/buddy4"
+        "${CMAKE_CURRENT_LIST_DIR}/shared"
 )
 
 # Line following runs much slower than the Buddy 2 demo: lower the minimum motor duty.
@@ -89,17 +95,17 @@ pico_add_extra_outputs(EmbeddedProject)
 
 # Separate motor diagnostic firmware - does not change EmbeddedProject.uf2
 add_executable(RightTurnDiagnostic
-        "Buddy 3/test/right_turn_diagnostic_main.c"
-        "Buddy 2/motion_control.c"
-        "Buddy 2/motion_pid.c"
-        "Buddy 2/motion_motor.c"
-        "Buddy 2/motion_encoder.c"
+        "buddy3/test/right_turn_diagnostic_main.c"
+        "buddy2/motion_control.c"
+        "buddy2/motion_pid.c"
+        "buddy2/motion_motor.c"
+        "buddy2/motion_encoder.c"
 )
 pico_enable_stdio_uart(RightTurnDiagnostic 0)
 pico_enable_stdio_usb(RightTurnDiagnostic 1)
 target_include_directories(RightTurnDiagnostic PRIVATE
-        "${CMAKE_CURRENT_LIST_DIR}/Buddy 2"
-        "${CMAKE_CURRENT_LIST_DIR}/Buddy 3"
+        "${CMAKE_CURRENT_LIST_DIR}/buddy2"
+        "${CMAKE_CURRENT_LIST_DIR}/buddy3"
 )
 target_link_libraries(RightTurnDiagnostic
         pico_stdlib hardware_gpio hardware_pwm hardware_clocks hardware_sync

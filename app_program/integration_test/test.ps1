@@ -8,6 +8,10 @@ try {
     if ($LASTEXITCODE) { throw 'Motion compilation failed' }
     & ./build-host/motion.exe
     if ($LASTEXITCODE) { throw 'Motion tests failed' }
+    & gcc @common @motion ../buddy2/test/host/test_terrain.c -o build-host/terrain.exe -lm
+    if ($LASTEXITCODE) { throw 'Terrain compilation failed' }
+    & ./build-host/terrain.exe
+    if ($LASTEXITCODE) { throw 'Terrain speed control tests failed' }
     & gcc @common -I../buddy3 -I../buddy3/test/host '-DMOTION_MIN_DUTY=0.10f' '-DMOTION_BREAKAWAY_DUTY=0.22f' '-DMOTION_STALL_DUTY=0.6f' '-DMOTION_STALL_TIME_MS=1500u' '-DMOTION_FEEDFORWARD_DUTY_PER_CM_S=0.0125f' @motion ../buddy3/line_follow.c ../buddy3/test/host/sim_track.c ../buddy3/test/host/test_line.c -o build-host/line.exe -lm
     if ($LASTEXITCODE) { throw 'Line compilation failed' }
     & ./build-host/line.exe
