@@ -431,3 +431,11 @@ diagnostic registers only and preserves it through successful recovery. Tests
 cover pre-cleanup capture and retention. This diagnostic build does not change
 the numerical timeout or claim the hardware issue is fixed. Copy the full
 Timeout trace line in a stationary recording with motor power disconnected.
+
+## To do: shock detection
+
+- [ ] Define and validate shock detection as a Buddy 4 follow-up. Review the existing preliminary possible-impact detector first; decide whether it already covers the required shock event or needs an additional signal/metric. Do not create a duplicate detector without a distinct purpose.
+- [ ] Distinguish shock events from normal vibration, braking, ramp crossings and handling using labelled recordings. A shock flag alone must not be presented as confirmed collision detection.
+- [ ] Keep this observational until validated; no automatic motor action is authorized by this to-do entry. Do not deliberately crash the car or strike the sensor.
+
+Requested on 28 October 2026. This is planned work only; no new shock algorithm has been implemented or validated in this checkpoint.
