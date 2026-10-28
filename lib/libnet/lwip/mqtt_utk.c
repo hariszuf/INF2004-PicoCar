@@ -414,7 +414,8 @@ void mqtt_utk_poll(struct netif *netif)
             (UB *)"[MQTT-DBG] connected=%u "
                   "connecting=%u "
                   "lwip_connected=%u "
-                  "heartbeat_age=%u ms\n",
+                  "heartbeat_age=%u ms "
+                  "up=%u link=%u ip=%u.%u.%u.%u\n",
             (unsigned int)connected,
             (unsigned int)connecting,
             (unsigned int)(
@@ -423,7 +424,13 @@ void mqtt_utk_poll(struct netif *netif)
             ),
             (unsigned int)(
                 debug_now - last_heartbeat_ms
-            )
+            ),
+            (unsigned int)(netif != NULL && netif_is_up(netif)),
+            (unsigned int)(netif != NULL && netif_is_link_up(netif)),
+            netif != NULL ? ip4_addr1(netif_ip4_addr(netif)) : 0U,
+            netif != NULL ? ip4_addr2(netif_ip4_addr(netif)) : 0U,
+            netif != NULL ? ip4_addr3(netif_ip4_addr(netif)) : 0U,
+            netif != NULL ? ip4_addr4(netif_ip4_addr(netif)) : 0U
         );
     }
 
@@ -552,6 +559,14 @@ void mqtt_utk_poll(struct netif *netif)
     /*
      * Begin MQTT connection.
      */
+    tm_printf(
+        (UB *)"[MQTT] Connecting client=%s to %s:%u uptime=%u ms\n",
+        (UB *)MQTT_CLIENT_ID,
+        (UB *)MQTT_BROKER_IP,
+        (unsigned int)MQTT_BROKER_PORT,
+        (unsigned int)now
+    );
+
     result = mqtt_client_connect(
         mqtt_client,
         &broker_address,
@@ -570,4 +585,11 @@ void mqtt_utk_poll(struct netif *netif)
             (int)result
         );
     }
+}
+
+/* Diagnostic image only; read from the existing radio-owner task. */
+int mqtt_utk_is_connected(void)
+{
+    return connected != 0U && mqtt_client != NULL
+        && mqtt_client_is_connected(mqtt_client);
 }

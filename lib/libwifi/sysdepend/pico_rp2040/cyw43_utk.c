@@ -43,6 +43,7 @@
  * budget returns the last copy and is visible through status_retries. */
 #define CYW43_STATUS_READ_ATTEMPTS 16
 #define CYW43_JOIN_TIMEOUT_US 30000000ULL
+#define CYW43_JOIN_RETRY_US    5000000ULL
 #define CYW43_DHCP_TIMEOUT_US 30000000ULL
 #define CYW43_DNS_TIMEOUT_US  30000000ULL
 
@@ -448,6 +449,41 @@ static int scan_result(void *env, const cyw43_ev_scan_result_t *result)
     return 0;
 }
 
+#if TM_WIFI_MQTT
+/* Diagnostic image only: Pico W's onboard LED is CYW43 GPIO 0, NOT RP2040
+ * GPIO 25 (the radio chip select). Only the radio-owner task calls this.
+ * Each 4-second group has 1=scan, 2=no link, 3=no IPv4, 4=no MQTT,
+ * 5=scan-start failure; solid means MQTT was connected at the last poll.
+ * Dark is ambiguous: failed boot/radio initialization/LED I/O are possible. */
+static void startup_led_poll(void)
+{
+    static int last_level = -1;
+    struct netif *netif = &cyw43_state.netif[CYW43_ITF_STA];
+    unsigned pulses;
+    unsigned slot;
+    int level;
+
+    /* A GPIO ioctl can otherwise trigger a new radio initialization. */
+    if((cyw43_state.itf_state & (1u << CYW43_ITF_STA)) == 0) return;
+
+    if(radio_status.init_result != 0) pulses = 5;
+    else if(!radio_status.scan_complete) pulses = 1;
+    else if(!netif_is_link_up(netif)) pulses = 2;
+    else if(!netif_is_up(netif)
+            || ip4_addr_isany_val(*netif_ip4_addr(netif))) pulses = 3;
+    else if(!mqtt_utk_is_connected()) pulses = 4;
+    else pulses = 0;
+
+    slot = (unsigned)((time_us_64() / 200000ULL) % 20ULL);
+    level = pulses == 0 || (slot < pulses * 2U && (slot & 1U) == 0);
+    if(level != last_level) {
+        (void)cyw43_gpio_set(&cyw43_state, 0, level != 0);
+        /* Bound LED I/O even if the write fails. */
+        last_level = level;
+    }
+}
+#endif
+
 void cyw43_utk_task(int32_t stacd, void *exinf)
 {
     cyw43_wifi_scan_options_t options = {0};
@@ -455,6 +491,9 @@ void cyw43_utk_task(int32_t stacd, void *exinf)
     bool was_scanning;
 #if TM_WIFI_JOIN
     uint64_t join_started_us = 0;
+#if TM_WIFI_MQTT
+    uint64_t join_failed_us = 0;
+#endif
 #endif
 
     (void)stacd;
@@ -503,7 +542,14 @@ void cyw43_utk_task(int32_t stacd, void *exinf)
      * waking a failed high-rate service must not interfere with USB or the
      * rest of the kernel qualification. */
     if(result != 0) {
-        for(;;) (void)tk_dly_tsk(1000);
+        for(;;) {
+#if TM_WIFI_MQTT
+            startup_led_poll();
+            (void)tk_dly_tsk(100);
+#else
+            (void)tk_dly_tsk(1000);
+#endif
+        }
     }
 
     for(;;) {
@@ -559,9 +605,21 @@ void cyw43_utk_task(int32_t stacd, void *exinf)
         if(was_scanning && !radio_status.scan_active) {
             mp_memory_barrir();
             radio_status.scan_complete = 1;
+        }
 #if TM_WIFI_JOIN
+        /* Preserve scan/join qualification profiles. MQTT deployments retry
+         * a failed initial join when the hotspot becomes available later.
+         * A late successful link must never be disturbed by a retry. */
+        if((was_scanning && !radio_status.scan_active)
+#if TM_WIFI_MQTT
+           || (radio_status.scan_complete && radio_status.join_complete
+               && radio_status.join_result != 0 && !radio_status.link_up
+               && time_us_64() - join_failed_us >= CYW43_JOIN_RETRY_US)
+#endif
+          ) {
             radio_status.join_started = 1;
             radio_status.join_complete = 0;
+            radio_status.join_elapsed_ms = 0;
             radio_status.link_up = 0;
             radio_status.link_status = CYW43_LINK_DOWN;
             join_started_us = time_us_64();
@@ -574,10 +632,11 @@ void cyw43_utk_task(int32_t stacd, void *exinf)
             if(result != 0) {
                 radio_status.join_result = result;
                 radio_status.join_complete = 1;
-            }
+#if TM_WIFI_MQTT
+                join_failed_us = time_us_64();
 #endif
+            }
         }
-#if TM_WIFI_JOIN
         if(radio_status.join_started && !radio_status.join_complete) {
             uint64_t now = time_us_64();
             int32_t link = cyw43_wifi_link_status(&cyw43_state,
@@ -603,7 +662,15 @@ void cyw43_utk_task(int32_t stacd, void *exinf)
                 mp_memory_barrir();
                 radio_status.join_complete = 1;
             }
+#if TM_WIFI_MQTT
+            if(radio_status.join_complete && radio_status.join_result != 0) {
+                join_failed_us = now;
+            }
+#endif
         }
+#endif
+#if TM_WIFI_MQTT
+        startup_led_poll();
 #endif
         status_publish_end();
         cyw43_utk_poll_requested = 0;
