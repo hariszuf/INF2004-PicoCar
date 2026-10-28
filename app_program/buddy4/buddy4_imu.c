@@ -246,7 +246,8 @@ buddy4_config_t buddy4_default_config(void)
         .pitch_sign = 1.0f,
         .pitch_offset_deg = 0.97f,
         .roll_sign = 1.0f,
-        .roll_offset_deg = -0.25f,
+        /* Provisional mounting offset; pending flat/1 cm ramp hardware verification. */
+        .roll_offset_deg = 0.61f,
         .centre_spacing_cm = 11.3f,
         .centre_spacing_confirmed = true,
     };

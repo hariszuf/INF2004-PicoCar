@@ -36,7 +36,7 @@ static void vector(fake_t *f,float x,float y,float z) {
  }
 }
 static void angle(fake_t *f,float pitch,float roll) {
- float x=sinf((pitch+0.97f)*0.01745329252f), y=sinf((roll+(-0.25f))*0.01745329252f);
+ float x=sinf((pitch+0.97f)*0.01745329252f), y=sinf((roll+0.61f)*0.01745329252f);
  vector(f,x,y,sqrtf(1-x*x-y*y));
 }
 static void samples(buddy4_imu_t *s,fake_t *f,uint64_t *t,float p,float r,int n) {
@@ -141,7 +141,7 @@ static void test_acceleration_calibration(void) {
  buddy4_imu_t s; fake_t f; setup(&s,&f);
  s.config=buddy4_default_config();
  assert(!s.config.mounting_offsets_need_recalibration);
- assert(s.config.pitch_offset_deg==0.97f && s.config.roll_offset_deg==(-0.25f));
+ assert(s.config.pitch_offset_deg==0.97f && s.config.roll_offset_deg==0.61f);
  assert(s.config.pitch_sign==1.0f && s.config.roll_sign==1.0f);
  assert(s.config.centre_spacing_cm==11.3f && s.config.centre_spacing_confirmed);
  assert(buddy4_configure(&s));
@@ -161,7 +161,7 @@ static void test_acceleration_calibration(void) {
  float magnitude=sqrtf(a[0]*a[0]+a[1]*a[1]+a[2]*a[2]);
  assert(fabsf(s.output.magnitude_g-magnitude)<1e-6f);
  assert(fabsf(s.output.pitch_deg-(atan2f(a[0],hypotf(a[1],a[2]))*57.2957795131f-0.97f))<1e-4f);
- assert(fabsf(s.output.roll_deg-(atan2f(a[1],hypotf(a[0],a[2]))*57.2957795131f-(-0.25f)))<1e-4f);
+ assert(fabsf(s.output.roll_deg-(atan2f(a[1],hypotf(a[0],a[2]))*57.2957795131f-0.61f))<1e-4f);
  /* A tilted first sample is never zeroed. */
  assert(s.output.filtered_pitch_deg==s.output.pitch_deg);
  assert(s.output.filtered_roll_deg==s.output.roll_deg);
