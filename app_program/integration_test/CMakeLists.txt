@@ -9,7 +9,7 @@ add_executable(buddy234_driving_test main.c drive_control.c
     ../buddy2/motion_motor.c ../buddy2/motion_encoder.c
     ../buddy3/line_follow.c ../buddy3/line_sensors.c
     ../buddy4/buddy4_imu.c ../buddy4/buddy4_motion.c ../buddy4/buddy4_impact.c ../buddy4/buddy4_encoder_yaw.c)
-target_include_directories(buddy234_driving_test PRIVATE ../buddy2 ../buddy3 ../buddy4)
+target_include_directories(buddy234_driving_test PRIVATE ../buddy2 ../buddy3 ../buddy4 ../shared)
 target_compile_options(buddy234_driving_test PRIVATE -Wall -Wextra)
 target_compile_definitions(buddy234_driving_test PRIVATE
     MOTION_MIN_DUTY=0.10f MOTION_BREAKAWAY_DUTY=0.22f

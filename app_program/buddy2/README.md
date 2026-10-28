@@ -41,6 +41,7 @@ motion_stop();                        // controlled stop (brake)
 motion_emergency_stop();              // immediate brake + latch, callable from any task
 motion_reset();                       // leave ERROR
 motion_reset_odometry();              // only while idle
+motion_set_terrain(&report);          // latest slope / hump report from Buddy 4 (every IMU sample)
 motion_is_idle();
 motion_get_status(&status);           // state, fault, counts, speeds, distance, heading
 ```
@@ -55,6 +56,24 @@ Telemetry for Buddy 1 comes from `motion_get_status()`: encoder counts, wheel sp
 - **Buddy 5 (obstacle):** `motion_move_backward()`, `motion_turn_left/right()` and `motion_drive()` cover reverse, turn and bypass arcs.
 - **Safety Monitor:** call `motion_emergency_stop()`. It brakes the motors in the caller's context and latches them, so no movement command can restart them until `motion_reset()`.
 - **Vehicle Controller:** poll `motion_is_idle()` to know when a move or turn has finished.
+
+### Slope and hump speed control (Buddy 4 -> Buddy 2)
+
+Buddy 4 only observes the terrain. After each IMU sample the main loop passes its result to Buddy 2 with `motion_set_terrain()` (glue: `shared/terrain_link.h`, which is the only file that knows both libraries). Buddy 2 then decides speed and power on its own:
+
+| IMU report (Buddy 4 hysteresis) | Speed target (moves and `motion_drive`) | Power assist |
+|---|---|---|
+| FLAT | unchanged | none |
+| UPHILL (pitch >= 6 deg) | x `MOTION_UPHILL_SPEED_SCALE` (1.0) | + `MOTION_GRADE_DUTY_PER_G` x sin(pitch) on both wheels |
+| DOWNHILL | x `MOTION_DOWNHILL_SPEED_SCALE` (0.7) | - same gravity term (less power, brakes rather than reverses) |
+| LEFT/RIGHT_WHEEL_UP (one-side hump/ramp, roll >= 4 deg) | x `MOTION_HUMP_SPEED_SCALE` (0.8) | + `MOTION_HUMP_DUTY_PER_G` x sin(roll) on the raised wheel only |
+
+- Buddy 3 needs no change: its `motion_drive()` speeds are scaled inside Buddy 2, so line following slows down on the ramp by itself. Spins in place are not slowed.
+- Speed changes go through the normal accel / decel ramp, and the assist is rate limited (`MOTION_TERRAIN_DUTY_RATE_PER_S`) and capped (`MOTION_TERRAIN_DUTY_MAX`), so there is no jerk.
+- A wheel is never driven against its requested direction: if the downhill term would do that, it brakes instead (protects the single-phase encoder count).
+- No report for `MOTION_TERRAIN_STALE_MS` (200 ms), or `valid = false` (IMU missing / I2C error) = flat ground, i.e. normal behaviour. Stall detection still applies.
+- `motion_get_status()` reports `terrain`, `terrain_speed_scale` and the per-wheel assist for telemetry.
+- All terrain values are `TUNE` placeholders: check them on the real ramp at line-following speed.
 
 ## Design decisions
 
@@ -110,11 +129,12 @@ cd "Buddy 2"
 sh test/host/run_tests.sh
 ```
 
-This compiles the control code on a PC against a simulated motor and encoder model and runs 39 checks: move and turn accuracy, straight-line correction, reversal safety with the single-phase encoder, emergency stop latch, stall detection, argument validation. It checks logic only. The simulated motor is a made-up first-order model, so its accuracy numbers say nothing about the real car.
+This compiles the control code on a PC against a simulated motor and encoder model and runs 39 checks, then the terrain tests (`test_terrain.c`, 30 checks: flat unchanged, uphill assist, downhill slow-down without reversing, left-wheel hump, stale / invalid IMU fallback, distance and turn accuracy with terrain active). The 39 original checks are: move and turn accuracy, straight-line correction, reversal safety with the single-phase encoder, emergency stop latch, stall detection, argument validation. It checks logic only. The simulated motor is a made-up first-order model, so its accuracy numbers say nothing about the real car.
 
 ## Verification status
 
-- Control logic: passes all 39 host simulation checks.
+- Control logic: passes all 39 host simulation checks and 30 terrain checks (also with the line-following duty overrides).
+- Built with Pico SDK 2.3.1 (EmbeddedProject and buddy234_driving_test), 28 Oct 2026. Terrain gains not yet tuned on the car.
 - Pico-specific files (`motion_motor.c`, `motion_encoder.c`, the bench): syntax-checked against stub headers only. They have not been built with the real Pico SDK or run on hardware.
 - `motion_task.c`: not built (no micro T-Kernel template available).
 - Coding style follows Barr-C conventions by hand (braces everywhere, fixed-width types, `s_` for file statics, no magic numbers in logic). No Barr-C checker was run.
