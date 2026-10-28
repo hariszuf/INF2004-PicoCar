@@ -161,10 +161,18 @@ void line_follow_update(void)
     else
     {
         s_lost_ms += LINE_UPDATE_PERIOD_MS;
-        if ((s_last_side != 0) && (s_lost_ms <= LINE_RECOVER_MS))
+        if (s_lost_ms <= LINE_RECOVER_MS)
         {
             s_state = LINE_STATE_RECOVERING;
-            steer(s_last_side, LINE_RECOVER_INNER_CM_S);
+            if (s_last_side != 0)
+            {
+                steer(s_last_side, LINE_RECOVER_INNER_CM_S);
+            }
+            else
+            {
+                /* Lost directly from centred-on-line: hold heading briefly. */
+                drive(LINE_STRAIGHT_SPEED_CM_S, LINE_STRAIGHT_SPEED_CM_S);
+            }
         }
         else
         {
