@@ -20,8 +20,8 @@ output is only Buddy 2's and any problem in this image belongs to Buddy 2.
 | 3 | Buddy 2 Motion (`motion_task_mtk.c`) | 20 ms | `motion_update()`: speed PID, moves/turns, stall and e-stop handling |
 | 12 | Buddy 2 self-test (`motion_selftest_mtk.c`) | - | scripted test below, prints results |
 
-The self-test waits (up to 30 s) for the USB serial monitor, counts down 10 s,
-then runs once: forward 30 cm, backward 30 cm, turn left 90, turn right 90,
+The self-test counts down 15 s from power-up (it does not wait for the serial
+monitor; the header repeats every 5 s), then runs once: forward 30 cm, backward 30 cm, turn left 90, turn right 90,
 drive 3 cm/s for 3 s. Serial output (example from the host simulation):
 
 ```
@@ -51,6 +51,7 @@ drive 3 cm/s for 3 s. Serial output (example from the host simulation):
 ==================================================================================
 ```
 
+The summary repeats every 15 s, so it is still visible if the monitor was opened late.
 Fill in "your measurement" with a ruler / protractor. For turns the encoder
 shows about 88 % of the angle on purpose (`MOTION_TURN_SCALE` corrects wheel
 slip), so judge turns by the real angle. The longest gap should stay close to
@@ -72,7 +73,7 @@ sequence and keeps the motors braked.
 | `overlay/app_program/buddy2/mtk/tests/` | host tests on a fake register map |
 | `overlay/app_program/app_main.c` | starts Buddy 2 and its self-test only |
 | `overlay/build_make/mtkernel_3/app_program/subdir.mk` | explicit source list (the live one compiles every `.c` in every buddy folder, including Pico SDK programs, and fails) |
-| `overlay/build_make/pico_rp2040.mk`, `overlay/build_make/makefile` | link `-lm` with nosys stubs; USB-only console (no UART mirror) |
+| `overlay/build_make/pico_rp2040.mk`, `overlay/build_make/makefile` | link `-lm` with nosys stubs (console unchanged: USB + UART mirror) |
 | `base_hashes.json` | fingerprints of the 4 live files the overlay replaces |
 
 `prepare_source.py` refuses to build if one of those 4 live files changed (for
@@ -93,8 +94,12 @@ do not just refresh the fingerprints.
   interrupt (for example a Buddy 5 echo pin) must register through
   `motion_mtk_gpio_irq_register()` instead of defining IRQ 13 again.
 - `tm_printf` keeps interrupts off for the whole call, and the UART mirror waits
-  for each character (found in the Buddy 4 trial). Encoder edges arriving then
-  could be lost, so this image uses the USB console only (`-DTM_CONSOLE_UART=0`).
+  for each character (found in the Buddy 4 trial), so a few encoder edges can be
+  missed while a line prints. The first trial build used the USB-only console
+  (`-DTM_CONSOLE_UART=0`) to avoid this, but on the car it showed no serial output
+  at all, so the trial is back on the team's default console (USB + UART mirror),
+  the setting that already drove this car. The self-test prints only twice a
+  second; expect at most a few tenths of a cm of encoder error from this.
 - The kernel's sample I2C driver sets GP8/GP9 (motor M1A/M1B) to I2C with
   pull-ups at boot. `buddy2_init()` switches GP8-GP11 back to PWM, braked, before
   any task runs. For the final team image the I2C driver should be moved to the

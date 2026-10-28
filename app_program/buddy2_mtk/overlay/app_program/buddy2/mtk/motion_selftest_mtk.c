@@ -2,13 +2,14 @@
  * @file motion_selftest_mtk.c
  * @brief Buddy 2 micro T-Kernel trial: scripted motion self-test.
  *
- * Waits for the USB serial monitor (up to 30 s), counts down
- * BUDDY2_SELFTEST_DELAY_S seconds, then runs once:
+ * Counts down BUDDY2_SELFTEST_DELAY_S seconds from power-up (it does NOT wait
+ * for the serial monitor), then runs once:
  *   1. forward 30 cm     2. backward 30 cm
  *   3. turn left 90 deg  4. turn right 90 deg
  *   5. drive 3 cm/s for 3 s (line-following speed), then stop
  * Each step prints a small table (every 0.5 s) and a result line; a summary
- * table follows at the end. Encoder figures are what Buddy 2 measured: check
+ * table follows at the end and is repeated every 15 s, so a serial monitor
+ * opened late still shows the results. Encoder figures are what Buddy 2 measured: check
  * the real distance / angle with a ruler / protractor. First run with the
  * wheels off the ground. Power off to abort.
  */
@@ -20,12 +21,11 @@
 #include "motion_mtk_hw.h"
 #include "motion_task_mtk.h"
 #include "motion_selftest_mtk.h"
-#include "../../usb_console_compat.h"
 
 #define PRINT_MS            (500u)
 #define PAUSE_MS            (1500)
 #define STEP_TIMEOUT_MS     (10000u)
-#define USB_WAIT_MS         (30000)
+#define SUMMARY_REPEAT_MS   (15000)
 #define STEP_COUNT          (5)
 
 static const char *const RULE  = "==================================================================================\n";
@@ -290,7 +290,7 @@ static void print_summary(int passed, int attempted)
     tm_printf((UB *)"  Motion task       : %u updates, longest gap %s ms (target %u ms)\n",
               (UINT)updates, (UB *)num(gap, (float)max_gap_us / 1000.0f), (UINT)MOTION_UPDATE_PERIOD_MS);
     tm_printf((UB *)"%s", (UB *)RULE);
-    tm_printf((UB *)" Test finished. Motors stay braked. Press reset / power-cycle to run it again.\n");
+    tm_printf((UB *)" Test finished. Motors stay braked. This summary repeats every 15 s.\n Press reset / power-cycle to run the test again.\n");
 }
 
 static void selftest_task(INT stacd, void *exinf)
@@ -298,28 +298,25 @@ static void selftest_task(INT stacd, void *exinf)
     int passed = 0;
     int attempted = 0;
     int s;
-    int waited;
 
     (void)stacd;
     (void)exinf;
 
-    /* Wait (up to 30 s) for the serial monitor so the header is not lost. */
-    for (waited = 0; (waited < USB_WAIT_MS) && (tm_usb_state() < 2u); waited += 100)
-    {
-        (void)tk_dly_tsk(100);
-    }
-    (void)tk_dly_tsk(500);
-
-    tm_printf((UB *)"\n%s", (UB *)RULE);
-    tm_printf((UB *)" BUDDY 2 MOTION SELF-TEST  (micro T-Kernel trial, Buddy 2 only)\n");
-    tm_printf((UB *)"%s", (UB *)RULE);
-    tm_printf((UB *)"  Motors   : left GP8/GP9, right GP10/GP11, 15 kHz PWM\n");
-    tm_printf((UB *)"  Encoders : left GP6, right GP4 (one phase each)\n");
-    tm_printf((UB *)"  Steps    : forward 30 cm, backward 30 cm, left 90, right 90, drive 3 cm/s\n");
-    tm_printf((UB *)"  SAFETY   : first run with the wheels OFF the ground. Power off to abort.\n");
-    tm_printf((UB *)"%s", (UB *)RULE);
+    /* Countdown from power-up. The header is repeated every 5 s so a serial
+       monitor opened part-way through still shows what is happening. */
     for (s = BUDDY2_SELFTEST_DELAY_S; s > 0; s--)
     {
+        if (((s % 5) == 0) || (s == BUDDY2_SELFTEST_DELAY_S))
+        {
+            tm_printf((UB *)"\n%s", (UB *)RULE);
+            tm_printf((UB *)" BUDDY 2 MOTION SELF-TEST  (micro T-Kernel trial, Buddy 2 only)\n");
+            tm_printf((UB *)"%s", (UB *)RULE);
+            tm_printf((UB *)"  Motors   : left GP8/GP9, right GP10/GP11, 15 kHz PWM\n");
+            tm_printf((UB *)"  Encoders : left GP6, right GP4 (one phase each)\n");
+            tm_printf((UB *)"  Steps    : forward 30 cm, backward 30 cm, left 90, right 90, drive 3 cm/s\n");
+            tm_printf((UB *)"  SAFETY   : first run with the wheels OFF the ground. Power off to abort.\n");
+            tm_printf((UB *)"%s", (UB *)RULE);
+        }
         tm_printf((UB *)"  Starting in %2d s ...\n", (INT)s);
         (void)tk_dly_tsk(1000);
     }
@@ -341,9 +338,11 @@ static void selftest_task(INT stacd, void *exinf)
             passed++;
         }
     }
-    print_summary(passed, attempted);
-
-    (void)tk_slp_tsk(TMO_FEVR);
+    for (;;)
+    {
+        print_summary(passed, attempted);    /* repeated for late monitors */
+        (void)tk_dly_tsk(SUMMARY_REPEAT_MS);
+    }
 }
 
 static T_CTSK s_task_config = {
