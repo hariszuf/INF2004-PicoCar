@@ -37,7 +37,7 @@
 #define	DEVCNF_I2C1_INTPRI	2
 
 /* Communication timeout time */
-#define	DEVCNF_I2C0_TMO		10 /* ms per phase; rounded by kernel tick */
+#define	DEVCNF_I2C0_TMO		10 /* ms per request; rounded by kernel tick */
 #define	DEVCNF_I2C1_TMO		1000
 
 #endif		/* __DEV_I2C_CNF_RP2040_H__ */

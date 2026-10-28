@@ -25,8 +25,17 @@ typedef uint8_t UB;
 #define TA_HLNG 1
 #define TWF_ORW 1
 #define TWF_BITCLR 2
-#define DI(x) ((x)=0)
-#define EI(x) ((void)(x))
+#define TTW_FLG 8
+#define TMCLK_MHz 125
+#define SYST_CVR 0xe000e018u
+#define SCB_ICSR 0xe000ed04u
+UW mock_disint(void);
+void mock_restore_interrupts(UW mask);
+#define DI(x) ((x)=mock_disint())
+#define EI(x) mock_restore_interrupts(x)
+#define TIMER_TIMERAWL 0x40054028u
+#define NVIC_ISER(n) (0xe000e100u + ((n)/32u)*4u)
+#define NVIC_ISPR(n) (0xe000e200u + ((n)/32u)*4u)
 typedef struct {int flgatr;} T_CFLG;
 typedef struct {int intatr;void (*inthdr)(UINT);} T_DINT;
 typedef struct {UW unit;} T_I2C_DCB;

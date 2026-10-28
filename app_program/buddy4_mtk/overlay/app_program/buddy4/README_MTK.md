@@ -74,9 +74,10 @@ Targeted native driver corrections:
 - Wait for physical STOP completion before disabling the controller after writes/reads.
 - Request repeated START on the first read command following a prefix write.
 - Clear only observed interrupt causes, avoiding loss of a newly arriving STOP.
-- Use a 10 ms I2C0 per-phase timeout rather than 1000 ms. Kernel-tick rounding and scheduling mean this is not a hard wall-clock bound; an entire configuration includes multiple transactions.
+- Use a 10 ms I2C0 per-request timeout rather than 1000 ms. Kernel-tick rounding and scheduling mean this is not a hard wall-clock bound; an entire configuration includes multiple transactions.
+- In the SMP=0 trial, notify completion after restoring the IRQ mask so the kernel can request PendSV; ignore pending NVIC IRQs with no active controller cause.
 
-The host register/IRQ tests cover these paths, a six-byte read, abort and timeout cleanup. They do not prove physical bus timing or sensor operation. No kernel scheduler or common IRQ implementation was changed.
+The host register/IRQ tests cover these paths, 1..6-byte reads with varied STOP delivery, dispatch, aborts, timeout races and recovery. B4-DIAG-E retains 32 timeout fields, including actual wait registration/deadline, expiry, flag release and task return. The trial adds observation hooks in its copy of kernel wait.c; scheduling and timeout behavior are unchanged. Tests using real kernel timer/wait code reproduce both completed-after-expiry and partial-transfer errors. The USB trial disables the polled UART mirror, which otherwise blocks IRQs during tm_printf; its early/panic UART mirror is consequently unavailable. The live console/kernel remain unchanged. Hardware validation is still required. See the trial's top-level README for evidence and the exact isolated UF2 path.
 
 ## Serial diagnostics and initial physical check
 
@@ -105,3 +106,13 @@ The previous course-board roll baseline and height bias remain unresolved. Do no
 - Physical operation and timing: not tested by this change.
 
 Final vehicle integration, collision discrimination, independently referenced turn-rate accuracy, Tribunal 1 comparisons and the report remain pending. The source integration is not completion of the assessed project.
+
+### Readable trial diagnostics
+
+The trial application defaults to readable status at 1 Hz, with decimal degrees,
+cm, named terrain/side, saved failure traces, error and skipped-slot counts.
+Invalid current measurements display N/A. Historical tilt records/counts are
+hidden; their internal data and optional CSV fields are retained.
+Set `BUDDY4_CONSOLE_CSV=1` in the proposed `app_main.c` and rebuild for the original
+11-field numeric CSV; the default is 0. This setting affects display only.
+The slow monitor may miss event pulses; it does not replace high-rate recording.
