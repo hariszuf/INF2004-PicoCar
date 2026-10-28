@@ -1,0 +1,9 @@
+{
+  "app_program/app_main.c": "5f7030c95019590cb5b7e620272ea5538c341ead07bcad534686b38c8e263413",
+  "app_program/buddy4/README.md": "dd302bda8e28b24037d358dc18f1511326ee6228aa019ad3a599f9cf2941810c",
+  "build_make/mtkernel_3/app_program/subdir.mk": "37b0ec635af0266dc8f43af82928e5f1bd96e450bd717a774e3716af9426ad53",
+  "build_make/pico_rp2040.mk": "89c085bd2f928c57c8026b32f472e67d837fc08940726d40b0acbe3f46ccbb13",
+  "build_make/makefile": "31f351d82ee54b6256bf95264d54ccb7614d6031164a8dd9fc3b37b393e6629b",
+  "device/i2c/sysdepend/rp2040/i2c_rp2040.c": "3ed57fadbe5b56587ccb5a3b99d798e18412470a6cc2d2f4c874496dea2e1092",
+  "device/i2c/sysdepend/rp2040/i2c_cnf_sysdep.h": "e7f781efc5c2b49ffaeb0b2419abdd3e5af552e1574c9f5ce08bd73a044aa8c4"
+}
