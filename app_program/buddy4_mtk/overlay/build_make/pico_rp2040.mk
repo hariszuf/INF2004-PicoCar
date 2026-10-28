@@ -276,8 +276,8 @@ endif
 ################################################################################
 # Console selection
 #
-#   CONSOLE=usb_cdc             USB CDC-ACM console, with the UART0 mirror
-#                               retained for early boot and panics.
+#   CONSOLE=usb_cdc             USB CDC-ACM only in this isolated IMU trial.
+#                               Polled UART mirror stalls IRQs during printf.
 #   CONSOLE=uart                UART0 only, no TinyUSB dependency.
 #
 # usb_cdc pulls seven TinyUSB sources and a set of pico-sdk headers from
@@ -300,7 +300,7 @@ endif
 # before any recipe executes.
 ################################################################################
 
-PROFILE_ID := smp$(SMP)-$(CONSOLE)-wifi$(WIFI)-join$(WIFI_JOIN)-netif$(WIFI_NETIF)-static$(WIFI_STATIC)-dhcp$(WIFI_DHCP)-dns$(WIFI_DNS)-udp$(WIFI_UDP)-tcp$(WIFI_TCP)-bulk$(WIFI_TCPBULK)-buddy1$(BUDDY1_ONLY)-buddy4$(BUDDY4_ENABLED)-mqtt$(WIFI_MQTT)
+PROFILE_ID := smp$(SMP)-$(CONSOLE)-b4diage-wifi$(WIFI)-join$(WIFI_JOIN)-netif$(WIFI_NETIF)-static$(WIFI_STATIC)-dhcp$(WIFI_DHCP)-dns$(WIFI_DNS)-udp$(WIFI_UDP)-tcp$(WIFI_TCP)-bulk$(WIFI_TCPBULK)-buddy1$(BUDDY1_ONLY)-buddy4$(BUDDY4_ENABLED)-mqtt$(WIFI_MQTT)
 PROFILE_FILE := .build_profile
 
 ifneq ($(strip $(shell cat $(PROFILE_FILE) 2>/dev/null)),$(PROFILE_ID))
@@ -352,7 +352,7 @@ USB_INCLUDES := -I"$(USBDIR)" \
                 -I"$(PICO_SDK_PATH)/src/rp2040/hardware_regs/include" \
                 -I"$(PICO_SDK_PATH)/src/rp2040/hardware_structs/include"
 
-CFLAGS += -DTM_CONSOLE_USB_CDC=1 -DNDEBUG $(USB_INCLUDES)
+CFLAGS += -DTM_CONSOLE_USB_CDC=1 -DTM_CONSOLE_UART=0 -DNDEBUG $(USB_INCLUDES)
 
 OBJS += $(USB_OBJS) $(TINYUSB_OBJS)
 C_DEPS += $(USB_OBJS:.o=.d) $(TINYUSB_OBJS:.o=.d)

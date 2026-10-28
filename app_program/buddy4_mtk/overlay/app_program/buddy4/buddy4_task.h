@@ -24,8 +24,17 @@ typedef struct {
 typedef struct {
     uint32_t sequence, skipped_slots, io_errors, completed_events;
     uint64_t poll_us, sample_us;
+    /* Kernel clock resolution is 10 ms. UINT32_MAX means unavailable age. */
+    uint32_t poll_duration_ms, poll_interval_ms, sample_age_ms;
+    bool timing_valid;
     bool valid;
     int poll_result, device_error;
+    /* Latched until next IMU error or reset, even after successful recovery. */
+    bool saved_error_present, saved_error_read, saved_error_time_valid;
+    int saved_error_code;
+    uint8_t saved_error_register;
+    uint64_t saved_error_us;
+    unsigned int saved_timeout_trace[32];
     int16_t raw[3];
     float acceleration_g[3], uncorrected_g[3], magnitude_g;
     float pitch_deg, roll_deg, height_cm;

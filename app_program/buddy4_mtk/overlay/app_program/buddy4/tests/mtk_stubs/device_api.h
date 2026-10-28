@@ -11,6 +11,18 @@ typedef struct {int32_t hi; uint32_t lo;} SYSTIM;
 typedef struct {int mtxatr;} T_CMTX;
 typedef struct {int tskatr; void (*task)(INT,void *); int itskpri,stksz;} T_CTSK;
 typedef struct {UW sadr; SZ snd_size; UB *snd_data; SZ rcv_size; UB *rcv_data;} T_I2C_EXEC;
+typedef struct {int flgatr;} T_CFLG;
+typedef struct {int cycatr; void (*cychdr)(void *); RELTIM cyctim,cycphs;} T_CCYC;
+#define TWF_ORW 1
+#define TWF_BITCLR 2
+ID tk_cre_flg(const T_CFLG *f);
+ER tk_del_flg(ID id);
+ER tk_set_flg(ID id, UINT bits);
+ER tk_wai_flg(ID id, UINT bits, UINT mode, UINT *out, int timeout);
+ID tk_cre_cyc(const T_CCYC *c);
+ER tk_sta_cyc(ID id);
+ER tk_stp_cyc(ID id);
+ER tk_del_cyc(ID id);
 #define TDN_I2C_EXEC -100
 #define E_OK 0
 #define E_PAR -17

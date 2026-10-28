@@ -7,7 +7,9 @@ typedef struct {
     int descriptor;
     uint8_t register_address, slave_address;
     bool pending;
+    unsigned int timeout_trace[32];
     int last_error;
+    bool last_operation_read;
 } buddy4_device_t;
 buddy4_bus_t buddy4_device_bus(buddy4_device_t *device);
 #endif

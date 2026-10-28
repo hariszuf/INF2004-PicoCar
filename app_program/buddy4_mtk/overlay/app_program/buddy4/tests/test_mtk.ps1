@@ -13,3 +13,7 @@ if ($LASTEXITCODE) { throw 'Native task/bridge tests failed' }
 if ($LASTEXITCODE) { throw 'Native I2C regressions failed to compile' }
 & (Join-Path $out 'i2c.exe')
 if ($LASTEXITCODE) { throw 'Native I2C regressions failed' }
+& gcc -std=c11 -Wall -Wextra -Wno-unused-parameter -Wno-unused-function -Wno-unused-variable -Wno-old-style-declaration -UNDEBUG "-I$PSScriptRoot/mtk_stubs" (Join-Path $PSScriptRoot 'test_wait_order.c') -o (Join-Path $out 'wait.exe')
+if ($LASTEXITCODE) { throw 'Kernel wait ordering tests failed to compile' }
+& (Join-Path $out 'wait.exe')
+if ($LASTEXITCODE) { throw 'Kernel wait ordering tests failed' }

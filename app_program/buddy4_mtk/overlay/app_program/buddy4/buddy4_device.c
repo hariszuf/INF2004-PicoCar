@@ -9,6 +9,13 @@
 #undef PROHIBIT_DEF_SIZE_T
 #endif
 
+extern void buddy4_i2c_timeout_trace(unsigned int unit, unsigned int out[32]);
+
+static void capture_timeout(buddy4_device_t *d)
+{
+    if (d->last_error == E_TMOUT) buddy4_i2c_timeout_trace(0, d->timeout_trace);
+}
+
 static int write_bus(void *context, uint8_t address, const uint8_t *data,
                      size_t count, bool no_stop)
 {
@@ -22,9 +29,12 @@ static int write_bus(void *context, uint8_t address, const uint8_t *data,
         d->pending = true;
         return 1; /* Actual address ACK belongs to the combined request below. */
     }
+    d->register_address = data[0];
+    d->last_operation_read = false;
     SZ actual = 0;
     ER e = tk_swri_dev(d->descriptor, address, data, (SZ)count, &actual);
     d->last_error = e >= E_OK && actual != (SZ)count ? E_IO : (int)e;
+    capture_timeout(d);
     return e >= E_OK && actual == (SZ)count ? (int)count : -1;
 }
 
@@ -36,6 +46,7 @@ static int read_bus(void *context, uint8_t address, uint8_t *data,
     d->pending = false;
     if (!pending || no_stop || address != d->slave_address || !data ||
         count == 0 || count > 6 || d->descriptor <= 0) return -1;
+    d->last_operation_read = true;
     T_I2C_EXEC request = {0};
     request.sadr = address;
     request.snd_size = 1;
@@ -46,6 +57,7 @@ static int read_bus(void *context, uint8_t address, uint8_t *data,
     ER e = tk_swri_dev(d->descriptor, TDN_I2C_EXEC, &request,
                        sizeof(request), &actual);
     d->last_error = e >= E_OK && actual != (SZ)sizeof(request) ? E_IO : (int)e;
+    capture_timeout(d);
     return e >= E_OK && actual == (SZ)sizeof(request) ? (int)count : -1;
 }
 
