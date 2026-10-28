@@ -12,28 +12,49 @@ the Pico SDK (CMake) builds and the host tests.
 
 ## What the trial image contains
 
-Buddy 1 (unchanged team tasks) + Buddy 2. Buddy 5 is left out on purpose so any
-problem in this image belongs to Buddy 2.
+Buddy 2 **only**. Buddy 1 and Buddy 5 are left out on purpose, so the serial
+output is only Buddy 2's and any problem in this image belongs to Buddy 2.
 
 | Prio | Task | Period | What it does |
 |---:|---|---|---|
 | 3 | Buddy 2 Motion (`motion_task_mtk.c`) | 20 ms | `motion_update()`: speed PID, moves/turns, stall and e-stop handling |
-| 6-9 | Buddy 1 | - | unchanged |
 | 12 | Buddy 2 self-test (`motion_selftest_mtk.c`) | - | scripted test below, prints results |
 
-Self-test (runs once, 10 s after power-up):
+The self-test waits (up to 30 s) for the USB serial monitor, counts down 10 s,
+then runs once: forward 30 cm, backward 30 cm, turn left 90, turn right 90,
+drive 3 cm/s for 3 s. Serial output (example from the host simulation):
 
-1. forward 30 cm
-2. backward 30 cm
-3. turn left 90 deg
-4. turn right 90 deg
-5. drive 3 cm/s for 3 s (line-following speed), then stop
+```
+----------------------------------------------------------------------------------
+ STEP 1/5   Forward 30 cm
+----------------------------------------------------------------------------------
+   time  state       enc L    enc R   speed L  speed R  distance  heading
+   (ms)              (count)  (count) (cm/s)   (cm/s)   (cm)      (deg)
+      0  IDLE             0        0      0.0      0.0       0.0      0.0
+    500  MOVING         415      423     23.6     23.4       6.8      0.5
+   1000  MOVING        1094     1098     21.0     20.5      17.7      0.1
+   1800  IDLE          1856     1860      0.1      0.1      29.9      0.0
+ RESULT: DONE     encoder says 29.9 cm, 0.0 deg  ->  now measure the real distance
+...
+==================================================================================
+ SUMMARY - BUDDY 2 MOTION SELF-TEST
+==================================================================================
+  #  step                    result   encoder reading            your measurement
+  1  Forward 30 cm           DONE        29.9 cm              ______ cm
+  2  Backward 30 cm          DONE       -30.0 cm              ______ cm
+  3  Turn left 90 deg        DONE        81.5 deg             ______ deg
+  4  Turn right 90 deg       DONE       -81.5 deg             ______ deg
+  5  Drive 3 cm/s for 3 s    DONE     L 3.1 / R 3.2 cm/s
+----------------------------------------------------------------------------------
+  Steps passed      : 5 of 5
+  Motion task       : 1260 updates, longest gap 21.0 ms (target 20 ms)
+==================================================================================
+```
 
-Every step prints status lines (`B2 | t=... | state | encoder counts | speed | distance | heading | fault`)
-and a result line with the distance / heading Buddy 2 measured. Measure the real
-distance and angle yourself and compare. The final line reports how many
-`motion_update()` calls ran and the longest gap between two (should stay close
-to 20 ms, at most ~30 ms with the 10 ms kernel tick).
+Fill in "your measurement" with a ruler / protractor. For turns the encoder
+shows about 88 % of the angle on purpose (`MOTION_TURN_SCALE` corrects wheel
+slip), so judge turns by the real angle. The longest gap should stay close to
+20 ms (at most ~30 ms with the 10 ms kernel tick).
 
 **First run: wheels off the ground** (car on a stand). Then on the floor with
 about 1 m of clear space. Power off to abort. A fault (stall, e-stop) stops the
@@ -49,7 +70,7 @@ sequence and keeps the motors braked.
 | `overlay/app_program/buddy2/mtk/motion_task_mtk.c/.h` | `buddy2_init()` / `buddy2_start()`, the Motion task |
 | `overlay/app_program/buddy2/mtk/motion_selftest_mtk.c/.h` | the self-test task |
 | `overlay/app_program/buddy2/mtk/tests/` | host tests on a fake register map |
-| `overlay/app_program/app_main.c` | registers Buddy 2 (instead of Buddy 5) |
+| `overlay/app_program/app_main.c` | starts Buddy 2 and its self-test only |
 | `overlay/build_make/mtkernel_3/app_program/subdir.mk` | explicit source list (the live one compiles every `.c` in every buddy folder, including Pico SDK programs, and fails) |
 | `overlay/build_make/pico_rp2040.mk`, `overlay/build_make/makefile` | link `-lm` with nosys stubs; USB-only console (no UART mirror) |
 | `base_hashes.json` | fingerprints of the 4 live files the overlay replaces |

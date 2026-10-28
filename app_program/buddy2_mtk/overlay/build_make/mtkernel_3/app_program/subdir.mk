@@ -5,11 +5,11 @@
 
 # Sources are listed explicitly: the buddy folders also hold Pico SDK (CMake)
 # programs, SDK-only drivers and host tests that must never be compiled into
-# the micro T-Kernel image. This trial builds Buddy 1 + Buddy 2 only.
+# the micro T-Kernel image. This trial builds Buddy 2 only (no Buddy 1/5), so
+# the serial output and any fault belong to Buddy 2.
 
 # BUDDY1_ONLY is ignored here: this image always contains Buddy 2.
 TEMP_SRCS = $(wildcard ../app_program/*.c) \
-            $(wildcard ../app_program/buddy1/*.c) \
             ../app_program/buddy2/motion_control.c \
             ../app_program/buddy2/motion_pid.c \
             ../app_program/buddy2/mtk/motion_mtk_hw.c \
