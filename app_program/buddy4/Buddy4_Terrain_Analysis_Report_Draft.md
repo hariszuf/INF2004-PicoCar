@@ -90,6 +90,10 @@ The valid median averages were 0.852 cm left and 1.279 cm right. Together with t
 
 All complete rows were IMU-valid with zero reported cumulative IMU errors. The left/right held estimates differed by approximately 0.012 cm. The correction substantially reduced the earlier observed asymmetry in this setup.
 
+![Stationary height estimates before and after roll correction](evidence/2026-10-28/charts/stationary_height_comparison.png)
+
+**Figure 1.** Settled instantaneous estimates before and after the mounting correction. Black segments show nominal references: zero for flat and 1 cm for raised-wheel positions. Recorded intervals are separate observations; surface levelness and reference uncertainty were not quantified.
+
 ### 5.4 Moving checks after correction
 
 | Side | Complete valid rows | Stable peak, cm | Median peak, cm | Event span, s |
@@ -100,6 +104,10 @@ All complete rows were IMU-valid with zero reported cumulative IMU errors. The l
 Both runs identified the correct side, confirmed both estimators, returned to side-level and stopped on the serial command. The median errors relative to nominal 1.00 cm were +0.049 cm and +0.065 cm, or +4.9% and +6.5%. Stable errors were -0.006 cm and -0.011 cm.
 
 These are two checks, not a general accuracy specification or a controlled statistical comparison with the earlier runs. Reference-height uncertainty was not quantified. No IMU errors were reported in the complete rows. No possible-impact pulse appeared in either capture; a pre-existing cumulative impact count does not establish an entirely false-trigger-free session.
+
+![Moving height estimates before and after roll correction](evidence/2026-10-28/charts/moving_height_comparison.png)
+
+**Figure 2.** Recorded moving event peaks: squares show the stable estimator and circles show the median estimator. Black segments indicate the nominal 1 cm reference. The before-correction groups contain two valid left and three right runs; after-correction groups contain only one run per side. Invalid Left 1 is excluded. This is a limited observational comparison, not a controlled accuracy study.
 
 ### 5.5 Historical evidence
 
@@ -134,3 +142,28 @@ The evidence supports a working preliminary single-side height method for the te
 ## Evidence files and submission preparation
 
 Use the Buddy 4 README as the detailed checkpoint index. Preserve original captures and document cleaning; do not manufacture raw data from these summaries. Replace this draft's pending items only when new evidence exists. Add final course/integration results, Tribunal 1 measurements and any required team report formatting before submission.
+
+
+### Recording index for the latest height results
+
+The [evidence index](evidence/2026-10-28/README.md) explains row selection and exclusions. The [manifest](evidence/2026-10-28/manifest.json) records original-file SHA-256 hashes, calibration versions, accepted row counts and event summaries. Raw files are preserved unchanged.
+
+| Report observation | Original recording |
+|---|---|
+| Invalid Left 1, excluded | [Left 1](evidence/2026-10-28/raw/left1_invalid.txt) |
+| Moving Left 2 before correction | [Left 2](evidence/2026-10-28/raw/left2_before.txt) |
+| Moving Left 3 before correction | [Left 3](evidence/2026-10-28/raw/left3_before.txt) |
+| Moving Right 1 before correction | [Right 1](evidence/2026-10-28/raw/right1_before.txt) |
+| Moving Right 2 before correction | [Right 2](evidence/2026-10-28/raw/right2_before.txt) |
+| Moving Right 3 before correction | [Right 3](evidence/2026-10-28/raw/right3_before.txt) |
+| Initial flat baseline before correction | [Flat before](evidence/2026-10-28/raw/flat_before.txt) |
+| Left held before correction | [Left held before](evidence/2026-10-28/raw/left_held_before.txt) |
+| Right held before correction | [Right held before](evidence/2026-10-28/raw/right_held_before.txt) |
+| Return to flat before correction | [Flat return](evidence/2026-10-28/raw/flat_return_before.txt) |
+| Flat after correction | [Flat after](evidence/2026-10-28/raw/flat_after.txt) |
+| Left held after correction | [Left held after](evidence/2026-10-28/raw/left_held_after.txt) |
+| Right held after correction | [Right held after](evidence/2026-10-28/raw/right_held_after.txt) |
+| Moving left after correction | [Left moving after](evidence/2026-10-28/raw/left_moving_after.txt) |
+| Moving right after correction | [Right moving after](evidence/2026-10-28/raw/right_moving_after.txt) |
+
+Historical larger-hump, book and turn results remain checkpoint summaries in this draft. Their original captures and software test artifacts are not indexed in this latest-height bundle; link them separately before claiming complete evidence traceability for the final submission. The draft still needs final report-rubric review, technical references, pending validation results and Tribunal 1 evidence.
