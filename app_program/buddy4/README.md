@@ -1,7 +1,7 @@
 # Buddy 4 — IMU, Motion and Terrain Monitoring
 
 **Project:** INF2004 Autonomous PicoCar  
-**Checkpoint:** 22 October 2026  
+**Checkpoint:** 28 October 2026  
 **Status:** Planned prototype modules implemented; software checks passed and selected hardware tests completed. Full assignment integration and validation remain incomplete.
 
 This README preserves the current configuration, build instructions, experimental results, limitations and deferred work so development can continue without the original chat.
@@ -30,9 +30,11 @@ Expected deliverables include the IMU processing module, hump-detection algorith
 | Numerical yaw-rate accuracy | Unvalidated |
 | Final µT-Kernel/team integration | KIV |
 | Terrain analysis report | KIV |
-| Professor clarification | KIV |
+| Ramp arrangement | Single-side ramp confirmed by operator |
+| Turn-rate acceptance / expected accuracy | Clarification pending |
+| Tribunal 1 minimum-bit representation | Reviewed; implementation deferred until integrated baseline |
 
-No additional prototype features are currently planned. Deferred work must not be described as completed.
+The original prototype modules exist; this is not completion of the assessed work. Tribunal 1 adds a team-wide data-representation change that has not been implemented. Deferred work must not be described as completed.
 
 ## 2. Confirmed hardware
 
@@ -121,9 +123,11 @@ Current configuration:
 .centre_spacing_confirmed = true,
 ```
 
-The roll mounting offset **+0.61 degrees is provisional and pending hardware verification** (28 October 2026). Two flat-ground recordings using the previous -0.25 degree offset averaged +0.913 and +0.800 degrees roll. Their midpoint implies -0.25 + (0.913 + 0.800) / 2 = +0.6065 degrees, rounded to +0.61. Because the offset is subtracted, the expected residual means are +0.053 and -0.060 degrees; these are predictions, not new hardware results.
+The roll mounting offset **+0.61 degrees was checked on hardware on 28 October 2026**, using flat, left-held, right-held and one moving crossing per side on the measured 1 cm ramp. These limited checks support retaining the correction; they do not establish general accuracy.
 
-Next, manually flash the newly built integration UF2 and record flat, left-held and right-held positions using the 1 cm ramp. Verify the flat baseline, left/right signs and height estimates with the measured 11.3 cm spacing. No startup auto-zero is added. Pitch offset, acceleration calibration, axes, geometry, thresholds, estimators, motion classification, controls and safety behaviour remain unchanged.
+The previous -0.25 degree setting produced flat means of +0.913 and +0.800 degrees. Because the mounting offset is subtracted, the proposed correction was -0.25 + (0.913 + 0.800) / 2 = +0.6065 degrees, rounded to +0.61. Firmware was rebuilt and manually flashed before the corrected recordings below.
+
+Pitch offset, acceleration calibration, axes, geometry, thresholds, estimators, motion classification, controls and safety behaviour were preserved. There is no startup auto-zero. Recheck the fixed mounting calibration if the bracket moves or the supporting surface changes.
 
 The acceleration coefficients are preliminary six-position estimates; orientations were imperfectly aligned.
 
@@ -167,7 +171,9 @@ It estimates wheel-height difference from chassis roll. It does not directly mea
 
 Limitations include combined pitch/roll, mounting alignment, tyre deformation, caster geometry, acceleration, vibration and slip.
 
-A full-width obstacle can raise both wheels equally with little roll; this formula cannot recover its height.
+A full-width obstacle can raise both wheels equally with little roll; this formula cannot recover its height. The operator confirmed that the required course arrangement uses a ramp on one side only. Both-wheel height estimation is therefore not part of the current implementation plan; retain this limitation if the course arrangement changes.
+
+The professor's revised announcement permits disregarding the higher practice ramp; the final ramp is approximately the smaller ramp's height, possibly slightly lower or higher. The smaller practice ramp used in the latest checks was measured by the operator as 1.0 cm. Do not hardcode that height into the estimator.
 
 ### Original stable estimator
 
@@ -466,7 +472,7 @@ A later motion/impact/yaw check retained **619 complete rows**, excluding two in
 
 This was a behavioural check, not yaw-rate accuracy validation.
 
-## 15. Latest six moving-hump trials
+## 15. Historical six moving-hump trials before the 28 October roll correction
 
 ### Setup
 
@@ -515,6 +521,48 @@ This is limited reference-height testing on **one hump at one target speed**. It
 
 The median estimator confirmed every recorded crossing. The stable estimator missed one moving peak. Neither result proves that all future humps will be detected or measured accurately.
 
+### 28 October small-ramp checks before the roll correction
+
+Measured ramp height: **1.00 cm**. Manual target: **3.0 cm/s per wheel**. One wheel crossed the centred ramp while the other remained on flat ground, without hand assistance.
+
+| Trial | Stable estimate, cm | Median estimate, cm |
+|---|---:|---:|
+| Left 1 | Excluded | Excluded |
+| Left 2 | 0.608 | 0.864 |
+| Left 3 | 0.785 | 0.840 |
+| Right 1 | 1.091 | 1.245 |
+| Right 2 | 1.226 | 1.314 |
+| Right 3 | 1.135 | 1.278 |
+
+Left 1 was excluded because the operator reported the ramp was at the tyre edge rather than centred in its path. Its recording also ended shortly after starting. It is not evidence of an algorithmic missed detection and must not enter detection/accuracy statistics.
+
+The valid median means were 0.852 cm left and 1.279 cm right. Settled flat roll averaged +0.913 degrees initially and +0.800 degrees after repositioning. Held-left roll was -3.888 degrees (0.766 cm), and held-right roll was +5.886 degrees (1.159 cm). These observations supported correcting the fixed roll mounting offset rather than changing height scale or detection thresholds.
+
+### 28 October checks after changing roll offset to +0.61 degrees
+
+The updated integration firmware was manually flashed by the operator. Motor power remained off during held-position measurements.
+
+| Position | Complete valid rows | Recording span | Mean filtered roll | Mean instantaneous height |
+|---|---:|---:|---:|---:|
+| Flat | 318 | 6.42 s | -0.142 degrees | 0.028 cm |
+| Left held at 1 cm | 373 | 7.48 s | -4.977 degrees | 0.980 cm |
+| Right held at 1 cm | 574 | 11.46 s | +4.916 degrees | 0.968 cm |
+
+Every complete row in these three recordings had valid IMU data and zero reported cumulative IMU errors. The left/right held estimates differed by approximately 0.012 cm. Stored event peaks from manual placement were not used as settled height measurements: placement movement can create much larger transient peaks.
+
+One moving crossing per side was then recorded with the same 1 cm ramp and 3 cm/s target:
+
+| Side | Complete valid rows | Stable peak | Median peak | Event duration | Median error versus 1 cm |
+|---|---:|---:|---:|---:|---:|
+| Left | 458 | 0.994 cm | 1.049 cm | 1.280 s | +0.049 cm (+4.9%) |
+| Right | 394 | 0.989 cm | 1.065 cm | 1.360 s | +0.065 cm (+6.5%) |
+
+Both event summaries identified the correct side and confirmed both estimators. Both crossings returned to side-level and stopped on the serial stop command. All complete rows were IMU-valid with zero reported cumulative IMU errors. No possible-impact pulse appeared in either capture, but the cumulative impact count was already 1 with a timestamp preceding both recordings; this is not evidence of zero possible impacts across the entire session.
+
+These are observations from two moving runs, not general accuracy or repeatability guarantees. Percentages use the operator's nominal 1.00 cm measurement; measurement uncertainty was not quantified. Do not pool these data with the historical larger-ramp runs or earlier-offset trials as one calibration dataset.
+
+The latest offset-change software checkpoint was reported to pass host regressions, CSV schemas (33/69 columns), native CTest (1/1), and both firmware builds. Two existing Buddy 3 warnings remained. This records that reported result; no fresh test run was performed for this documentation update.
+
 ## 16. Timed-turn observations
 
 | Measurement | Left test | Right test |
@@ -544,33 +592,57 @@ Duplicates were not treated as fresh decisions. Logged sample ages were approxim
 
 Not every internal update was recorded, preventing exact reconstruction of all transitions. Thresholds were preserved; UNKNOWN remains preferable to an unsupported label.
 
-## 17. Remaining work and KIV items
+## 17. Remaining work and agreed development order
 
-### Current position
+### Completed checkpoint
 
-Prototype coding and the recorded software checkpoint are complete. No extra feature development or repeated testing is currently scheduled.
+- Original Buddy 4 prototype modules and selected hardware checks exist.
+- The +0.61 degree roll-offset correction passed limited stationary and moving 1 cm checks.
+- Buddy 2/3/4 are combined in test firmware. Recent manual crossings bypass Buddy 3 steering; they do not establish final line-following course performance.
+- Single-side ramp arrangement was confirmed by the operator. Both-wheel height development is not currently required.
+- No more robot operation is scheduled for this session. Save recordings and keep motor power off for handover. Commit/push status remains unconfirmed.
 
-Save the verified work using GitHub Desktop if it has not already been committed. Do not claim a commit or push without confirmation.
+### Agreed order
 
-### KIV
+1. Preserve the current working code and evidence; prepare documentation without the robot.
+2. When Buddy 5's ultrasonic module is available, combine and test it with the existing Buddy 2/3/4 test application.
+3. Complete final team/µT-Kernel integration, course testing and remaining collision/turn-rate validation.
+4. Save and measure a working integrated baseline before changing data representation.
+5. Implement Tribunal 1 changes, then repeat correctness/performance and size comparisons.
+6. Finish the terrain report and submission evidence.
 
-- Final µT-Kernel and team-controller integration.
-- Terrain analysis report.
-- Professor clarification on expected height accuracy and encoder-based turn rate.
-- Further possible-impact/collision validation.
-- Team reconciliation of 11.3/12.2 cm geometry.
+Buddy 5 is a dependency for the planned combined ultrasonic/IMU collision-context tests, not for all Buddy 4 work. Ultrasonic proximity does not prove contact. Encoder turn-rate validation can proceed without Buddy 5, using an independent angle/time reference and Buddy 2 encoder data.
 
-### Unresolved limitations
+### Tribunal 1 minimum-bit data representation — not implemented
 
-- Broad moving-height accuracy is not established.
-- Roll-only height does not cover general full-width obstacles.
-- Collision discrimination is unvalidated.
-- Numerical encoder yaw accuracy is unvalidated.
-- Slow turns can legitimately remain UNKNOWN.
-- Not every physical safety/fault path has been tested.
-- Reverse classification has synthetic coverage but has not been established by the recorded hardware checks.
+The supplied Change Requirement 1 document applies throughout the team's application data, including hump estimation, states, shared task/ISR data, queues and MQTT payloads.
 
-These are limitations to disclose, not claims that every additional experiment is required by the professor.
+Required work includes:
+
+- Inventory each relevant field and define its valid range, required bits and representation.
+- Use bit-fields or explicit masks/shifts where appropriate; coordinate a shared fault bitmask.
+- Define numeric range/precision before changing acceleration, angle, height, count or timestamp representation. Preserve required processing accuracy.
+- Use compact binary MQTT application fields and agree formats with the telemetry owner.
+- Protect shared packed read-modify-write operations with appropriate atomic access or synchronisation.
+- Include the representation table, measured RAM before/after, relevant message sizes before/after, and correctness/timing evidence in the Week 13 GitHub submission.
+
+Implementation is deliberately deferred until the working integrated baseline, per the operator's chosen order. No compliance claim is made. Current CSV debugging logs are not proof that MQTT binary-payload requirements have been met.
+
+### Still pending / KIV
+
+- Possible-impact/collision discrimination and combined ultrasonic context tests.
+- Independent numerical yaw-rate validation and professor acceptance of the encoder approach.
+- Final µT-Kernel integration and black-line course checks.
+- Team reconciliation of 11.3/12.2 cm wheel geometry.
+- Tribunal 1 implementation and required comparisons.
+- Terrain analysis report; drafting can use existing evidence before final integration.
+- Professor clarification on required height accuracy, if not supplied.
+
+### Limitations to disclose
+
+Broad moving-height accuracy remains unestablished. Roll-only height does not cover full-width obstacles, although those are outside the confirmed current setup. Collision discrimination and yaw accuracy are unvalidated. Slow turns may remain UNKNOWN. Not every physical fault path was tested. Reverse classification has synthetic coverage but no established hardware evidence here.
+
+Do not deliberately crash the car or strike the sensor. Do not claim every additional experiment is explicitly required by the professor; distinguish stated requirements from proposed validation methods.
 
 ## 18. Report notes for later
 
@@ -580,10 +652,11 @@ The report has not yet been written. When resumed, include:
 2. **Architecture:** module ownership, validity/timestamps, error recovery and standalone versus RTOS integration.
 3. **Calibration:** coefficients, imperfect alignment, mounting offsets and corrected geometry.
 4. **Algorithms:** tilt hysteresis, side events, stable/median estimators, motion classification, possible impact and encoder yaw.
-5. **Evidence:** stationary book tests, flat driving, six measured-hump crossings and timed turns.
+5. **Evidence:** stationary book tests, historical larger-hump trials, 1 cm trials before/after the roll correction, flat driving and timed turns. Exclude the misaligned Left 1 trial and distinguish placement transients from settled readings.
 6. **Software verification:** host tests and builds, clearly separated from hardware evidence.
 7. **Limitations:** small test set, estimate bias, unvalidated collision/yaw accuracy, UNKNOWN periods and geometry discrepancy.
 8. **Remaining integration:** state exactly what is deferred.
+9. **Tribunal 1 evidence:** field/range/bit table, measured RAM and message sizes before/after, and correctness/performance comparisons once implemented.
 
 Preserve original serial captures and document excluded rows. Do not invent missing raw evidence or describe exploratory replay as independent measurement.
 
