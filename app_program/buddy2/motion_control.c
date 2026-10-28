@@ -17,8 +17,10 @@
 #include "motion_motor.h"
 #include "motion_pid.h"
 
-#ifdef MOTION_HOST_TEST
+#if defined(MOTION_HOST_TEST)
 #include "host_platform.h"
+#elif defined(MOTION_USE_UTKERNEL)
+#include "motion_mtk_hw.h"    /* micro T-Kernel trial: app_program/buddy2_mtk */
 #else
 #include "hardware/sync.h"
 #include "pico/time.h"
@@ -97,8 +99,10 @@ static int32_t s_status_count[MOTION_SIDE_COUNT];
 /* ------------------------------------------------------------------ */
 static uint64_t now_us(void)
 {
-#ifdef MOTION_HOST_TEST
+#if defined(MOTION_HOST_TEST)
     return host_time_us();
+#elif defined(MOTION_USE_UTKERNEL)
+    return motion_mtk_time_us();
 #else
     return time_us_64();
 #endif
@@ -106,8 +110,10 @@ static uint64_t now_us(void)
 
 static uint32_t critical_enter(void)
 {
-#ifdef MOTION_HOST_TEST
+#if defined(MOTION_HOST_TEST)
     return 0u;
+#elif defined(MOTION_USE_UTKERNEL)
+    return motion_mtk_irq_save();
 #else
     return save_and_disable_interrupts();
 #endif
@@ -115,8 +121,10 @@ static uint32_t critical_enter(void)
 
 static void critical_exit(uint32_t saved)
 {
-#ifdef MOTION_HOST_TEST
+#if defined(MOTION_HOST_TEST)
     (void)saved;
+#elif defined(MOTION_USE_UTKERNEL)
+    motion_mtk_irq_restore(saved);
 #else
     restore_interrupts(saved);
 #endif
@@ -366,6 +374,25 @@ static float wheel_control(motion_side_t side, float setpoint, float dt_s)
     return drive_wheel(side, duty);
 }
 
+/*
+ * True when the speed loop is pushing a wheel as hard as it is allowed to:
+ * duty at or above MOTION_STALL_DUTY, or the PID integral saturated in the
+ * driving direction. The second case matters at slow line-following speeds,
+ * where feed-forward + PID can never reach MOTION_STALL_DUTY.
+ */
+static bool pushing_hard(uint32_t i, float applied)
+{
+    float drive_sign = sign_f(s_setpoint_cm_s[i]);
+
+    if (abs_f(applied) >= MOTION_STALL_DUTY)
+    {
+        return true;
+    }
+    return (abs_f(applied) > DUTY_ZERO) &&
+           (abs_f(s_setpoint_cm_s[i]) > ZERO_SPEED_CM_S) &&
+           ((drive_sign * s_pid[i].integral) >= (0.99f * MOTION_PID_INTEGRAL_LIMIT));
+}
+
 /* ------------------------------------------------------------------ */
 /* State transitions                                                   */
 /* ------------------------------------------------------------------ */
@@ -398,6 +425,16 @@ static void start_command(const command_t *p_command)
         {
             begin_stop();
         }
+        return;
+    }
+
+    /* Line following re-sends motion_drive() every few ms. A new DRIVE while
+       already driving only changes the wheel speeds: keep the stall timers
+       running, otherwise a stuck wheel is never detected. */
+    if ((p_command->type == COMMAND_DRIVE) && (s_state == MOTION_STATE_EXECUTING) &&
+        (s_active.type == COMMAND_DRIVE))
+    {
+        s_active = *p_command;
         return;
     }
 
@@ -542,7 +579,7 @@ static void run_executing(float dt_s)
         s_setpoint_cm_s[i] = approach(s_setpoint_cm_s[i], target[i], rate * dt_s);
         applied = wheel_control(side, s_setpoint_cm_s[i], dt_s);
 
-        if ((abs_f(applied) >= MOTION_STALL_DUTY) &&
+        if (pushing_hard(i, applied) &&
             (abs_f(s_speed_cm_s[i]) < MOTION_STALL_SPEED_CM_S))
         {
             s_stall_ms[i] += MOTION_UPDATE_PERIOD_MS;
