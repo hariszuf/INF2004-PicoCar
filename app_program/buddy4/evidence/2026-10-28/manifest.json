@@ -1,0 +1,236 @@
+[
+  {
+    "file": "raw/left1_invalid.txt",
+    "sha256": "fdaa6967232467c7df20519f39c08c078435481dfdb1f74893fd42b8e23c9c90",
+    "roll_offset_deg": -0.25,
+    "description": "Invalid ramp placement; capture also ends shortly after start. Exclude from performance statistics.",
+    "complete_rows": 309,
+    "valid_rows": 309,
+    "rejected_numeric_lines": 3,
+    "event_summaries": []
+  },
+  {
+    "file": "raw/left2_before.txt",
+    "sha256": "f84bea0535e9048f32d000709b4dacbbaef0776339f25d4a555d6f887df73986",
+    "roll_offset_deg": -0.25,
+    "description": "Moving left; 1 cm reference",
+    "complete_rows": 533,
+    "valid_rows": 533,
+    "rejected_numeric_lines": 5,
+    "event_summaries": [
+      {
+        "start_us": "126340232",
+        "end_us": "127240149",
+        "side": "-1",
+        "confirmed": "1",
+        "peak_roll": "3.082",
+        "peak_height_cm": "0.608",
+        "median_candidate_valid": "1",
+        "median_candidate_roll_deg": "4.383",
+        "median_candidate_height_cm": "0.864"
+      }
+    ]
+  },
+  {
+    "file": "raw/left3_before.txt",
+    "sha256": "477b5da0acdc665a647524ca16d8c169ab19f9a7e55e16a684535d5492905a6e",
+    "roll_offset_deg": -0.25,
+    "description": "Moving left; 1 cm reference",
+    "complete_rows": 519,
+    "valid_rows": 519,
+    "rejected_numeric_lines": 3,
+    "event_summaries": [
+      {
+        "start_us": "196540155",
+        "end_us": "197360235",
+        "side": "-1",
+        "confirmed": "1",
+        "peak_roll": "3.983",
+        "peak_height_cm": "0.785",
+        "median_candidate_valid": "1",
+        "median_candidate_roll_deg": "4.264",
+        "median_candidate_height_cm": "0.840"
+      }
+    ]
+  },
+  {
+    "file": "raw/right1_before.txt",
+    "sha256": "542a2dcf1ec992f7864c08092c07729987848378c45c74a6146ec9b369294d2f",
+    "roll_offset_deg": -0.25,
+    "description": "Moving right; 1 cm reference",
+    "complete_rows": 414,
+    "valid_rows": 414,
+    "rejected_numeric_lines": 3,
+    "event_summaries": [
+      {
+        "start_us": "242660014",
+        "end_us": "244800013",
+        "side": "1",
+        "confirmed": "1",
+        "peak_roll": "5.540",
+        "peak_height_cm": "1.091",
+        "median_candidate_valid": "1",
+        "median_candidate_roll_deg": "6.325",
+        "median_candidate_height_cm": "1.245"
+      }
+    ]
+  },
+  {
+    "file": "raw/right2_before.txt",
+    "sha256": "f20c034a9b28db7a8a6d2d1319ad42f3cd3d6733425854c171e211703ce950d8",
+    "roll_offset_deg": -0.25,
+    "description": "Moving right; 1 cm reference",
+    "complete_rows": 481,
+    "valid_rows": 481,
+    "rejected_numeric_lines": 5,
+    "event_summaries": [
+      {
+        "start_us": "295420164",
+        "end_us": "297280010",
+        "side": "1",
+        "confirmed": "1",
+        "peak_roll": "6.230",
+        "peak_height_cm": "1.226",
+        "median_candidate_valid": "1",
+        "median_candidate_roll_deg": "6.678",
+        "median_candidate_height_cm": "1.314"
+      }
+    ]
+  },
+  {
+    "file": "raw/right3_before.txt",
+    "sha256": "fd9a8d7ca42c5f10479078f893e7bb468ab0d27e5b3c6ef37f24233ad607083f",
+    "roll_offset_deg": -0.25,
+    "description": "Moving right; 1 cm reference",
+    "complete_rows": 535,
+    "valid_rows": 535,
+    "rejected_numeric_lines": 5,
+    "event_summaries": [
+      {
+        "start_us": "337760230",
+        "end_us": "339600237",
+        "side": "1",
+        "confirmed": "1",
+        "peak_roll": "5.764",
+        "peak_height_cm": "1.135",
+        "median_candidate_valid": "1",
+        "median_candidate_roll_deg": "6.493",
+        "median_candidate_height_cm": "1.278"
+      }
+    ]
+  },
+  {
+    "file": "raw/flat_before.txt",
+    "sha256": "46b5a7ea8dda05ef807166dd94741ba1d92cd333ab0b3a991207e2336cb51498",
+    "roll_offset_deg": -0.25,
+    "description": "Stationary flat",
+    "complete_rows": 332,
+    "valid_rows": 332,
+    "rejected_numeric_lines": 1,
+    "event_summaries": []
+  },
+  {
+    "file": "raw/left_held_before.txt",
+    "sha256": "1d27f71f217f94d5c688c78f3944233528d5f9cd047de4d212bd9ab885a78ce5",
+    "roll_offset_deg": -0.25,
+    "description": "Stationary left at 1 cm",
+    "complete_rows": 456,
+    "valid_rows": 456,
+    "rejected_numeric_lines": 0,
+    "event_summaries": []
+  },
+  {
+    "file": "raw/right_held_before.txt",
+    "sha256": "99705dd5491bc30be8df38b7a54e5a2fb703038b4a32fab3842b9762cc595d7d",
+    "roll_offset_deg": -0.25,
+    "description": "Stationary right at 1 cm",
+    "complete_rows": 439,
+    "valid_rows": 439,
+    "rejected_numeric_lines": 0,
+    "event_summaries": []
+  },
+  {
+    "file": "raw/flat_return_before.txt",
+    "sha256": "31b17fc06d055d2fbd546a669dbf557cc0b9bfb7588b7274b9df60aebe9cf4f6",
+    "roll_offset_deg": -0.25,
+    "description": "Stationary return to flat",
+    "complete_rows": 364,
+    "valid_rows": 364,
+    "rejected_numeric_lines": 1,
+    "event_summaries": []
+  },
+  {
+    "file": "raw/flat_after.txt",
+    "sha256": "53ff394762ad1a723f1598fc93e84902a3f2a184ee79093ef30f4d973dd1002a",
+    "roll_offset_deg": 0.61,
+    "description": "Stationary flat",
+    "complete_rows": 318,
+    "valid_rows": 318,
+    "rejected_numeric_lines": 2,
+    "event_summaries": []
+  },
+  {
+    "file": "raw/left_held_after.txt",
+    "sha256": "5447a58d331a86aa77aac70116002fff0fa783978a2ed1e037705a4e97171809",
+    "roll_offset_deg": 0.61,
+    "description": "Stationary left at 1 cm",
+    "complete_rows": 373,
+    "valid_rows": 373,
+    "rejected_numeric_lines": 1,
+    "event_summaries": []
+  },
+  {
+    "file": "raw/right_held_after.txt",
+    "sha256": "7e0b199299040c7161307f7962c3b0808ebec30f6cf2cb61e021254f32049041",
+    "roll_offset_deg": 0.61,
+    "description": "Stationary right at 1 cm",
+    "complete_rows": 574,
+    "valid_rows": 574,
+    "rejected_numeric_lines": 0,
+    "event_summaries": []
+  },
+  {
+    "file": "raw/left_moving_after.txt",
+    "sha256": "52ab0e8b153d4d1cb3a5688619eff67394cf6bd23ab0228de83c34372b887bda",
+    "roll_offset_deg": 0.61,
+    "description": "Moving left; 1 cm reference",
+    "complete_rows": 458,
+    "valid_rows": 458,
+    "rejected_numeric_lines": 2,
+    "event_summaries": [
+      {
+        "start_us": "141420013",
+        "end_us": "142700236",
+        "side": "-1",
+        "confirmed": "1",
+        "peak_roll": "5.044",
+        "peak_height_cm": "0.994",
+        "median_candidate_valid": "1",
+        "median_candidate_roll_deg": "5.327",
+        "median_candidate_height_cm": "1.049"
+      }
+    ]
+  },
+  {
+    "file": "raw/right_moving_after.txt",
+    "sha256": "c51b6613cad3e9005ddf45730d219241d7a37f2bef7eb9d037bcea4d86c29f64",
+    "roll_offset_deg": 0.61,
+    "description": "Moving right; 1 cm reference",
+    "complete_rows": 394,
+    "valid_rows": 394,
+    "rejected_numeric_lines": 0,
+    "event_summaries": [
+      {
+        "start_us": "171280151",
+        "end_us": "172640228",
+        "side": "1",
+        "confirmed": "1",
+        "peak_roll": "5.023",
+        "peak_height_cm": "0.989",
+        "median_candidate_valid": "1",
+        "median_candidate_roll_deg": "5.407",
+        "median_candidate_height_cm": "1.065"
+      }
+    ]
+  }
+]
