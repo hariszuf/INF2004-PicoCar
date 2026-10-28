@@ -268,10 +268,9 @@ endif
 ################################################################################
 # Console selection
 #
-#   CONSOLE=usb_cdc             USB CDC-ACM only in this Buddy 2 trial: the polled
-#                               UART0 mirror keeps interrupts off during printf
-#                               (as found in the Buddy 4 trial) and would drop
-#                               encoder edges.
+#   CONSOLE=usb_cdc             USB CDC-ACM console, with the UART0 mirror
+#                               retained for early boot and panics (same as the
+#                               team image that already drove this car).
 #   CONSOLE=uart                UART0 only, no TinyUSB dependency.
 #
 # usb_cdc pulls seven TinyUSB sources and a set of pico-sdk headers from
@@ -346,7 +345,7 @@ USB_INCLUDES := -I"$(USBDIR)" \
                 -I"$(PICO_SDK_PATH)/src/rp2040/hardware_regs/include" \
                 -I"$(PICO_SDK_PATH)/src/rp2040/hardware_structs/include"
 
-CFLAGS += -DTM_CONSOLE_USB_CDC=1 -DTM_CONSOLE_UART=0 -DNDEBUG $(USB_INCLUDES)
+CFLAGS += -DTM_CONSOLE_USB_CDC=1 -DNDEBUG $(USB_INCLUDES)
 
 OBJS += $(USB_OBJS) $(TINYUSB_OBJS)
 C_DEPS += $(USB_OBJS:.o=.d) $(TINYUSB_OBJS:.o=.d)
