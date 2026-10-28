@@ -59,6 +59,27 @@ verification, not hardware accuracy or safety validation. No firmware was flashe
 and no motors were operated. Existing recording analysis is observational evidence,
 not validation of the prototype's measurement accuracy.
 
+## Provisional mounting roll update (28 October 2026)
+
+Roll offset is +0.61 degrees, replacing -0.25 degrees. The two flat recordings
+at the previous setting averaged +0.913 and +0.800 degrees; subtracting the
+additional 0.86 degrees predicts +0.053 and -0.060 degree residuals. These are
+predictions only. Hardware verification remains pending: manually flash the new
+UF2 and record flat, left-held and right-held positions using the 1 cm ramp.
+No startup auto-zero is added. All other calibration, axes, geometry, thresholds,
+estimators, motion classification, controls and safety behaviour are unchanged.
+
+Software verification for this update passed: the complete `test.ps1` host runner
+(IMU/recovery, median, motion classification, impact, yaw, controls/safety,
+scheduler, Buddy 2 simulation: 39 checks, Buddy 3 simulation: 5 checks), CSV schema
+and printf argument checks (33 standalone / 69 integration columns), native CTest
+(1/1), standalone `buddy4` build and integration `buddy234_driving_test` build.
+No test/build failures occurred. The two documented Buddy 3 unsigned-comparison
+warnings remain. Independent literal expectations and all tolerances are retained.
+Only Buddy 4's roll default changes firmware behaviour; Buddy 2/3 files are unchanged.
+The newly built integration firmware is `build/buddy234_driving_test.uf2` relative
+to this directory. No flashing, motor operation, commit or push was performed.
+
 ## Test ownership
 
 `app_program/buddy4/tests/test_imu.c` is authoritative for IMU/calibration and
@@ -85,7 +106,7 @@ MOTION_FEEDFORWARD_DUTY_PER_CM_S=0.0125f, MOTION_STALL_DUTY=0.6f,
 MOTION_STALL_TIME_MS=1500u. Other tuning comes unchanged from original headers.
 Buddy 4 calibration: bias {0.03799f,0.03790f,0.08411f}, scale
 {1.01301f,1.03419f,1.01223f}, pitch sign +1/offset 0.97 degrees, roll sign
-+1/offset -0.25 degrees, mounting_offsets_need_recalibration=false, spacing
++1/offset +0.61 degrees (provisional; pending hardware verification), mounting_offsets_need_recalibration=false, spacing
 11.3 cm confirmed. Buddy 2 motion geometry remains 12.2 cm.
 
 Motors GP8/9 and GP10/11; encoders GP6/4; IR GP0/2, barcode GP26. I2C0 GP16/17,

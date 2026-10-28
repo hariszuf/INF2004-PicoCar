@@ -116,10 +116,14 @@ Current configuration:
 .pitch_sign = 1.0f,
 .pitch_offset_deg = 0.97f,
 .roll_sign = 1.0f,
-.roll_offset_deg = -0.25f,
+.roll_offset_deg = 0.61f,
 .centre_spacing_cm = 11.3f,
 .centre_spacing_confirmed = true,
 ```
+
+The roll mounting offset **+0.61 degrees is provisional and pending hardware verification** (28 October 2026). Two flat-ground recordings using the previous -0.25 degree offset averaged +0.913 and +0.800 degrees roll. Their midpoint implies -0.25 + (0.913 + 0.800) / 2 = +0.6065 degrees, rounded to +0.61. Because the offset is subtracted, the expected residual means are +0.053 and -0.060 degrees; these are predictions, not new hardware results.
+
+Next, manually flash the newly built integration UF2 and record flat, left-held and right-held positions using the 1 cm ramp. Verify the flat baseline, left/right signs and height estimates with the measured 11.3 cm spacing. No startup auto-zero is added. Pitch offset, acceleration calibration, axes, geometry, thresholds, estimators, motion classification, controls and safety behaviour remain unchanged.
 
 The acceleration coefficients are preliminary six-position estimates; orientations were imperfectly aligned.
 
