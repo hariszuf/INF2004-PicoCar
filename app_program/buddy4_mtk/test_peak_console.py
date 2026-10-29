@@ -36,7 +36,9 @@ int main(void) {
     before=s;buddy4_print_readable(&s);
     assert(memcmp(&before,&s,sizeof(s))==0);
     assert(strstr(captured,"[B4] NOW")&&strstr(captured,"Pitch: -0.14 deg"));
-    assert(strstr(captured,"B4-TILT-PEAK-F USB-only"));
+    assert(strstr(captured,"B4-TILT-PEAK-POSSIBLE-IMPACT-H USB-only"));
+    assert(strstr(captured,"Possible-impact detector NOW: INVALID"));
+    assert(strstr(captured,"Saved cumulative possible-impact count: 0"));
     assert(!strstr(captured,"B4 RESULT")&&!strstr(captured,"Previous tilt"));
     captured[0]=0;s.completed_events=1;s.last_event.side=-1;
     s.last_event.end_us=20000000;s.last_event.stable_valid=true;
@@ -45,8 +47,31 @@ int main(void) {
     assert(strstr(captured,"Completed side-tilt #1 | Side: LEFT_WHEEL_UP"));
     assert(strstr(captured,"Ended at: 20 s since boot"));
     assert(strstr(captured,"SAVED RESULT, not current tilt"));
+    assert(strstr(captured,"OBSERVATIONAL TILT, NOT CONFIRMED HUMP CROSSING"));
     assert(strstr(captured,"Stable peak (cm): 0.98 | Median peak candidate (cm): UNCONFIRMED"));
     captured[0]=0;buddy4_print_readable(&s);assert(!strstr(captured,"B4 RESULT"));
+    /* A count change reports retained history even when the one-sample pulse is
+       already gone and current detector data is invalid. */
+    captured[0]=0;s.impact_valid=false;s.possible_impact=false;
+    s.impact_count=1;s.impact_time_us=12345678;
+    before=s;buddy4_print_readable(&s);
+    assert(memcmp(&before,&s,sizeof(s))==0);
+    assert(strstr(captured,"Possible-impact detector NOW: INVALID"));
+    assert(strstr(captured,"Saved cumulative possible-impact count: 1"));
+    assert(strstr(captured,"Saved latest possible-impact time: 12.345 s"));
+    assert(strstr(captured,"[B4 POSSIBLE IMPACT] Observational event #1"));
+    assert(strstr(captured,"Retained event time: 12.345 s"));
+    assert(strstr(captured,"SAVED EVENT, NOT CURRENT DATA, NOT CONFIRMED COLLISION"));
+    captured[0]=0;s.possible_impact=true;buddy4_print_readable(&s);
+    assert(!strstr(captured,"[B4 POSSIBLE IMPACT]")); /* Pulse is not the trigger. */
+    captured[0]=0;s.impact_valid=true;s.possible_impact=false;
+    s.impact_count=4;s.impact_time_us=9876543;buddy4_print_readable(&s);
+    assert(strstr(captured,"Possible-impact detector NOW: VALID"));
+    assert(strstr(captured,"2 intermediate possible-impact event timestamp(s) not retained"));
+    assert(strstr(captured,"Observational event #4"));
+    assert(strstr(captured,"Retained event time: 9.876 s"));
+    captured[0]=0;buddy4_print_readable(&s);
+    assert(!strstr(captured,"[B4 POSSIBLE IMPACT]"));
     captured[0]=0;s.valid=false;s.pitch_deg=123.45f;s.completed_events=2;
     s.last_event.stable_valid=false;s.last_event.median_valid=false;
     buddy4_print_readable(&s);
@@ -58,10 +83,11 @@ int main(void) {
     before=s;buddy4_print_readable(&s);
     assert(memcmp(&before,&s,sizeof(s))==0);
     assert(strstr(captured,"RIGHT_WHEEL_UP")&&strstr(captured,"1.02")&&strstr(captured,"1.04"));
+    assert(strstr(captured,"NOT CONFIRMED HUMP CROSSING"));
     captured[0]=0;s.completed_events=5;buddy4_print_readable(&s);
     assert(strstr(captured,"1 intermediate event(s) not captured"));
     captured[0]=0;buddy4_print_readable(&s);assert(!strstr(captured,"B4 RESULT"));
-    puts("Tilt/peak console checks passed: NOW vs saved result, once-per-event output, units, unconfirmed/invalid masking, gap warning and read-only snapshots.");
+    puts("Tilt/peak/possible-impact console checks passed: current validity vs saved history, count-triggered event output, missed-detail warning, pulse independence and read-only snapshots.");
 }
 '''
 cfile=out/'test_peak_console.c'
