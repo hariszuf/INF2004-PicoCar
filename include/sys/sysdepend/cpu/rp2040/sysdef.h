@@ -282,6 +282,10 @@
 #define GPIO_OE_XOR		(SIO_BASE+0x02C)
 
 /* Timer */
+/* Watchdog tick generator also supplies the TIMER microsecond reference. */
+#define WATCHDOG_TICK		0x4005802C
+#define WATCHDOG_TICK_ENABLE	(1<<9)
+
 #define TIMER_BASE		0x40054000
 
 #define TIMER_TIMEHW		(TIMER_BASE+0x00)

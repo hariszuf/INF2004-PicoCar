@@ -104,6 +104,11 @@ EXPORT void startup_clock(ATR clkatr)
 
 	out_w(CLK_REF+CLK_x_DIV, div);
 
+	/* TIMER needs a 1 MHz tick on every boot, including a power-bank cold
+	 * boot which has not passed through the USB BOOTSEL ROM setup. This
+	 * enables the tick generator, not the watchdog reset counter. */
+	out_w(WATCHDOG_TICK, WATCHDOG_TICK_ENABLE | XOSC_MHz);
+
 	/* CLK SYS settings */
 	div = (TMCLK_MHz << 8) / TMCLK_MHz;
 	if (div > in_w(CLK_SYS+CLK_x_DIV)) out_w(CLK_SYS+CLK_x_DIV, div);

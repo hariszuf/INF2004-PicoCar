@@ -1,0 +1,116 @@
+[
+  {
+    "check": "clock",
+    "exit_code": 0,
+    "command": [
+      "python",
+      "tools/test_clock_startup.py",
+      "--repo",
+      ".",
+      "--cc",
+      "gcc"
+    ]
+  },
+  {
+    "check": "network",
+    "exit_code": 0,
+    "command": [
+      "python",
+      "tools/buddy1_startup_tests/run_network_tests.py",
+      "--repo",
+      ".",
+      "--sdk",
+      "${PICO_SDK_PATH}",
+      "--cc",
+      "gcc"
+    ]
+  },
+  {
+    "check": "usb",
+    "exit_code": 0,
+    "command": [
+      "python",
+      "tools/buddy1_startup_tests/run_usb_tests.py",
+      "--repo",
+      ".",
+      "--cc",
+      "gcc"
+    ]
+  },
+  {
+    "check": "join",
+    "exit_code": 0,
+    "command": [
+      "python",
+      "tools/test_wifi_startup.py",
+      "--source",
+      "lib/libwifi/sysdepend/pico_rp2040/cyw43_utk.c",
+      "--cc",
+      "gcc"
+    ]
+  },
+  {
+    "check": "led",
+    "exit_code": 0,
+    "command": [
+      "python",
+      "tools/buddy1_startup_tests/test_led_diagnostic.py",
+      "--repo",
+      ".",
+      "--cc",
+      "gcc"
+    ]
+  },
+  {
+    "check": "owner",
+    "exit_code": 0,
+    "command": [
+      "python",
+      "tools/buddy1_startup_tests/test_radio_owner.py",
+      "--repo",
+      ".",
+      "--cc",
+      "gcc"
+    ]
+  },
+  {
+    "check": "build-uart",
+    "exit_code": 0,
+    "command": [
+      "make",
+      "-B",
+      "SMP=0",
+      "CONSOLE=uart",
+      "WIFI=cyw43",
+      "WIFI_JOIN=1",
+      "WIFI_NETIF=1",
+      "WIFI_DHCP=1",
+      "WIFI_DNS=1",
+      "WIFI_MQTT=1",
+      "PICO_SDK_PATH=${PICO_SDK_PATH}",
+      "TEMP_SRCS=../app_program/app_main.c $(wildcard ../app_program/buddy1/*.c) $(wildcard ../app_program/buddy5/*.c)",
+      "-j8"
+    ],
+    "uf2_sha256": "ed1ceeaeb06e8bca56ce19031d9796f7db68eada4899388c2552d95f47f3b893"
+  },
+  {
+    "check": "build-usb_cdc",
+    "exit_code": 0,
+    "command": [
+      "make",
+      "-B",
+      "SMP=0",
+      "CONSOLE=usb_cdc",
+      "WIFI=cyw43",
+      "WIFI_JOIN=1",
+      "WIFI_NETIF=1",
+      "WIFI_DHCP=1",
+      "WIFI_DNS=1",
+      "WIFI_MQTT=1",
+      "PICO_SDK_PATH=${PICO_SDK_PATH}",
+      "TEMP_SRCS=../app_program/app_main.c $(wildcard ../app_program/buddy1/*.c) $(wildcard ../app_program/buddy5/*.c)",
+      "-j8"
+    ],
+    "uf2_sha256": "cd523950ded2eb40ada8ff0fa77bd830fcb677df726df6561ec6eea1beed5a2e"
+  }
+]

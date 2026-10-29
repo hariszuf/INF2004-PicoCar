@@ -69,3 +69,5 @@ desktop.ini
 /config/tcp_test_config.h
 /config/mqtt_config.h
 
+# Local firmware copies and backups
+/local-artifacts/

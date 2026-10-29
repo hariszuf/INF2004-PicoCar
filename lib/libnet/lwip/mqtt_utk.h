@@ -9,4 +9,7 @@
  */
 void mqtt_utk_poll(struct netif *netif);
 
+/* Diagnostic image only; same owner-task restriction. */
+int mqtt_utk_is_connected(void);
+
 #endif

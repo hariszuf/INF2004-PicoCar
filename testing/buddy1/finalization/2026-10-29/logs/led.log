@@ -1,0 +1,1 @@
+PASS: actual LED function, all stages, radio-init guard and transition-only writes

@@ -1,0 +1,13 @@
+PASS dhcp             DHCP bound at 12000 ms with no USB code; DHCP packets=2
+PASS late_dhcp        DHCP bound at 57000 ms with no USB code; DHCP packets=6
+PASS late_dhcp_mqtt   diagnostic DHCP timeout stays latched, but a later real lease permits MQTT and heartbeat
+CONFIRMED LIMIT: initial DHCP PCB allocation failure stays OFF after link-up and 60s; explicit restart resumes discovery
+PASS sync_error       immediate connection error retried after 3000 ms
+PASS alloc_error      allocation retries after 3000 ms, connect 3000 ms later
+PASS no_arp           missing ARP reply eventually retries, interval=33750 ms
+PASS tcp_timeout      unanswered SYN eventually retries, interval=21250 ms
+PASS tcp_reset        real TCP refusal callback, retry after 3000 ms
+PASS connack_timeout  TCP accepted but no CONNACK, retry interval=103000 ms
+PASS connack_refused  broker rejection callback, retry after 3000 ms
+PASS success          real TCP/MQTT handshake, subscription and seven five-second heartbeats, no USB code
+PASS buddy_io         real telemetry queue -> MQTT payload; START/STOP -> real command queue/consumer; wrong topic and invalid command rejected

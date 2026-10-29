@@ -1,0 +1,25 @@
+{
+  "created_at": "2026-10-29T14:52:49.269556+08:00",
+  "base_local_branch": "fix/buddy1-direct-wifi-join",
+  "base_local_commit": "23ce50f",
+  "source_state": "Investigation copy plus buddy1-clock-fix.patch; not committed or pushed",
+  "profile": "SMP=0 CONSOLE=uart; WiFi join/netif/DHCP/DNS/MQTT; app_main + Buddy 1 + Buddy 5",
+  "change": "Configure WATCHDOG.TICK ENABLE=1, CYCLES=12 after clk_ref setup",
+  "physical_verification": "Build artifact only; subsequent physical observations are recorded separately in the cold-boot results",
+  "checks": [
+    "Original production startup fails tick-write assertion; corrected startup passes",
+    "13 host network scenarios; seven five-second heartbeats with mocked clock",
+    "WiFi startup and LED regression checks",
+    "ARM build and UF2 structure/family validation",
+    "All previously saved UF2 hashes unchanged"
+  ],
+  "source_sha256": {
+    "kernel/sysdepend/pico_rp2040/cpu_clock.c": "73c747f252af93b83e8d7c463ad0a314ba058acaa647f48835b237c54af59422",
+    "include/sys/sysdepend/cpu/rp2040/sysdef.h": "40514b2de96a4640db520af279613c8620d5952e639fde39b2190579dab2cb51"
+  },
+  "artifacts_sha256": {
+    "buddy1-clock-fix-no-usb.uf2": "ed1ceeaeb06e8bca56ce19031d9796f7db68eada4899388c2552d95f47f3b893",
+    "buddy1-clock-fix-no-usb.elf": "2172fcbbe49b01edb7953dcaa41f6633d783fdd397134878e1585115c7f4f991",
+    "buddy1-clock-fix-no-usb.map": "d175b95b43216d22a63df48e14542fab27d0928c833fba7b2f1183a6ab1bbaf0"
+  }
+}

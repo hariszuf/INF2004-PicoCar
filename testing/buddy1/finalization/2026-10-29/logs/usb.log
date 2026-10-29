@@ -1,0 +1,4 @@
+PASS unmounted        console returns/sleeps; bounded ring drops 5905 bytes
+PASS mounted_blocked  console returns/sleeps; bounded ring drops 5905 bytes
+PASS event_burst      console returns/sleeps; bounded ring drops 5905 bytes
+PASS init_failure     console returns/sleeps; bounded ring drops 5905 bytes
