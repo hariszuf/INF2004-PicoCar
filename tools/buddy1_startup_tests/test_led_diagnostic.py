@@ -21,7 +21,7 @@ harness = r'''
 #define CYW43_ITF_STA 0
 struct netif { unsigned up, link, ip; };
 static struct { unsigned itf_state; struct netif netif[1]; } cyw43_state;
-static struct { int init_result; unsigned scan_complete; } radio_status;
+static struct { int init_result; } radio_status;
 static unsigned writes;
 static int observed_level, mqtt_connected;
 static uint64_t clock_us;
@@ -53,8 +53,7 @@ static void check(unsigned pulses) {
 int main(void) {
     startup_led_poll(); assert(writes == 0); /* No radio init via LED ioctl. */
     cyw43_state.itf_state = 1;
-    check(1);
-    radio_status.scan_complete = 1; check(2);
+    check(2); /* Direct join no longer waits for a preliminary scan. */
     cyw43_state.netif[0].link = 1;
     cyw43_state.netif[0].up = 1; check(3);
     cyw43_state.netif[0].ip = 0x1234;
