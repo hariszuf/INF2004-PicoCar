@@ -36,7 +36,7 @@ try {
     if ($LASTEXITCODE) { throw 'Motion classifier compilation failed' }
     & ./build-host/motion-class.exe
     if ($LASTEXITCODE) { throw 'Motion classifier tests failed' }
-    & gcc -std=c11 -Wall -Wextra -Werror -UNDEBUG -I../buddy4 ../buddy4/buddy4_impact.c test_impact.c -o build-host/impact.exe -lm
+    & gcc -std=c11 -Wall -Wextra -Werror -UNDEBUG -I../buddy4 ../buddy4/buddy4_imu.c ../buddy4/buddy4_impact.c test_impact.c -o build-host/impact.exe -lm
     if ($LASTEXITCODE) { throw 'Possible-impact compilation failed' }
     & ./build-host/impact.exe
     if ($LASTEXITCODE) { throw 'Possible-impact tests failed' }

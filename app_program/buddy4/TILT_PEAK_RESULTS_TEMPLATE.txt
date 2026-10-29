@@ -1,7 +1,7 @@
 BUDDY 4 TILT / PEAK RESULTS
 Date:
 Operator:
-Firmware marker (must be B4-TILT-PEAK-F USB-only):
+Firmware marker (must be B4-TILT-PEAK-POSSIBLE-IMPACT-H USB-only):
 Motor power disconnected: YES / NO
 IMU mounting changed since previous tests: YES / NO / UNKNOWN
 Surface / support contacts:

@@ -1,6 +1,6 @@
 # Buddy 4 micro T Kernel trial
 
-## Current test output: B4-TILT-PEAK-F
+## Current test output: B4-TILT-PEAK-POSSIBLE-IMPACT-H
 
 This display-only revision preserves the clean DIAG-E USB-only timing path,
 motor-pin protection, calibration and all detection/estimation algorithms.
@@ -8,9 +8,24 @@ NOW remains the current snapshot. A newly observed completed side-tilt event
 prints B4 RESULT once, with side, event number/end time, stable peak and median
 candidate in cm. Unconfirmed values say UNCONFIRMED, not zero. A side-tilt event
 can come from handling; it is not independently confirmed as a hump crossing.
+H also puts `OBSERVATIONAL TILT, NOT CONFIRMED HUMP CROSSING` on every saved
+`B4 RESULT` line so copied results retain that limitation.
+
+The readable monitor now shows current possible-impact detector validity and the
+saved cumulative possible-impact count. When that count changes, it prints the
+retained latest event timestamp as `B4 POSSIBLE IMPACT`, explicitly labelled as
+a saved observational event and **not a confirmed collision**. Reporting is
+driven by the retained count, not the detector's one-input-sample pulse, which a
+1 Hz monitor will usually miss. If the count jumps by more than one, the monitor
+warns that intermediate timestamps were not retained. Current validity and saved
+history use separate labels; saved count/time remain visible during invalid data.
 
 The 1 Hz monitor retains only the latest completed event, reports skipped
-intermediate event summaries and is not a lossless recorder. Start recording
+intermediate event summaries and is not a lossless recorder. For possible impacts,
+it retains only a saturating cumulative count and the newest timestamp: it cannot
+recover intermediate timestamps, event waveforms, peak deviation/direction or a
+one-sample pulse missed between reads. It also cannot establish that contact or a
+collision occurred. Start recording
 before each trial and wait at least 3 seconds after returning to SIDE_LEVEL.
 The original 11-field CSV remains unchanged. This firmware does not drive.
 

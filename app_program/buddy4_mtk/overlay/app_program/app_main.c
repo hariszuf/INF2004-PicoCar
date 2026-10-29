@@ -56,6 +56,7 @@ static void buddy4_decimal(char out[16], float value)
 /* Print each newly observed completed side event once, never as NOW data.
  * The snapshot retains only the latest result; this is not a lossless queue. */
 static uint32_t buddy4_reported_events;
+static uint32_t buddy4_reported_impacts;
 static void buddy4_print_new_peak(const buddy4_task_snapshot_t *s)
 {
     if (s->completed_events == 0 || s->completed_events == buddy4_reported_events) return;
@@ -67,13 +68,30 @@ static void buddy4_print_new_peak(const buddy4_task_snapshot_t *s)
         tm_printf((UB *)"[B4 RESULT] %u intermediate event(s) not captured by this slow monitor; latest result follows.\n",
             (UINT)(s->completed_events - buddy4_reported_events - 1u));
     }
-    tm_printf((UB *)"[B4 RESULT] Completed side-tilt #%u | Side: %s | Ended at: %u s since boot | SAVED RESULT, not current tilt\n",
+    tm_printf((UB *)"[B4 RESULT] Completed side-tilt #%u | Side: %s | Ended at: %u s since boot | SAVED RESULT, not current tilt | OBSERVATIONAL TILT, NOT CONFIRMED HUMP CROSSING\n",
         (UINT)s->completed_events, buddy4_side_name(s->last_event.side),
         (UINT)(s->last_event.end_us / 1000000u));
     tm_printf((UB *)"[B4 RESULT] Stable peak (cm): %s | Median peak candidate (cm): %s | PRELIMINARY wheel-height difference\n",
         s->last_event.stable_valid ? stable : "UNCONFIRMED",
         s->last_event.median_valid ? median : "UNCONFIRMED");
     buddy4_reported_events = s->completed_events;
+}
+
+/* The 1 Hz monitor cannot reliably observe possible_impact's one-sample pulse.
+ * Report changes in the retained count and timestamp instead. The snapshot keeps
+ * only the latest timestamp, so a count jump reveals lost intermediate details. */
+static void buddy4_print_new_impact(const buddy4_task_snapshot_t *s)
+{
+    if (s->impact_count == buddy4_reported_impacts) return;
+    if (s->impact_count > buddy4_reported_impacts &&
+        s->impact_count - buddy4_reported_impacts > 1u) {
+        tm_printf((UB *)"[B4 POSSIBLE IMPACT] %u intermediate possible-impact event timestamp(s) not retained by this snapshot; latest follows.\n",
+            (UINT)(s->impact_count - buddy4_reported_impacts - 1u));
+    }
+    tm_printf((UB *)"[B4 POSSIBLE IMPACT] Observational event #%u | Retained event time: %u.%03u s since boot | SAVED EVENT, NOT CURRENT DATA, NOT CONFIRMED COLLISION\n",
+        (UINT)s->impact_count, (UINT)(s->impact_time_us / 1000000u),
+        (UINT)((s->impact_time_us / 1000u) % 1000u));
+    buddy4_reported_impacts = s->impact_count;
 }
 
 static void buddy4_print_readable(const buddy4_task_snapshot_t *s)
@@ -95,6 +113,13 @@ static void buddy4_print_readable(const buddy4_task_snapshot_t *s)
         s->poll_result == 2 ? "I2C_ERROR" : "NOT_READY",
         (UINT)s->sample_age_ms, (UINT)s->poll_interval_ms,
         (UINT)s->poll_duration_ms, (UINT)s->timing_valid);
+    tm_printf((UB *)"     Possible-impact detector NOW: %s | Saved cumulative possible-impact count: %u\n",
+        s->impact_valid ? "VALID" : "INVALID", (UINT)s->impact_count);
+    if (s->impact_count != 0) {
+        tm_printf((UB *)"     Saved latest possible-impact time: %u.%03u s since boot | OBSERVATIONAL, NOT CONFIRMED COLLISION\n",
+            (UINT)(s->impact_time_us / 1000000u),
+            (UINT)((s->impact_time_us / 1000u) % 1000u));
+    }
     if (s->saved_error_present) {
         tm_printf((UB *)"     Saved IMU failure (previous): %s | Code=%d | %s register=0x%02X | Observed at=%u s | Time valid=%u\n",
             s->saved_error_code == E_TMOUT ? "TIMEOUT" :
@@ -119,9 +144,10 @@ static void buddy4_print_readable(const buddy4_task_snapshot_t *s)
         tm_printf((UB *)"     IRQ gaps (us): max=%u first=%u | At expiry: state=%u read_left=%u\n",
             (UINT)t[26], (UINT)t[27], (UINT)t[30], (UINT)t[31]);
     }
-    tm_printf((UB *)"     I2C errors: %u | Skipped sampling slots: %u | Build: B4-TILT-PEAK-F USB-only\n",
+    tm_printf((UB *)"     I2C errors: %u | Skipped sampling slots: %u | Build: B4-TILT-PEAK-POSSIBLE-IMPACT-H USB-only\n",
         (UINT)s->io_errors, (UINT)s->skipped_slots);
     buddy4_print_new_peak(s);
+    buddy4_print_new_impact(s);
 }
 #endif
 
@@ -275,7 +301,7 @@ EXPORT INT usermain(void)
     #if BUDDY4_CONSOLE_CSV
     tm_printf((UB *)"# B4_MTK: seq valid errors pitch_mdeg roll_mdeg height_milli_cm events stable_milli_cm median_milli_cm skipped\n");
     #else
-    tm_printf((UB *)"[B4] Tilt/peak test monitor; NOW is current; B4 RESULT is a completed side event. Units: degrees and cm. Peaks are preliminary.\n");
+    tm_printf((UB *)"[B4] Tilt/peak and possible-impact monitor; NOW is current. Saved results are retained observations. Possible impact does not mean confirmed collision.\n");
     #endif
     for (;;) {
         if (buddy4_task_get(&buddy4_diagnostic) >= E_OK) {

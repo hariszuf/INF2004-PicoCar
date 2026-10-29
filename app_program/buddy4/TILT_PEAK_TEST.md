@@ -1,6 +1,6 @@
 # Buddy 4: friend tilt and peak test
 
-Use the new B4-TILT-PEAK-F USB-only UF2, not an old file with the same name.
+Use the new B4-TILT-PEAK-POSSIBLE-IMPACT-H USB-only UF2, not an old file with the same name.
 Motor power must remain disconnected. USB powers the Pico. This IMU-only MTK
 image does not drive and has no M/R/G commands. Do not enable motors for it.
 
@@ -15,7 +15,7 @@ automatically: paste into the supplied template or use its capture function.
 ## A. Communication and tilt (motor power disconnected)
 
 1. Flash by BOOTSEL/copy UF2. Open the Pico USB serial port at 115200.
-2. Confirm B4-TILT-PEAK-F and leave the robot naturally resting on a firm, flat
+2. Confirm B4-TILT-PEAK-POSSIBLE-IMPACT-H and leave the robot naturally resting on a firm, flat
    surface, all normal supports contacting it. Record 15 seconds untouched.
 3. Record separate front-up, front-down, left-wheel-up and right-wheel-up
    positions. Tilt the whole chassis enough to cross the detection threshold;

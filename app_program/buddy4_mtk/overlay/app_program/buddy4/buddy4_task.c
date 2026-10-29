@@ -223,6 +223,10 @@ static void sensor_task(INT code, void *info)
         ER e = tk_wai_flg(release_flag, 1u, TWF_ORW | TWF_BITCLR, &bits, TMO_FEVR);
         uint64_t now;
         if (e < E_OK || (e = buddy4_task_time_us(&now)) < E_OK) {
+            /* A failed release/clock read interrupts fresh-sample evidence.
+             * Use the last known poll time; now may be unavailable. */
+            buddy4_impact_update(&impact, 0, 0, 0, false,
+                                 next.poll_us, next.poll_us);
             next.valid = next.impact_valid = next.motion_valid = next.yaw_valid = false;
             next.bump_event = next.side_event_ended = next.possible_impact = false;
             next.timing_valid = false;
