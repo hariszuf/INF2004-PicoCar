@@ -126,4 +126,27 @@
 #define MOTION_STALL_TIME_MS            (500u)
 #endif
 
+/* ------------------------------------------------------------------ */
+/* Terrain (slope / hump) speed control                                */
+/* Input comes from Buddy 4's IMU through motion_set_terrain().        */
+/* Buddy 2 owns the response: it scales the wheel speed targets and    */
+/* adds a duty assist so the speed loop does not have to wait for the  */
+/* integral to wind up on a ramp. All values are TUNE on the car.      */
+/* ------------------------------------------------------------------ */
+/** Terrain input older than this is ignored (car treated as on flat ground). */
+#define MOTION_TERRAIN_STALE_MS         (200u)
+/** Speed target multipliers while the IMU reports each condition. */
+#define MOTION_UPHILL_SPEED_SCALE       (1.0f)    /* TUNE: hold speed, add power */
+#define MOTION_DOWNHILL_SPEED_SCALE     (0.7f)    /* TUNE: slow down going down */
+#define MOTION_HUMP_SPEED_SCALE         (0.8f)    /* TUNE: one wheel on a hump/ramp */
+/** Gravity feed-forward: extra duty per g of slope (x sin(pitch)), both wheels. */
+#define MOTION_GRADE_DUTY_PER_G         (0.8f)    /* TUNE */
+/** Hump assist: extra duty on the RAISED wheel per sin(|roll|). */
+#define MOTION_HUMP_DUTY_PER_G          (0.8f)    /* TUNE */
+/** Limits on the terrain duty assist and how fast it may change. */
+#define MOTION_TERRAIN_DUTY_MAX         (0.30f)
+#define MOTION_TERRAIN_DUTY_RATE_PER_S  (1.5f)
+/** Angles beyond this are clamped (sensor glitch / car being handled). */
+#define MOTION_TERRAIN_MAX_ANGLE_DEG    (30.0f)
+
 #endif /* MOTION_CONFIG_H */

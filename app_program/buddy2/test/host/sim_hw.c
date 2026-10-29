@@ -25,6 +25,7 @@ static double s_duty[MOTION_SIDE_COUNT];
 static bool s_braked[MOTION_SIDE_COUNT];
 static bool s_stalled[MOTION_SIDE_COUNT];
 static bool s_latched;
+static double s_load[MOTION_SIDE_COUNT];
 static double s_speed[MOTION_SIDE_COUNT];
 static double s_position[MOTION_SIDE_COUNT];
 static double s_pulse_accum[MOTION_SIDE_COUNT];
@@ -54,6 +55,7 @@ void sim_reset(void)
         s_pulse_accum[i] = 0.0;
         s_count[i] = 0;
         s_direction[i] = 1;
+        s_load[i] = 0.0;
     }
 }
 
@@ -69,15 +71,22 @@ static void step_wheel(motion_side_t side)
     double delta;
     double travelled;
 
+    double effective;
+
     if (s_braked[side])
     {
         s_speed[side] -= s_speed[side] * (SIM_STEP_S / SIM_BRAKE_TAU_S);
     }
     else
     {
-        if (fabs(s_duty[side]) >= SIM_DEAD_ZONE_DUTY)
+        effective = s_duty[side] - s_load[side];
+        if (fabs(effective) >= SIM_DEAD_ZONE_DUTY)
         {
-            target = s_duty[side] * SIM_MAX_SPEED_CM_S * gain;
+            target = effective * SIM_MAX_SPEED_CM_S * gain;
+        }
+        else if ((s_load[side] < 0.0) && (s_duty[side] > 0.0))
+        {
+            target = effective * SIM_MAX_SPEED_CM_S * gain;   /* gravity overcomes friction */
         }
         s_speed[side] += (target - s_speed[side]) * (SIM_STEP_S / SIM_MOTOR_TAU_S);
     }
@@ -131,6 +140,11 @@ double sim_true_distance_cm(void)
 void sim_set_stall(motion_side_t side, bool stalled)
 {
     s_stalled[side] = stalled;
+}
+
+void sim_set_load(motion_side_t side, double load_duty)
+{
+    s_load[side] = load_duty;
 }
 
 bool sim_is_braked(motion_side_t side)

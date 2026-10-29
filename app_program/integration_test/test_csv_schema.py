@@ -32,7 +32,7 @@ def calls(text):
         fmt=''.join(re.findall(r'"((?:\\.|[^"\\])*)"',parts[0]))
         yield fmt,parts[1:]
 
-for filename,expected in [('buddy4/main.c',33),('integration_test/main.c',69)]:
+for filename,expected in [('buddy4/main.c',33),('integration_test/main.c',73)]:
     text=(Path(__file__).parent.parent/filename).read_text()
     header=None; row=None; summary=None
     for fmt,args in calls(text):
@@ -56,6 +56,9 @@ for filename,expected in [('buddy4/main.c',33),('integration_test/main.c',69)]:
         assert row[-7:-3]==['%.5f','%.4f','%d','%llu']
         assert header[-3:]==['selected_target_left_cm_s','selected_target_right_cm_s','control_reason']
         assert row[-3:]==['%.3f','%.3f','%s']
+        i=header.index('stop_fault')
+        assert header[i+1:i+5]==['terrain_mode','terrain_speed_scale','left_terrain_duty','right_terrain_duty']
+        assert row[i+1:i+5]==['%d','%.3f','%.3f','%.3f']
         controls=[fmt for fmt,args in calls(text) if fmt.startswith('# CONTROL')]
         assert len(controls)==1
         for field in ['mode=','event=','selected_target_left_cm_s=','selected_target_right_cm_s=','turn_test_limit_us=']:

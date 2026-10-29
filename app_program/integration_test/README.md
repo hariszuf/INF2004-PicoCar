@@ -1,5 +1,19 @@
 # Buddy 2 + 3 + 4 integration prototype checkpoint
 
+**Update 28 Oct 2026 (Buddy 2): slope / hump speed control is now connected.**
+After every IMU poll, `terrain_link_feed()` (`../shared/terrain_link.h`) passes
+Buddy 4's pitch/roll state to Buddy 2 `motion_set_terrain()`. Buddy 2 scales the
+speed targets (also Buddy 3's line-following commands) and adds a rate-limited
+gravity / raised-wheel power assist; see the Buddy 2 README. Buddy 4 and Buddy 3
+sources are unchanged. The CSV now has **73 columns**: `terrain_mode`,
+`terrain_speed_scale`, `left_terrain_duty`, `right_terrain_duty` were inserted
+after `stop_fault` (terrain_mode 0 FLAT, 1 UPHILL, 2 DOWNHILL, 3 HUMP_LEFT,
+4 HUMP_RIGHT). `test.ps1` also runs the new Buddy 2 terrain tests. The autonomous
+`EmbeddedProject` (parent CMake, now using the real buddy2/buddy3 folder names)
+feeds the IMU to Buddy 2 the same way. Statements below about Buddy 2 being
+unchanged and "estimates never issue motor commands" predate this update: the IMU
+now influences speed and power, but not safety stops.
+
 Standalone Pico SDK/CMake firmware; report and micro-T-Kernel integration deferred.
 Existing Buddy sources are referenced directly; standalone mains/motion_task.c are
 excluded and parent build targets are not imported. Buddy 2/3 files are read-only.

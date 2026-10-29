@@ -99,9 +99,50 @@ static void test_lifecycle(void) {
  buddy4_init(&s,(buddy4_bus_t){&f,wr,rd},buddy4_default_config());
  assert(!s.output.ended_event.median_candidate_valid);
 }
+static void test_interruption_and_event_isolation(void) {
+ buddy4_imu_t s; fake_t f; setup(&s,&f); uint64_t t=0;
+ /* Missing data interrupts both estimators. Ending afterward may describe the
+    side-tilt lifecycle, but neither estimator may claim a successful result. */
+ samples(&s,&f,&t,0,8,5);
+ assert(!s.output.event.peak_confirmed&&!s.output.event.median_candidate_valid);
+ f.regs[0x27]=0;
+ assert(buddy4_poll(&s,t+20000)==BUDDY4_STALE);
+ assert(!s.output.valid&&!s.output.event_ended);
+ assert(!s.output.event.window_active&&s.output.event.median_count==0);
+ f.regs[0x27]=8;t+=60000;angle(&f,0,0);
+ assert(buddy4_poll(&s,t)==BUDDY4_FRESH&&s.output.event_ended);
+ assert(!s.output.ended_event.peak_confirmed);
+ assert(!s.output.ended_event.median_candidate_valid);
+
+ /* Duplicate and reversed times restart evidence; samples observed before the
+    time fault cannot complete a confirmation window afterward. */
+ t+=60000;angle(&f,0,8);assert(buddy4_poll(&s,t)==BUDDY4_FRESH);
+ samples(&s,&f,&t,0,8,4);
+ assert(buddy4_poll(&s,t)==BUDDY4_STALE);
+ assert(buddy4_poll(&s,t-1)==BUDDY4_STALE);
+ samples(&s,&f,&t,0,8,6);
+ assert(!s.output.event.peak_confirmed&&!s.output.event.median_candidate_valid);
+ samples(&s,&f,&t,0,8,5);
+ assert(s.output.event.peak_confirmed&&s.output.event.median_candidate_valid);
+
+ /* A later lower event must publish its own result, never the older maximum. */
+ t+=60000;angle(&f,0,0);assert(buddy4_poll(&s,t)==BUDDY4_FRESH);
+ assert(s.output.event_ended&&s.output.ended_event.peak_roll_deg>7.9f);
+ t+=60000;angle(&f,0,6);assert(buddy4_poll(&s,t)==BUDDY4_FRESH);
+ samples(&s,&f,&t,0,6,10);
+ assert(s.output.event.peak_confirmed&&s.output.event.median_candidate_valid);
+ t+=60000;angle(&f,0,0);assert(buddy4_poll(&s,t)==BUDDY4_FRESH);
+ assert(s.output.event_ended&&s.output.ended_event.peak_confirmed);
+ assert(s.output.ended_event.median_candidate_valid);
+ assert(fabsf(s.output.ended_event.peak_roll_deg-6)<0.01f);
+ assert(fabsf(s.output.ended_event.median_candidate_roll_deg-6)<0.01f);
+ assert(fabsf(s.output.ended_event.peak_height_cm-
+              11.3f*sinf(6*DEG_TO_RAD))<0.01f);
+}
 int main(void) {
  assert(legacy_regression_main()==0);
  test_windows(); test_comparison(); test_lifecycle();
+ test_interruption_and_event_isolation();
  puts("Experimental rolling-median regression tests passed");
  return 0;
 }

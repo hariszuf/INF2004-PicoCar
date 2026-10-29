@@ -32,6 +32,7 @@ void ultrasonic_init(void) {
     GPIO_CTRL(TRIG_PIN) = FUNC_SIO;
     GPIO_CTRL(ECHO_PIN) = FUNC_SIO;
     /* Configure TRIG driven output, ECHO input. */
+    GPIO_PAD(TRIG_PIN) &= ~((1u << 7) | (1u << 2) | (1u << 3)); /* enable output, no pulls */
     SIO_GPIO_OUT_CLR = 1u << TRIG_PIN;
     SIO_GPIO_OE_SET = 1u << TRIG_PIN;
     SIO_GPIO_OE_CLR = 1u << ECHO_PIN;
