@@ -8,6 +8,9 @@
 /* Provisional allowances: validate on the actual track. */
 #define B5_CLEARANCE_MM 50
 #define B5_EDGE_ALLOWANCE_MM 30
+/* HC-SR04 edge/clear-space estimate uncertainty used only when deciding
+ * whether a measured side is long enough; planned body clearance is retained. */
+#define B5_ROUTE_UNCERTAINTY_MM 30
 #define B5_STOP_FRONT_MM 200
 #define B5_MAX_PROFILE_MM 1200
 #define B5_MAX_OFFSET_MM 700
@@ -53,5 +56,11 @@
 #define B5_TELEM_FRONT 54u
 /* Automatic powered-on driving profile: continuous forward readings. */
 #define B5_GUARD_FRONT_MM 150
+/* After a full scan has selected a side, allow the initial lateral bypass to
+ * approach the obstacle edge more closely; the normal forward guard remains. */
+#define B5_BYPASS_GUARD_FRONT_MM 80
+/* Hardware calibration: a requested/reported 90-degree odometry turn was
+ * observed as approximately one full physical rotation. */
+#define B5_TURN_ODOMETRY_CORRECTION 4.0f
 
 #endif

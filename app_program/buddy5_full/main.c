@@ -70,7 +70,7 @@ bool line_controller_request(const b5_request_t *r) {
  EI(irq); return accepted;
 }
 static void halt(full_nav_t *nav,auto_start_t *start,const char *why) {
- run_enabled=false; auto_start_stop(start); nav->active=false; nav->moving=false;
+ run_enabled=false; auto_start_stop(start); nav->active=false; nav->moving=false; nav->forward_moving=false;
  line_follow_stop(); motion_emergency_stop(); line_scan_abort(); discard_commands();
  tm_printf((UB*)"[AUTO] STOPPED: %s. Power-cycle to restart; optional R retries.\n",(UB*)why);
 }
@@ -111,13 +111,15 @@ static void controller_task(INT stacd,void *exinf) {
    if(!full_nav_accept(&nav,&request,now)) halt(&nav,&start,"request rejected");
    else tm_printf((UB*)"[NAV] request=%d id=%u target_x/y=%d/%d\n",request.kind,(unsigned)request.id,request.forward_mm,request.lateral_mm);
   }
-  bool guard=scan.angle==0 && scan.front_valid && scan.front_clearance_mm>B5_GUARD_FRONT_MM &&
+  int32_t guard_limit=(nav.active && nav.request.kind==B5_REQ_BYPASS) ?
+                      B5_BYPASS_GUARD_FRONT_MM : B5_GUARD_FRONT_MM;
+  bool guard=scan.angle==0 && scan.front_valid && scan.front_clearance_mm>guard_limit &&
              (uint32_t)(now-scan.front_timestamp_ms)<=400u;
   if((uint32_t)(now-last_motor)>=20u) {
    if((uint32_t)(now-last_motor)>60u && run_enabled) halt(&nav,&start,"motor scheduling delay");
    last_motor=now; motion_update(); motion_get_status(&motor);
    if(motor.fault==MOTION_FAULT_STALL) fault_latched=true;
-   if(run_enabled && (motor.fault!=MOTION_FAULT_NONE || (nav.moving && !guard)))
+   if(run_enabled && (motor.fault!=MOTION_FAULT_NONE || (nav.forward_moving && !guard)))
     halt(&nav,&start,"motor fault or forward range unavailable");
    full_nav_update(&nav,now,&motor,mask,guard);
    if(run_enabled && nav.failed) halt(&nav,&start,"navigation failed/pose mismatch");
