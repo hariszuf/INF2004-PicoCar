@@ -53,7 +53,8 @@ static void scan_task(INT stacd,void *exinf) {
   }
   if(abort && !reset) b5_core_fail(&core,B5_FAULT_CONTROLLER,now);
   b5_core_update(&core,now,&feedback,NULL);
-  bool guard_mode=core.state==B5_PROCESSING || core.state==B5_LINE_RECOVERY ||
+  bool positioning_mode=core.state==B5_PROCESSING;
+  bool guard_mode=core.state==B5_LINE_RECOVERY ||
                   (core.state==B5_AVOIDING && core.phase==2);
   int wanted=b5_core_angle(&core);
   if(wanted!=angle) {
@@ -84,6 +85,10 @@ static void scan_task(INT stacd,void *exinf) {
      tm_printf((UB*)"[SCAN] angle=%d echo=%d mm=%d\n",angle,filtered.valid && !b5_range_no_echo(&filtered),b5_range_no_echo(&filtered)?-1:(int)filtered.distance_mm);
     if(core.state==B5_MONITORING && !line_controller_active()) {
      /* Standby gathers front data without starting an obstacle scan. */
+     core.front_clearance_mm=b5_front_clearance(&filtered);
+    } else if(positioning_mode) {
+     /* The initial turn is allowed with the obstacle ahead.  Keep updating
+      * clearance so the following lateral translation starts only when clear. */
      core.front_clearance_mm=b5_front_clearance(&filtered);
     } else if(guard_mode) {
      core.front_clearance_mm=b5_front_clearance(&filtered);

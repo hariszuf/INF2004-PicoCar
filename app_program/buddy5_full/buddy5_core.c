@@ -70,6 +70,7 @@ int b5_core_angle(const b5_core_t *c) {
 }
 bool b5_core_wants_range(const b5_core_t *c) {
     return c->state==B5_MONITORING || c->state==B5_SCANNING ||
+           c->state==B5_PROCESSING ||
            (c->state==B5_AVOIDING && c->phase<2);
 }
 static void scan_start(b5_core_t *c, uint32_t now) {
@@ -114,7 +115,9 @@ static bool process(b5_core_t *c) {
     if (s->valid[B5_SCAN_ZERO_SLOT]!=B5_SCAN_ECHO) return false;
     p->front_mm=s->distance[B5_SCAN_ZERO_SLOT];
     for (int i=B5_SCAN_ZERO_SLOT+1;i<B5_SCAN_POINTS;++i) if (s->sampled[i]) {
-        if (!s->valid[i]) return false;
+        /* An isolated noisy ray must not discard valid hit/clear brackets
+         * established by the neighbouring scan angles. */
+        if (!s->valid[i]) continue;
         if (!hit(s,i,p->front_mm)) {
             if (s->valid[i]==B5_SCAN_ECHO && projected_x(s,i)<=p->front_mm+80) return false;
             left_clear=i; break;
@@ -122,14 +125,43 @@ static bool process(b5_core_t *c) {
         hi=i;
     }
     for (int i=B5_SCAN_ZERO_SLOT-1;i>=0;--i) if (s->sampled[i]) {
-        if (!s->valid[i]) return false;
+        if (!s->valid[i]) continue;
         if (!hit(s,i,p->front_mm)) {
             if (s->valid[i]==B5_SCAN_ECHO && projected_x(s,i)<=p->front_mm+80) return false;
             right_clear=i; break;
         }
         lo=i;
     }
-    if (left_clear<0 || right_clear<0 || hi==B5_SCAN_POINTS-1 || lo==0) return false;
+    if (left_clear<0 || right_clear<0 || hi==B5_SCAN_POINTS-1 || lo==0) {
+        /* The obstacle fills the scan window. Use the assignment's maximum
+         * expected 200 mm width; the live forward guard still vetoes a
+         * blocked bypass direction before translation begins. */
+        int32_t half=100;
+        if (left_clear>=0) {
+            p->left_edge_mm=plane_y(p->front_mm,left_clear);
+            p->right_edge_mm=p->left_edge_mm-2*half;
+        } else if (right_clear>=0) {
+            p->right_edge_mm=plane_y(p->front_mm,right_clear);
+            p->left_edge_mm=p->right_edge_mm+2*half;
+        } else {
+            p->left_edge_mm=half; p->right_edge_mm=-half;
+        }
+        p->left_inner_mm=p->left_edge_mm;
+        p->right_inner_mm=p->right_edge_mm;
+        p->width_mm=2*half; p->width_valid=true;
+        int32_t extra=B5_CAR_WIDTH_MM/2+B5_CLEARANCE_MM+B5_EDGE_ALLOWANCE_MM;
+        int32_t left=p->left_edge_mm+extra;
+        int32_t right=p->right_edge_mm-extra;
+        if (left_clear>=0 && right_clear<0) p->side=1;
+        else if (right_clear>=0 && left_clear<0) p->side=-1;
+        else {
+            int32_t ld=s->valid[B5_SCAN_POINTS-1]==B5_SCAN_NO_ECHO ? 4001 : s->distance[B5_SCAN_POINTS-1];
+            int32_t rd=s->valid[0]==B5_SCAN_NO_ECHO ? 4001 : s->distance[0];
+            p->side=ld>=rd ? 1 : -1;
+        }
+        p->offset_mm=p->side>0 ? left : right;
+        return ab(p->offset_mm)<=B5_MAX_OFFSET_MM;
+    }
     /* Outer edge of observed hit/clear angular bracket, enclosing estimate. */
     p->left_edge_mm=plane_y(p->front_mm,left_clear);
     p->right_edge_mm=plane_y(p->front_mm,right_clear);
@@ -141,15 +173,16 @@ static bool process(b5_core_t *c) {
     int32_t left=p->left_edge_mm+extra, right=p->right_edge_mm-extra;
     int32_t left_score=4001,right_score=4001;
     for (int i=0;i<B5_SCAN_POINTS;++i) if (s->sampled[i]) {
+        if (!s->valid[i]) continue;
         if (i>=left_clear)
-            left_score=mn(left_score,s->valid[i]==B5_SCAN_NO_ECHO ? 4001 : s->valid[i] ? s->distance[i] : 0);
+            left_score=mn(left_score,s->valid[i]==B5_SCAN_NO_ECHO ? 4001 : s->distance[i]);
         if (i<=right_clear)
-            right_score=mn(right_score,s->valid[i]==B5_SCAN_NO_ECHO ? 4001 : s->valid[i] ? s->distance[i] : 0);
+            right_score=mn(right_score,s->valid[i]==B5_SCAN_NO_ECHO ? 4001 : s->distance[i]);
     }
     bool l=p->width_valid && left<=B5_MAX_OFFSET_MM &&
-           left_score>left+B5_CAR_LENGTH_MM+B5_CLEARANCE_MM;
+           left_score+B5_ROUTE_UNCERTAINTY_MM>left+B5_CAR_LENGTH_MM+B5_CLEARANCE_MM;
     bool r=p->width_valid && -right<=B5_MAX_OFFSET_MM &&
-           right_score>-right+B5_CAR_LENGTH_MM+B5_CLEARANCE_MM;
+           right_score+B5_ROUTE_UNCERTAINTY_MM>-right+B5_CAR_LENGTH_MM+B5_CLEARANCE_MM;
     if (!l && !r) return false;
     p->side=(l && (!r || left_score>right_score ||
                   (left_score==right_score && left<=-right))) ? 1 : -1;
