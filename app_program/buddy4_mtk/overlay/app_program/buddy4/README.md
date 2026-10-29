@@ -1,5 +1,11 @@
 # Buddy 4 — IMU, Motion and Terrain Monitoring
 
+**Main task list:** [Buddy 4 checklist — completed work, remaining tasks and dependencies](TODO.md).
+The latest isolated MTK checkpoint is in [the trial README](../buddy4_mtk/README.md).
+Earlier session-specific remaining-work notes below are historical; use TODO.md
+for the current consolidated plan.
+
+
 **Project:** INF2004 Autonomous PicoCar
 **Checkpoint:** 28 October 2026
 **Status:** Planned prototype modules implemented; software checks passed and selected hardware tests completed. Full assignment integration and validation remain incomplete.
@@ -222,6 +228,10 @@ Single-phase encoder direction follows commanded direction, so classification is
 
 This detector is separate from the existing `bump_event`.
 
+Collision detection remains required work, using this preliminary possible-impact
+detector as the existing implementation to review and validate. Separate shock
+detection and dedicated vibration measurement are outside the current feature plan.
+
 | Setting | Provisional value |
 |---|---:|
 | Signal | Absolute magnitude deviation from tracked nonzero baseline |
@@ -238,7 +248,7 @@ Outputs include validity, a one-sample event, cumulative count, timestamps, magn
 
 **No motor command or safety stop depends on this detector.**
 
-Ramps, braking, vibration and handling can resemble impacts. Synthetic tests passed; collision discrimination remains unvalidated. Do not deliberately crash the car or strike the sensor.
+Ramps, braking, vibration and handling can resemble impacts. Validate against labelled recordings of these conditions and normal motion, measure false positives and document limits. Synthetic tests passed; collision discrimination remains unvalidated. Do not deliberately crash the car or strike the sensor.
 
 ## 9. Encoder yaw-rate estimate
 
