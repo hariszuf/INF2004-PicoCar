@@ -1,3 +1,5 @@
+> Historical investigation record. For final results, remaining limitations and scope, see [Buddy 1 final review](BUDDY1_FINAL_REVIEW.md).
+
 # Windows: Buddy 1 standalone startup diagnostic
 
 Branch: `diagnostic/buddy1-powerbank-startup`.

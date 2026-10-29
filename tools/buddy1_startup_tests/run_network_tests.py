@@ -58,6 +58,12 @@ buddy_sources = [args.repo / 'app_program/buddy1' / name for name in ('command.c
 (build / 'firmware_buddy.c').write_text(''.join(f'#include "{p.as_posix()}"\n' for p in buddy_sources))
 target = (args.repo / 'lib/libnet/lwip/mqtt_utk.c').as_posix()
 (build / 'firmware_mqtt.c').write_text(f'#include "{target}"\n')
+radio = (args.repo / 'lib/libwifi/sysdepend/pico_rp2040/cyw43_utk.c').read_text()
+dhcp_start = radio.rindex('static void copy_ip4(')
+dhcp_end = radio.index('\n#endif', dhcp_start)
+(build / 'firmware_dhcp.c').write_text(radio[dhcp_start:dhcp_end])
+radio_header = (args.repo / 'lib/libwifi/sysdepend/pico_rp2040/cyw43_utk.h').as_posix()
+(build / 'firmware_radio_status.h').write_text(f'#include "{radio_header}"\n')
 sources = list((lwip / 'core').glob('*.c')) + list((lwip / 'core/ipv4').glob('*.c'))
 sources += [lwip / 'netif/ethernet.c', lwip / 'apps/mqtt/mqtt.c', root / 'network_test.c', root / 'buddy_ipc_test.c']
 defines = ['TM_WIFI_MQTT=1', 'TM_WIFI_DHCP=1', 'TM_WIFI_STATIC=0', 'TM_WIFI_TCP=0']
@@ -72,7 +78,7 @@ if result.returncode:
     print(result.stdout + result.stderr)
     raise SystemExit(result.returncode)
 outputs = []
-for case in ('dhcp', 'late_dhcp', 'sync_error', 'alloc_error', 'no_arp', 'tcp_timeout', 'tcp_reset', 'connack_timeout', 'connack_refused', 'success', 'buddy_io'):
+for case in ('dhcp', 'late_dhcp', 'late_dhcp_mqtt', 'dhcp_start_error', 'sync_error', 'alloc_error', 'no_arp', 'tcp_timeout', 'tcp_reset', 'connack_timeout', 'connack_refused', 'success', 'buddy_io'):
     result = subprocess.run([str(exe), case], capture_output=True, text=True)
     outputs.append(result.stdout + result.stderr)
     print(outputs[-1], end='')

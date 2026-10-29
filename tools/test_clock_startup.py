@@ -78,7 +78,7 @@ int main(void) {
 }
 '''
 harness = harness.replace('DEFINITIONS', '\n'.join(definitions[n] for n in sorted(needed))).replace('PRODUCTION', body)
-build = Path(__file__).resolve().parent / 'build-clock'
+build = Path(__file__).resolve().parent / 'buddy1_startup_tests/build-clock'
 build.mkdir(exist_ok=True)
 test_source = build / 'clock_test.c'
 test_source.write_text(harness)
