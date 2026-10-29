@@ -13,24 +13,25 @@
     "clock-fix-cold-boot-2-verified.json": "98aea1bf4ca5ee97c45d63996389dab39ad65b6c1ab822ddfcc0acd4c6679a3d",
     "clock-fix-cold-boot-3-mqtt-20261029.log": "8616378dd363988313e2469cf23c109b999cd32a1492f14d291fbbfeddb2375b",
     "clock-fix-cold-boot-3-verified.json": "4f8105340e099d98b042050f84aadca3d8a3471bda9d319a1e6d8764cd56ce23",
-    "clock-fix-cold-boot-results-20261029.md": "af5a172445b19b6a6a61cd10d64d20570cdcfdbc0c753a74c5f5de33eedff176",
+    "clock-fix-cold-boot-results-20261029.md": "0d09bedac68ee6a4ccfe1703c92555068ed89a8310b211c142beb6087424ffaa",
     "clock-fix-cold-boots-20261029.log": "32652ea94d501151e900daee8cd1df5a3788198ce517caa330a4bf5314e9d319",
     "clock-fix-success-mqtt-20261029.log": "1413e748ef4ad36a23bf058e70fe4a30b8b51154d45649cbefe99a58febd9d9c",
-    "original-build-manifest.json": "f33cc9c96595fa58ff1f1b23042b881eb3724b711d8fbf69d0fa1676e65f1e07",
-    "validation-results.json": "0cc65291bcdea3c26de28b28999736fcd80ed49a6580f93b0e4cc95c11b7e845",
-    "logs\\buddy5-distance.log": "62a780614a1507be14de9edab2d967b930ce410228444d4b456ce30ca8661700",
-    "logs\\buddy5-obstacle.log": "f9d0515c0b718299331f64d03e637e97a558ac51930d6924226940332d1a768f",
-    "logs\\build-uart.log": "d9755f47132cf2fe7af048febe59ba0345e9ea2782df4dd6bdad3de6025f581e",
-    "logs\\build-usb_cdc.log": "987357ab160f0740970b9df7f446aec6b2cfa54cae96a5db2919ff32c6cc8592",
-    "logs\\clock.log": "0a3440fef788acb24e7334e87fc482dd53e430b8c6ecf0965e384d33addb534f",
-    "logs\\join.log": "01f3b559b3324cbbaa2c1e8e8b0a11f46aab1a50714baf4243c25ef92af6f6c4",
-    "logs\\led.log": "2803fcd495dfadfa2e9bba4eb2ada230949c049e63798f53fc35d8cc2634ca9d",
-    "logs\\network.log": "a9082a6b12951252915b3ea319a6c8c4cec74ddf97323a5a2917737e8b2d3ad9",
-    "logs\\owner.log": "5fe80cda783a04b520a3f56907a075e65e439f0e7e62a1534458cf7cf4da26fc",
-    "logs\\usb.log": "2ce774414baf6175c6ad623ec7f4d382a55ca142d51a638e9d9b437e59041508"
+    "original-build-manifest.json": "2b6579163a6028de6331ea03f50c478851cbc29aedd710963ce3b0a2ab43fcb0",
+    "validation-results.json": "79a454e4ea14964985665edfa24f46d1bf7887f4ae374f2525fda409afe076bf",
+    "logs/buddy5-distance.log": "62a780614a1507be14de9edab2d967b930ce410228444d4b456ce30ca8661700",
+    "logs/buddy5-obstacle.log": "f9d0515c0b718299331f64d03e637e97a558ac51930d6924226940332d1a768f",
+    "logs/clock.log": "0a3440fef788acb24e7334e87fc482dd53e430b8c6ecf0965e384d33addb534f",
+    "logs/join.log": "01f3b559b3324cbbaa2c1e8e8b0a11f46aab1a50714baf4243c25ef92af6f6c4",
+    "logs/led.log": "2803fcd495dfadfa2e9bba4eb2ada230949c049e63798f53fc35d8cc2634ca9d",
+    "logs/network.log": "a9082a6b12951252915b3ea319a6c8c4cec74ddf97323a5a2917737e8b2d3ad9",
+    "logs/owner.log": "5fe80cda783a04b520a3f56907a075e65e439f0e7e62a1534458cf7cf4da26fc",
+    "logs/usb.log": "2ce774414baf6175c6ad623ec7f4d382a55ca142d51a638e9d9b437e59041508",
+    "logs/build-uart.log.gz": "f28b43aedab08fbd8bd50d45cada399f0f3f21b2df36fe2bd3a518286f73f503",
+    "logs/build-usb_cdc.log.gz": "e6ee9004ff6dc10a4592afd25a05df1c31aeea0b3c8c1e0102ef982f643232f5"
   },
   "additional_host_checks": {
     "buddy5-distance": "PASS; existing independent formula test, not hardware driver timing",
     "buddy5-obstacle": "PASS; production header state/hysteresis/fault logic"
-  }
+  },
+  "publication_metadata": "Commands use portable paths; narrative role labels normalized. Test outcomes, times and runtime identity unchanged. Build logs compressed losslessly."
 }

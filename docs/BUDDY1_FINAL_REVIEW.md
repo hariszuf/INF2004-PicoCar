@@ -28,7 +28,7 @@ Its runtime remains the successfully tested `0f07d6d` source. A fresh build
 from an isolated Git export reproduced the working UF2 **byte for byte**.
 The saved ELF/map and original image remain preserved outside tracked source:
 
-`C:/Users/muhdh/.codex/.chatgpt-projects/g-p-6abcb00776a081918f2ebf953585b093/buddy1-investigation/known-good/2026-10-29-clock-fix/`
+`local-artifacts/buddy1/known-good/2026-10-29-clock-fix/`
 
 Local Wi-Fi/MQTT configuration remains ignored and is not committed. The UF2
 is also ignored by repository policy; its exact hash and evidence are tracked
@@ -117,8 +117,8 @@ sources are not a valid combined application target.
 | Cold boot 2 | PASS: new port 53525; heartbeat reset then advancing; telemetry resumed. |
 | Cold boot 3 | PASS: new port 63041; heartbeat 0/1/2/3/4 at 15:12:42/:47/:52/:57/15:13:02; telemetry resumed. |
 
-User performed/reported the power cycles; the assistant independently observed
-traffic, freshness and socket changes. Power source, flashed bytes and power-on
+Power cycles were performed and reported by the operator; automated captures
+recorded MQTT traffic, freshness and socket changes. Power source, flashed bytes and power-on
 instants were not independently instrumented. No claim of loss-free telemetry:
 startup bursts and sequence gaps were observed. The first stale API sample
 during some reconnects contains cached previous-run data and is not counted
@@ -153,3 +153,11 @@ as a post-connection failure. All preserved original firmware remains intact.
 
 Detailed gates: [hardware checklist](BUDDY1_HARDWARE_CHECKLIST.md).
 Next work: [prioritized integration plan](PICOCAR_INTEGRATION_PLAN.md).
+
+## Documentation archive
+
+The four superseded troubleshooting notes are consolidated in
+`archive/buddy1-investigation-2026-10-29.md.gz`. Build logs are preserved
+losslessly as `logs/build-uart.log.gz` and `logs/build-usb_cdc.log.gz` in the
+finalization evidence directory. Test outcomes and firmware hashes are unchanged.
+The saved firmware is copied under the ignored `local-artifacts/` directory.
