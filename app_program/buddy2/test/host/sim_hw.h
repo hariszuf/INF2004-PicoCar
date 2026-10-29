@@ -31,6 +31,10 @@ double sim_true_distance_cm(void);
 /** Lock a wheel to emulate a stalled motor. */
 void sim_set_stall(motion_side_t side, bool stalled);
 
+/** Terrain load on a wheel as a duty equivalent (+ resists forward motion,
+ *  e.g. climbing; - helps it, e.g. going downhill). 0 = flat. */
+void sim_set_load(motion_side_t side, double load_duty);
+
 /** True if the motor is currently braked (both inputs low). */
 bool sim_is_braked(motion_side_t side);
 

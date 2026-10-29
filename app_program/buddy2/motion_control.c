@@ -17,8 +17,10 @@
 #include "motion_motor.h"
 #include "motion_pid.h"
 
-#ifdef MOTION_HOST_TEST
+#if defined(MOTION_HOST_TEST)
 #include "host_platform.h"
+#elif defined(MOTION_USE_UTKERNEL)
+#include "motion_mtk_hw.h"    /* micro T-Kernel trial: app_program/buddy2_mtk */
 #else
 #include "hardware/sync.h"
 #include "pico/time.h"
@@ -34,6 +36,7 @@
 #define ZERO_SPEED_CM_S     (0.5f)   /* below this a set-point means "stopped" */
 #define DUTY_ZERO           (0.001f)
 #define US_PER_SECOND       (1000000.0f)
+#define US_PER_MS           (1000u)
 
 typedef enum
 {
@@ -78,6 +81,16 @@ static uint32_t s_settle_cycles = 0u;
 static uint32_t s_settle_ms = 0u;
 static uint64_t s_last_update_us = 0u;
 
+/* Terrain compensation (input written by the IMU task, rest by motion_update). */
+static motion_terrain_input_t s_terrain_input;
+static volatile uint64_t s_terrain_time_us = 0u;
+static volatile bool s_terrain_have = false;
+static motion_terrain_t s_terrain = MOTION_TERRAIN_FLAT;
+static float s_terrain_scale = 1.0f;
+static float s_terrain_duty[MOTION_SIDE_COUNT];        /* slewed assist, applied */
+static float s_terrain_grade_duty = 0.0f;               /* wanted gravity term */
+static float s_terrain_hump_duty[MOTION_SIDE_COUNT];    /* wanted hump term (magnitude) */
+
 /* Latest values for motion_get_status(). */
 static int32_t s_status_count[MOTION_SIDE_COUNT];
 
@@ -86,8 +99,10 @@ static int32_t s_status_count[MOTION_SIDE_COUNT];
 /* ------------------------------------------------------------------ */
 static uint64_t now_us(void)
 {
-#ifdef MOTION_HOST_TEST
+#if defined(MOTION_HOST_TEST)
     return host_time_us();
+#elif defined(MOTION_USE_UTKERNEL)
+    return motion_mtk_time_us();
 #else
     return time_us_64();
 #endif
@@ -95,8 +110,10 @@ static uint64_t now_us(void)
 
 static uint32_t critical_enter(void)
 {
-#ifdef MOTION_HOST_TEST
+#if defined(MOTION_HOST_TEST)
     return 0u;
+#elif defined(MOTION_USE_UTKERNEL)
+    return motion_mtk_irq_save();
 #else
     return save_and_disable_interrupts();
 #endif
@@ -104,8 +121,10 @@ static uint32_t critical_enter(void)
 
 static void critical_exit(uint32_t saved)
 {
-#ifdef MOTION_HOST_TEST
+#if defined(MOTION_HOST_TEST)
     (void)saved;
+#elif defined(MOTION_USE_UTKERNEL)
+    motion_mtk_irq_restore(saved);
 #else
     restore_interrupts(saved);
 #endif
@@ -184,6 +203,95 @@ static float heading_deg_from(float left_cm, float right_cm)
 }
 
 /* ------------------------------------------------------------------ */
+/* Terrain compensation (Buddy 4 IMU -> Buddy 2 speed and power)       */
+/* ------------------------------------------------------------------ */
+/*
+ * Turns the latest IMU report into:
+ *  - a speed scale for moves and motion_drive() (smoothed later by the
+ *    normal accel / decel ramp, so speed changes are gentle), and
+ *  - a duty assist: a gravity term on a slope (both wheels) plus extra push
+ *    on the raised wheel on a one-side hump. The assist is rate limited.
+ * A missing, invalid or stale report means flat ground: normal behaviour.
+ */
+static void update_terrain(uint64_t now, float dt_s)
+{
+    motion_terrain_input_t input;
+    bool fresh;
+    uint32_t saved;
+    uint32_t i;
+    float pitch;
+    float roll;
+    float scale = 1.0f;
+    float wanted;
+
+    saved = critical_enter();
+    input = s_terrain_input;
+    /* A report stamped after 'now' (written by another task meanwhile) is fresh. */
+    fresh = s_terrain_have && input.valid &&
+            ((s_terrain_time_us >= now) ||
+             ((now - s_terrain_time_us) <= ((uint64_t)MOTION_TERRAIN_STALE_MS * US_PER_MS)));
+    critical_exit(saved);
+
+    s_terrain = MOTION_TERRAIN_FLAT;
+    s_terrain_grade_duty = 0.0f;
+    s_terrain_hump_duty[MOTION_SIDE_LEFT] = 0.0f;
+    s_terrain_hump_duty[MOTION_SIDE_RIGHT] = 0.0f;
+
+    if (fresh)
+    {
+        pitch = clamp_f(input.pitch_deg, -MOTION_TERRAIN_MAX_ANGLE_DEG, MOTION_TERRAIN_MAX_ANGLE_DEG);
+        roll = clamp_f(input.roll_deg, -MOTION_TERRAIN_MAX_ANGLE_DEG, MOTION_TERRAIN_MAX_ANGLE_DEG);
+
+        /* Slope: only act once Buddy 4's hysteresis says the car is tilted. */
+        if (input.pitch_state > 0)
+        {
+            s_terrain = MOTION_TERRAIN_UPHILL;
+            scale = MOTION_UPHILL_SPEED_SCALE;
+            s_terrain_grade_duty = MOTION_GRADE_DUTY_PER_G * sinf(abs_f(pitch) * DEG_TO_RAD);
+        }
+        else if (input.pitch_state < 0)
+        {
+            s_terrain = MOTION_TERRAIN_DOWNHILL;
+            scale = MOTION_DOWNHILL_SPEED_SCALE;
+            s_terrain_grade_duty = -MOTION_GRADE_DUTY_PER_G * sinf(abs_f(pitch) * DEG_TO_RAD);
+        }
+        else
+        {
+            /* flat in pitch */
+        }
+
+        /* Hump / one-side ramp: slow down and help the raised wheel. */
+        if (input.roll_state != 0)
+        {
+            motion_side_t raised = (input.roll_state < 0) ? MOTION_SIDE_LEFT : MOTION_SIDE_RIGHT;
+
+            s_terrain = (raised == MOTION_SIDE_LEFT) ? MOTION_TERRAIN_HUMP_LEFT
+                                                     : MOTION_TERRAIN_HUMP_RIGHT;
+            if (MOTION_HUMP_SPEED_SCALE < scale)
+            {
+                scale = MOTION_HUMP_SPEED_SCALE;
+            }
+            s_terrain_hump_duty[raised] = MOTION_HUMP_DUTY_PER_G * sinf(abs_f(roll) * DEG_TO_RAD);
+        }
+    }
+    s_terrain_scale = clamp_f(scale, 0.0f, 1.0f);
+
+    /* Slew the applied assist so power changes are gradual. The hump part
+       follows the direction the wheel is asked to turn. */
+    for (i = 0u; i < (uint32_t)MOTION_SIDE_COUNT; i++)
+    {
+        wanted = s_terrain_grade_duty;
+        if (abs_f(s_setpoint_cm_s[i]) > ZERO_SPEED_CM_S)
+        {
+            wanted += sign_f(s_setpoint_cm_s[i]) * s_terrain_hump_duty[i];
+        }
+        wanted = clamp_f(wanted, -MOTION_TERRAIN_DUTY_MAX, MOTION_TERRAIN_DUTY_MAX);
+        s_terrain_duty[i] = approach(s_terrain_duty[i], wanted,
+                                     MOTION_TERRAIN_DUTY_RATE_PER_S * dt_s);
+    }
+}
+
+/* ------------------------------------------------------------------ */
 /* Actuation                                                           */
 /* ------------------------------------------------------------------ */
 /*
@@ -252,8 +360,37 @@ static float wheel_control(motion_side_t side, float setpoint, float dt_s)
     {
         duty = sign_f(setpoint) * MOTION_BREAKAWAY_DUTY;   /* wheel is stuck: give it a push */
     }
+
+    /* Terrain assist from the IMU (zero on flat ground). */
+    duty += s_terrain_duty[side];
+
+    /* Never drive a wheel against its requested direction (downhill assist):
+       brake instead. This also protects the single-phase encoder count. */
+    if ((duty * setpoint) < 0.0f)
+    {
+        duty = 0.0f;
+    }
     duty = clamp_f(duty, -1.0f, 1.0f);
     return drive_wheel(side, duty);
+}
+
+/*
+ * True when the speed loop is pushing a wheel as hard as it is allowed to:
+ * duty at or above MOTION_STALL_DUTY, or the PID integral saturated in the
+ * driving direction. The second case matters at slow line-following speeds,
+ * where feed-forward + PID can never reach MOTION_STALL_DUTY.
+ */
+static bool pushing_hard(uint32_t i, float applied)
+{
+    float drive_sign = sign_f(s_setpoint_cm_s[i]);
+
+    if (abs_f(applied) >= MOTION_STALL_DUTY)
+    {
+        return true;
+    }
+    return (abs_f(applied) > DUTY_ZERO) &&
+           (abs_f(s_setpoint_cm_s[i]) > ZERO_SPEED_CM_S) &&
+           ((drive_sign * s_pid[i].integral) >= (0.99f * MOTION_PID_INTEGRAL_LIMIT));
 }
 
 /* ------------------------------------------------------------------ */
@@ -288,6 +425,16 @@ static void start_command(const command_t *p_command)
         {
             begin_stop();
         }
+        return;
+    }
+
+    /* Line following re-sends motion_drive() every few ms. A new DRIVE while
+       already driving only changes the wheel speeds: keep the stall timers
+       running, otherwise a stuck wheel is never detected. */
+    if ((p_command->type == COMMAND_DRIVE) && (s_state == MOTION_STATE_EXECUTING) &&
+        (s_active.type == COMMAND_DRIVE))
+    {
+        s_active = *p_command;
         return;
     }
 
@@ -415,6 +562,15 @@ static void run_executing(float dt_s)
         return;
     }
 
+    /* Terrain speed scale for straight moves and continuous drive (line
+       following). Spins in place keep their speed. The accel / decel ramp
+       below makes the change smooth. */
+    if ((s_active.type == COMMAND_MOVE) || (s_active.type == COMMAND_DRIVE))
+    {
+        target[MOTION_SIDE_LEFT] *= s_terrain_scale;
+        target[MOTION_SIDE_RIGHT] *= s_terrain_scale;
+    }
+
     for (i = 0u; i < (uint32_t)MOTION_SIDE_COUNT; i++)
     {
         side = (motion_side_t)i;
@@ -423,7 +579,7 @@ static void run_executing(float dt_s)
         s_setpoint_cm_s[i] = approach(s_setpoint_cm_s[i], target[i], rate * dt_s);
         applied = wheel_control(side, s_setpoint_cm_s[i], dt_s);
 
-        if ((abs_f(applied) >= MOTION_STALL_DUTY) &&
+        if (pushing_hard(i, applied) &&
             (abs_f(s_speed_cm_s[i]) < MOTION_STALL_SPEED_CM_S))
         {
             s_stall_ms[i] += MOTION_UPDATE_PERIOD_MS;
@@ -495,8 +651,15 @@ motion_result_t motion_init(void)
         s_direction[i] = 1;
         s_status_count[i] = 0;
         s_stall_ms[i] = 0u;
+        s_terrain_duty[i] = 0.0f;
+        s_terrain_hump_duty[i] = 0.0f;
     }
 
+    s_terrain_have = false;
+    s_terrain_input.valid = false;
+    s_terrain = MOTION_TERRAIN_FLAT;
+    s_terrain_scale = 1.0f;
+    s_terrain_grade_duty = 0.0f;
     s_pending_valid = false;
     s_estop_request = false;
     s_active.type = COMMAND_NONE;
@@ -527,6 +690,7 @@ void motion_update(void)
     dt_s = clamp_f(dt_s, 0.5f * PERIOD_S, 2.0f * PERIOD_S);
 
     read_sensors(dt_s);
+    update_terrain(now, dt_s);
 
     if (s_estop_request && ((s_state != MOTION_STATE_ERROR) ||
                             (s_fault != MOTION_FAULT_ESTOP)))
@@ -662,6 +826,34 @@ motion_result_t motion_set_speed(float speed_cm_s)
     return MOTION_OK;
 }
 
+motion_result_t motion_set_terrain(const motion_terrain_input_t *p_input)
+{
+    uint32_t saved;
+
+    if (!s_initialised)
+    {
+        return MOTION_ERR_NOT_INIT;
+    }
+    if (p_input == (const motion_terrain_input_t *)0)
+    {
+        return MOTION_ERR_INVALID_ARG;
+    }
+    if (p_input->valid &&
+        ((!isfinite(p_input->pitch_deg)) || (!isfinite(p_input->roll_deg)) ||
+         (p_input->pitch_state < -1) || (p_input->pitch_state > 1) ||
+         (p_input->roll_state < -1) || (p_input->roll_state > 1)))
+    {
+        return MOTION_ERR_INVALID_ARG;
+    }
+
+    saved = critical_enter();
+    s_terrain_input = *p_input;
+    s_terrain_time_us = now_us();
+    s_terrain_have = true;
+    critical_exit(saved);
+    return MOTION_OK;
+}
+
 void motion_stop(void)
 {
     command_t command;
@@ -757,5 +949,9 @@ void motion_get_status(motion_status_t *p_status)
                                     s_position_cm[MOTION_SIDE_RIGHT]);
     p_status->heading_deg = heading_deg_from(s_position_cm[MOTION_SIDE_LEFT],
                                              s_position_cm[MOTION_SIDE_RIGHT]);
+    p_status->terrain = s_terrain;
+    p_status->terrain_speed_scale = s_terrain_scale;
+    p_status->left_terrain_duty = s_terrain_duty[MOTION_SIDE_LEFT];
+    p_status->right_terrain_duty = s_terrain_duty[MOTION_SIDE_RIGHT];
     critical_exit(saved);
 }

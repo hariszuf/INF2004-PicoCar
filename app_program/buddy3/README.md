@@ -6,6 +6,8 @@ Team 08, INF2004 PicoCar. Based on the team's `ir_motor_curve_test.c`. Its own m
 
 The project `CMakeLists.txt` builds `test/line_follow_demo_main.c` together with the Buddy 2 sources into `EmbeddedProject.uf2`. Flash, switch on, and place the car on the line within 5 seconds with both line sensors on the 18 mm black line. It drives by itself. USB serial output is optional.
 
+Slopes and humps: the program also polls Buddy 4's IMU and passes the result to Buddy 2, which slows the wheels / adds power on the ramp. Buddy 3's logic and speeds are unchanged; the scaling happens inside Buddy 2.
+
 ## Logic (same as the team code)
 
 | Sensors on the line | Action |

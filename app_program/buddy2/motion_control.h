@@ -51,6 +51,30 @@ typedef enum
     MOTION_FAULT_STALL      /* motor driven but wheel not turning */
 } motion_fault_t;
 
+/** Terrain condition Buddy 2 is currently compensating for. */
+typedef enum
+{
+    MOTION_TERRAIN_FLAT = 0,
+    MOTION_TERRAIN_UPHILL,
+    MOTION_TERRAIN_DOWNHILL,
+    MOTION_TERRAIN_HUMP_LEFT,   /* left wheel raised (on a hump / one-side ramp) */
+    MOTION_TERRAIN_HUMP_RIGHT   /* right wheel raised */
+} motion_terrain_t;
+
+/**
+ * Terrain report from the IMU (Buddy 4). Buddy 4 only observes; Buddy 2
+ * decides the speed and power. pitch_state / roll_state are Buddy 4's
+ * hysteresis outputs (buddy4_output_t.terrain / .side).
+ */
+typedef struct
+{
+    bool   valid;         /* false = no usable IMU data, treat as flat */
+    int8_t pitch_state;   /* -1 downhill, 0 flat, +1 uphill */
+    int8_t roll_state;    /* -1 left wheel up, 0 level, +1 right wheel up */
+    float  pitch_deg;     /* filtered pitch, positive = nose up */
+    float  roll_deg;      /* filtered roll */
+} motion_terrain_input_t;
+
 /** Snapshot for telemetry and the Vehicle Controller. */
 typedef struct
 {
@@ -63,6 +87,10 @@ typedef struct
     float    speed_cm_s;        /* average of both wheels */
     float    distance_cm;       /* signed distance since odometry reset */
     float    heading_deg;       /* signed, left turn positive */
+    motion_terrain_t terrain;   /* condition being compensated (FLAT if stale) */
+    float    terrain_speed_scale;     /* multiplier applied to speed targets */
+    float    left_terrain_duty;       /* duty assist added on top of the speed loop */
+    float    right_terrain_duty;
 } motion_status_t;
 
 /** Initialise motors, encoders and controllers. Safe to call twice. */
@@ -92,6 +120,16 @@ motion_result_t motion_drive(float left_cm_s, float right_cm_s);
 
 /** Cruise speed used by later forward / backward moves (cm/s, > 0). */
 motion_result_t motion_set_speed(float speed_cm_s);
+
+/**
+ * Latest terrain report from the IMU task (Buddy 4). Call after every fresh
+ * IMU sample (about every 20 ms). Buddy 2 then scales the speed of forward /
+ * backward moves and motion_drive() (so Buddy 3 line following slows down
+ * automatically) and adds a gravity / hump power assist. If no report arrives
+ * for MOTION_TERRAIN_STALE_MS, or valid is false, the car behaves as on flat
+ * ground. Safe to call from any task.
+ */
+motion_result_t motion_set_terrain(const motion_terrain_input_t *p_input);
 
 /** Controlled stop: brake and return to IDLE. */
 void motion_stop(void);

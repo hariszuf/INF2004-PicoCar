@@ -183,6 +183,61 @@ static void test_stall(void)
     run_for(500);
 }
 
+/* Line following re-sends motion_drive() every 5 ms at a few cm/s. */
+static void test_stall_while_line_following(void)
+{
+    motion_status_t status;
+    int ms;
+    int sub;
+    double before;
+
+    printf("\n[stall detection while line following (drive re-sent every 5 ms, 3 cm/s)]\n");
+    for (ms = 0; ms < 1000; ms += (int)MOTION_UPDATE_PERIOD_MS)
+    {
+        for (sub = 0; sub < 4; sub++)
+        {
+            motion_drive(3.0f, 3.0f);
+        }
+        run_for(MOTION_UPDATE_PERIOD_MS);
+    }
+    motion_get_status(&status);
+    CHECK(status.state == MOTION_STATE_EXECUTING, "slow driving alone is not a stall");
+
+    before = sim_true_distance_cm();
+    for (ms = 0; ms < 2000; ms += (int)MOTION_UPDATE_PERIOD_MS)
+    {
+        for (sub = 0; sub < 4; sub++)
+        {
+            motion_drive(3.5f, 2.5f);   /* steering updates keep the car moving */
+        }
+        run_for(MOTION_UPDATE_PERIOD_MS);
+    }
+    motion_get_status(&status);
+    CHECK((status.state == MOTION_STATE_EXECUTING) && (sim_true_distance_cm() > before + 3.0),
+          "steering updates do not interrupt driving");
+
+    sim_set_stall(MOTION_SIDE_LEFT, true);
+    for (ms = 0; ms < 5000; ms += (int)MOTION_UPDATE_PERIOD_MS)
+    {
+        for (sub = 0; sub < 4; sub++)
+        {
+            motion_drive(3.0f, 3.0f);
+        }
+        run_for(MOTION_UPDATE_PERIOD_MS);
+        motion_get_status(&status);
+        if (status.state == MOTION_STATE_ERROR)
+        {
+            break;
+        }
+    }
+    printf("  fault detected %d ms after the wheel locked\n", ms);
+    CHECK(status.state == MOTION_STATE_ERROR && status.fault == MOTION_FAULT_STALL,
+          "locked wheel detected even though drive commands keep arriving");
+    sim_set_stall(MOTION_SIDE_LEFT, false);
+    motion_reset();
+    run_for(500);
+}
+
 static void test_drive_and_stop(void)
 {
     motion_status_t status;
@@ -254,6 +309,7 @@ int main(void)
     test_reversal_counts();
     test_estop();
     test_stall();
+    test_stall_while_line_following();
 
     printf("\n%d checks, %d failed\n", s_checks, s_failures);
     return (s_failures == 0) ? 0 : 1;
