@@ -1,3 +1,5 @@
+> Historical investigation record. For final results, remaining limitations and scope, see [Buddy 1 final review](BUDDY1_FINAL_REVIEW.md).
+
 # Buddy 1: remove the preliminary scan dependency
 
 Branch: `fix/buddy1-direct-wifi-join`, based on diagnostic commit `02bf883`.

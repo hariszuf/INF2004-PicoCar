@@ -1,0 +1,1 @@
+PASS clock startup: cold/inherited tick states -> 1 MHz after clk_ref setup; timer count and watchdog control preserved

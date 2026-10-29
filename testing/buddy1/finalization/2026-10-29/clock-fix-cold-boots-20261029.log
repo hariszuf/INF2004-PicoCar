@@ -1,0 +1,322 @@
+2026-10-29T15:07:16+0800 picocar/vehicle1/telemetry src=1 type=1 seq=399 value1=1 value2=0
+2026-10-29T15:07:17+0800 picocar/vehicle1/telemetry src=1 type=1 seq=400 value1=1 value2=0
+2026-10-29T15:07:18+0800 picocar/vehicle1/telemetry src=1 type=1 seq=401 value1=1 value2=0
+2026-10-29T15:07:19+0800 picocar/vehicle1/status heartbeat seq=77
+2026-10-29T15:07:19+0800 picocar/vehicle1/telemetry src=1 type=1 seq=402 value1=1 value2=0
+2026-10-29T15:07:20+0800 picocar/vehicle1/telemetry src=1 type=1 seq=403 value1=1 value2=0
+2026-10-29T15:07:21+0800 picocar/vehicle1/telemetry src=1 type=1 seq=404 value1=1 value2=0
+2026-10-29T15:07:22+0800 picocar/vehicle1/telemetry src=1 type=1 seq=405 value1=1 value2=0
+2026-10-29T15:07:23+0800 picocar/vehicle1/telemetry src=1 type=1 seq=406 value1=1 value2=0
+2026-10-29T15:07:24+0800 picocar/vehicle1/status heartbeat seq=78
+2026-10-29T15:07:24+0800 picocar/vehicle1/telemetry src=1 type=1 seq=407 value1=1 value2=0
+2026-10-29T15:07:25+0800 picocar/vehicle1/telemetry src=1 type=1 seq=408 value1=1 value2=0
+2026-10-29T15:07:28+0800 picocar/vehicle1/telemetry src=1 type=1 seq=409 value1=1 value2=0
+2026-10-29T15:07:28+0800 picocar/vehicle1/telemetry src=1 type=1 seq=410 value1=1 value2=0
+2026-10-29T15:07:28+0800 picocar/vehicle1/telemetry src=1 type=1 seq=411 value1=1 value2=0
+2026-10-29T15:07:29+0800 picocar/vehicle1/status heartbeat seq=79
+2026-10-29T15:07:29+0800 picocar/vehicle1/telemetry src=1 type=1 seq=412 value1=1 value2=0
+2026-10-29T15:07:30+0800 picocar/vehicle1/telemetry src=1 type=1 seq=413 value1=1 value2=0
+2026-10-29T15:07:31+0800 picocar/vehicle1/telemetry src=1 type=1 seq=414 value1=1 value2=0
+2026-10-29T15:07:32+0800 picocar/vehicle1/telemetry src=1 type=1 seq=415 value1=1 value2=0
+2026-10-29T15:07:33+0800 picocar/vehicle1/telemetry src=1 type=1 seq=416 value1=1 value2=0
+2026-10-29T15:07:34+0800 picocar/vehicle1/status heartbeat seq=80
+2026-10-29T15:07:34+0800 picocar/vehicle1/telemetry src=1 type=1 seq=417 value1=1 value2=0
+2026-10-29T15:07:35+0800 picocar/vehicle1/telemetry src=1 type=1 seq=418 value1=1 value2=0
+2026-10-29T15:07:36+0800 picocar/vehicle1/telemetry src=1 type=1 seq=419 value1=1 value2=0
+2026-10-29T15:07:37+0800 picocar/vehicle1/telemetry src=1 type=1 seq=420 value1=1 value2=0
+2026-10-29T15:07:38+0800 picocar/vehicle1/telemetry src=1 type=1 seq=421 value1=1 value2=0
+2026-10-29T15:07:40+0800 picocar/vehicle1/status heartbeat seq=81
+2026-10-29T15:07:40+0800 picocar/vehicle1/telemetry src=1 type=1 seq=422 value1=1 value2=0
+2026-10-29T15:07:40+0800 picocar/vehicle1/telemetry src=1 type=1 seq=423 value1=1 value2=0
+2026-10-29T15:07:41+0800 picocar/vehicle1/telemetry src=1 type=1 seq=424 value1=1 value2=0
+2026-10-29T15:07:42+0800 picocar/vehicle1/telemetry src=1 type=1 seq=425 value1=1 value2=0
+2026-10-29T15:07:43+0800 picocar/vehicle1/telemetry src=1 type=1 seq=426 value1=1 value2=0
+2026-10-29T15:07:44+0800 picocar/vehicle1/status heartbeat seq=82
+2026-10-29T15:07:44+0800 picocar/vehicle1/telemetry src=1 type=1 seq=427 value1=1 value2=0
+2026-10-29T15:07:45+0800 picocar/vehicle1/telemetry src=1 type=1 seq=428 value1=1 value2=0
+2026-10-29T15:07:46+0800 picocar/vehicle1/telemetry src=1 type=1 seq=429 value1=1 value2=0
+2026-10-29T15:07:47+0800 picocar/vehicle1/telemetry src=1 type=1 seq=430 value1=1 value2=0
+2026-10-29T15:07:48+0800 picocar/vehicle1/telemetry src=1 type=1 seq=431 value1=1 value2=0
+2026-10-29T15:07:49+0800 picocar/vehicle1/status heartbeat seq=83
+2026-10-29T15:08:14+0800 picocar/vehicle1/telemetry src=1 type=1 seq=1 value1=1 value2=0
+2026-10-29T15:08:14+0800 picocar/vehicle1/telemetry src=1 type=1 seq=2 value1=1 value2=0
+2026-10-29T15:08:14+0800 picocar/vehicle1/telemetry src=1 type=1 seq=3 value1=1 value2=0
+2026-10-29T15:08:14+0800 picocar/vehicle1/telemetry src=1 type=1 seq=4 value1=1 value2=0
+2026-10-29T15:08:14+0800 picocar/vehicle1/telemetry src=1 type=1 seq=5 value1=1 value2=0
+2026-10-29T15:08:14+0800 picocar/vehicle1/telemetry src=1 type=1 seq=6 value1=1 value2=0
+2026-10-29T15:08:14+0800 picocar/vehicle1/telemetry src=1 type=1 seq=7 value1=1 value2=0
+2026-10-29T15:08:14+0800 picocar/vehicle1/telemetry src=1 type=1 seq=8 value1=1 value2=0
+2026-10-29T15:08:14+0800 picocar/vehicle1/telemetry src=1 type=1 seq=9 value1=1 value2=0
+2026-10-29T15:08:14+0800 picocar/vehicle1/telemetry src=1 type=1 seq=10 value1=1 value2=0
+2026-10-29T15:08:14+0800 picocar/vehicle1/telemetry src=1 type=1 seq=11 value1=1 value2=0
+2026-10-29T15:08:14+0800 picocar/vehicle1/telemetry src=1 type=1 seq=12 value1=1 value2=0
+2026-10-29T15:08:14+0800 picocar/vehicle1/telemetry src=1 type=1 seq=17 value1=1 value2=0
+2026-10-29T15:08:15+0800 picocar/vehicle1/telemetry src=1 type=1 seq=18 value1=1 value2=0
+2026-10-29T15:08:16+0800 picocar/vehicle1/telemetry src=1 type=1 seq=19 value1=1 value2=0
+2026-10-29T15:08:17+0800 picocar/vehicle1/telemetry src=1 type=1 seq=20 value1=1 value2=0
+2026-10-29T15:08:18+0800 picocar/vehicle1/telemetry src=1 type=1 seq=21 value1=1 value2=0
+2026-10-29T15:08:19+0800 picocar/vehicle1/status heartbeat seq=0
+2026-10-29T15:08:19+0800 picocar/vehicle1/telemetry src=1 type=1 seq=22 value1=1 value2=0
+2026-10-29T15:08:20+0800 picocar/vehicle1/telemetry src=1 type=1 seq=23 value1=1 value2=0
+2026-10-29T15:08:21+0800 picocar/vehicle1/telemetry src=1 type=1 seq=24 value1=1 value2=0
+2026-10-29T15:08:22+0800 picocar/vehicle1/telemetry src=1 type=1 seq=25 value1=1 value2=0
+2026-10-29T15:08:23+0800 picocar/vehicle1/telemetry src=1 type=1 seq=26 value1=1 value2=0
+2026-10-29T15:08:24+0800 picocar/vehicle1/status heartbeat seq=1
+2026-10-29T15:08:24+0800 picocar/vehicle1/telemetry src=1 type=1 seq=27 value1=1 value2=0
+2026-10-29T15:08:25+0800 picocar/vehicle1/telemetry src=1 type=1 seq=28 value1=1 value2=0
+2026-10-29T15:08:26+0800 picocar/vehicle1/telemetry src=1 type=1 seq=29 value1=1 value2=0
+2026-10-29T15:08:27+0800 picocar/vehicle1/telemetry src=1 type=1 seq=30 value1=1 value2=0
+2026-10-29T15:08:28+0800 picocar/vehicle1/telemetry src=1 type=1 seq=31 value1=1 value2=0
+2026-10-29T15:08:29+0800 picocar/vehicle1/status heartbeat seq=2
+2026-10-29T15:08:29+0800 picocar/vehicle1/telemetry src=1 type=1 seq=32 value1=1 value2=0
+2026-10-29T15:08:30+0800 picocar/vehicle1/telemetry src=1 type=1 seq=33 value1=1 value2=0
+2026-10-29T15:08:31+0800 picocar/vehicle1/telemetry src=1 type=1 seq=34 value1=1 value2=0
+2026-10-29T15:08:32+0800 picocar/vehicle1/telemetry src=1 type=1 seq=35 value1=1 value2=0
+2026-10-29T15:08:33+0800 picocar/vehicle1/telemetry src=1 type=1 seq=36 value1=1 value2=0
+2026-10-29T15:08:34+0800 picocar/vehicle1/status heartbeat seq=3
+2026-10-29T15:08:34+0800 picocar/vehicle1/telemetry src=1 type=1 seq=37 value1=1 value2=0
+2026-10-29T15:08:35+0800 picocar/vehicle1/telemetry src=1 type=1 seq=38 value1=1 value2=0
+2026-10-29T15:08:36+0800 picocar/vehicle1/telemetry src=1 type=1 seq=39 value1=1 value2=0
+2026-10-29T15:08:37+0800 picocar/vehicle1/telemetry src=1 type=1 seq=40 value1=1 value2=0
+2026-10-29T15:08:38+0800 picocar/vehicle1/telemetry src=1 type=1 seq=41 value1=1 value2=0
+2026-10-29T15:08:39+0800 picocar/vehicle1/status heartbeat seq=4
+2026-10-29T15:08:39+0800 picocar/vehicle1/telemetry src=1 type=1 seq=42 value1=1 value2=0
+2026-10-29T15:08:40+0800 picocar/vehicle1/telemetry src=1 type=1 seq=43 value1=1 value2=0
+2026-10-29T15:08:41+0800 picocar/vehicle1/telemetry src=1 type=1 seq=44 value1=1 value2=0
+2026-10-29T15:08:42+0800 picocar/vehicle1/telemetry src=1 type=1 seq=45 value1=1 value2=0
+2026-10-29T15:08:43+0800 picocar/vehicle1/telemetry src=1 type=1 seq=46 value1=1 value2=0
+2026-10-29T15:08:44+0800 picocar/vehicle1/status heartbeat seq=5
+2026-10-29T15:08:44+0800 picocar/vehicle1/telemetry src=1 type=1 seq=47 value1=1 value2=0
+2026-10-29T15:08:45+0800 picocar/vehicle1/telemetry src=1 type=1 seq=48 value1=1 value2=0
+2026-10-29T15:08:46+0800 picocar/vehicle1/telemetry src=1 type=1 seq=49 value1=1 value2=0
+2026-10-29T15:08:47+0800 picocar/vehicle1/telemetry src=1 type=1 seq=50 value1=1 value2=0
+2026-10-29T15:08:48+0800 picocar/vehicle1/telemetry src=1 type=1 seq=51 value1=1 value2=0
+2026-10-29T15:08:49+0800 picocar/vehicle1/status heartbeat seq=6
+2026-10-29T15:08:49+0800 picocar/vehicle1/telemetry src=1 type=1 seq=52 value1=1 value2=0
+2026-10-29T15:08:50+0800 picocar/vehicle1/telemetry src=1 type=1 seq=53 value1=1 value2=0
+2026-10-29T15:08:51+0800 picocar/vehicle1/telemetry src=1 type=1 seq=54 value1=1 value2=0
+2026-10-29T15:08:52+0800 picocar/vehicle1/telemetry src=1 type=1 seq=55 value1=1 value2=0
+2026-10-29T15:08:53+0800 picocar/vehicle1/telemetry src=1 type=1 seq=56 value1=1 value2=0
+2026-10-29T15:08:54+0800 picocar/vehicle1/status heartbeat seq=7
+2026-10-29T15:08:54+0800 picocar/vehicle1/telemetry src=1 type=1 seq=57 value1=1 value2=0
+2026-10-29T15:08:55+0800 picocar/vehicle1/telemetry src=1 type=1 seq=58 value1=1 value2=0
+2026-10-29T15:08:56+0800 picocar/vehicle1/telemetry src=1 type=1 seq=59 value1=1 value2=0
+2026-10-29T15:08:57+0800 picocar/vehicle1/telemetry src=1 type=1 seq=60 value1=1 value2=0
+2026-10-29T15:08:58+0800 picocar/vehicle1/telemetry src=1 type=1 seq=61 value1=1 value2=0
+2026-10-29T15:08:59+0800 picocar/vehicle1/status heartbeat seq=8
+2026-10-29T15:08:59+0800 picocar/vehicle1/telemetry src=1 type=1 seq=62 value1=1 value2=0
+2026-10-29T15:09:00+0800 picocar/vehicle1/telemetry src=1 type=1 seq=63 value1=1 value2=0
+2026-10-29T15:09:01+0800 picocar/vehicle1/telemetry src=1 type=1 seq=64 value1=1 value2=0
+2026-10-29T15:09:02+0800 picocar/vehicle1/telemetry src=1 type=1 seq=65 value1=1 value2=0
+2026-10-29T15:09:03+0800 picocar/vehicle1/telemetry src=1 type=1 seq=66 value1=1 value2=0
+2026-10-29T15:09:04+0800 picocar/vehicle1/status heartbeat seq=9
+2026-10-29T15:09:04+0800 picocar/vehicle1/telemetry src=1 type=1 seq=67 value1=1 value2=0
+2026-10-29T15:09:05+0800 picocar/vehicle1/telemetry src=1 type=1 seq=68 value1=1 value2=0
+2026-10-29T15:09:06+0800 picocar/vehicle1/telemetry src=1 type=1 seq=69 value1=1 value2=0
+2026-10-29T15:09:08+0800 picocar/vehicle1/telemetry src=1 type=1 seq=70 value1=1 value2=0
+2026-10-29T15:09:09+0800 picocar/vehicle1/telemetry src=1 type=1 seq=71 value1=1 value2=0
+2026-10-29T15:09:09+0800 picocar/vehicle1/status heartbeat seq=10
+2026-10-29T15:09:10+0800 picocar/vehicle1/telemetry src=1 type=1 seq=72 value1=1 value2=0
+2026-10-29T15:09:11+0800 picocar/vehicle1/telemetry src=1 type=1 seq=73 value1=1 value2=0
+2026-10-29T15:09:12+0800 picocar/vehicle1/telemetry src=1 type=1 seq=74 value1=1 value2=0
+2026-10-29T15:09:13+0800 picocar/vehicle1/telemetry src=1 type=1 seq=75 value1=1 value2=0
+2026-10-29T15:09:14+0800 picocar/vehicle1/telemetry src=1 type=1 seq=76 value1=1 value2=0
+2026-10-29T15:09:14+0800 picocar/vehicle1/status heartbeat seq=11
+2026-10-29T15:09:15+0800 picocar/vehicle1/telemetry src=1 type=1 seq=77 value1=1 value2=0
+2026-10-29T15:09:16+0800 picocar/vehicle1/telemetry src=1 type=1 seq=78 value1=1 value2=0
+2026-10-29T15:09:17+0800 picocar/vehicle1/telemetry src=1 type=1 seq=79 value1=1 value2=0
+2026-10-29T15:09:18+0800 picocar/vehicle1/telemetry src=1 type=1 seq=80 value1=1 value2=0
+2026-10-29T15:09:19+0800 picocar/vehicle1/telemetry src=1 type=1 seq=81 value1=1 value2=0
+2026-10-29T15:09:19+0800 picocar/vehicle1/status heartbeat seq=12
+2026-10-29T15:09:20+0800 picocar/vehicle1/telemetry src=1 type=1 seq=82 value1=1 value2=0
+2026-10-29T15:09:21+0800 picocar/vehicle1/telemetry src=1 type=1 seq=83 value1=1 value2=0
+2026-10-29T15:09:22+0800 picocar/vehicle1/telemetry src=1 type=1 seq=84 value1=1 value2=0
+2026-10-29T15:09:23+0800 picocar/vehicle1/telemetry src=1 type=1 seq=85 value1=1 value2=0
+2026-10-29T15:09:24+0800 picocar/vehicle1/telemetry src=1 type=1 seq=86 value1=1 value2=0
+2026-10-29T15:09:24+0800 picocar/vehicle1/status heartbeat seq=13
+2026-10-29T15:09:25+0800 picocar/vehicle1/telemetry src=1 type=1 seq=87 value1=1 value2=0
+2026-10-29T15:09:26+0800 picocar/vehicle1/telemetry src=1 type=1 seq=88 value1=1 value2=0
+2026-10-29T15:09:27+0800 picocar/vehicle1/telemetry src=1 type=1 seq=89 value1=1 value2=0
+2026-10-29T15:09:28+0800 picocar/vehicle1/telemetry src=1 type=1 seq=90 value1=1 value2=0
+2026-10-29T15:09:29+0800 picocar/vehicle1/status heartbeat seq=14
+2026-10-29T15:09:29+0800 picocar/vehicle1/telemetry src=1 type=1 seq=91 value1=1 value2=0
+2026-10-29T15:09:30+0800 picocar/vehicle1/telemetry src=1 type=1 seq=92 value1=1 value2=0
+2026-10-29T15:09:31+0800 picocar/vehicle1/telemetry src=1 type=1 seq=93 value1=1 value2=0
+2026-10-29T15:09:32+0800 picocar/vehicle1/telemetry src=1 type=1 seq=94 value1=1 value2=0
+2026-10-29T15:09:33+0800 picocar/vehicle1/telemetry src=1 type=1 seq=95 value1=1 value2=0
+2026-10-29T15:09:34+0800 picocar/vehicle1/status heartbeat seq=15
+2026-10-29T15:09:34+0800 picocar/vehicle1/telemetry src=1 type=1 seq=96 value1=1 value2=0
+2026-10-29T15:09:35+0800 picocar/vehicle1/telemetry src=1 type=1 seq=97 value1=1 value2=0
+2026-10-29T15:09:36+0800 picocar/vehicle1/telemetry src=1 type=1 seq=98 value1=1 value2=0
+2026-10-29T15:09:37+0800 picocar/vehicle1/telemetry src=1 type=1 seq=99 value1=1 value2=0
+2026-10-29T15:09:38+0800 picocar/vehicle1/telemetry src=1 type=1 seq=100 value1=1 value2=0
+2026-10-29T15:09:39+0800 picocar/vehicle1/status heartbeat seq=16
+2026-10-29T15:09:39+0800 picocar/vehicle1/telemetry src=1 type=1 seq=101 value1=1 value2=0
+2026-10-29T15:09:40+0800 picocar/vehicle1/telemetry src=1 type=1 seq=102 value1=1 value2=0
+2026-10-29T15:09:41+0800 picocar/vehicle1/telemetry src=1 type=1 seq=103 value1=1 value2=0
+2026-10-29T15:09:42+0800 picocar/vehicle1/telemetry src=1 type=1 seq=104 value1=1 value2=0
+2026-10-29T15:09:43+0800 picocar/vehicle1/telemetry src=1 type=1 seq=105 value1=1 value2=0
+2026-10-29T15:09:44+0800 picocar/vehicle1/status heartbeat seq=17
+2026-10-29T15:09:44+0800 picocar/vehicle1/telemetry src=1 type=1 seq=106 value1=1 value2=0
+2026-10-29T15:09:45+0800 picocar/vehicle1/telemetry src=1 type=1 seq=107 value1=1 value2=0
+2026-10-29T15:09:46+0800 picocar/vehicle1/telemetry src=1 type=1 seq=108 value1=1 value2=0
+2026-10-29T15:09:47+0800 picocar/vehicle1/telemetry src=1 type=1 seq=109 value1=1 value2=0
+2026-10-29T15:09:48+0800 picocar/vehicle1/telemetry src=1 type=1 seq=110 value1=1 value2=0
+2026-10-29T15:09:49+0800 picocar/vehicle1/status heartbeat seq=18
+2026-10-29T15:09:49+0800 picocar/vehicle1/telemetry src=1 type=1 seq=111 value1=1 value2=0
+2026-10-29T15:09:50+0800 picocar/vehicle1/telemetry src=1 type=1 seq=112 value1=1 value2=0
+2026-10-29T15:09:51+0800 picocar/vehicle1/telemetry src=1 type=1 seq=113 value1=1 value2=0
+2026-10-29T15:09:52+0800 picocar/vehicle1/telemetry src=1 type=1 seq=114 value1=1 value2=0
+2026-10-29T15:09:53+0800 picocar/vehicle1/telemetry src=1 type=1 seq=115 value1=1 value2=0
+2026-10-29T15:09:54+0800 picocar/vehicle1/status heartbeat seq=19
+2026-10-29T15:09:54+0800 picocar/vehicle1/telemetry src=1 type=1 seq=116 value1=1 value2=0
+2026-10-29T15:09:55+0800 picocar/vehicle1/telemetry src=1 type=1 seq=117 value1=1 value2=0
+2026-10-29T15:09:56+0800 picocar/vehicle1/telemetry src=1 type=1 seq=118 value1=1 value2=0
+2026-10-29T15:09:57+0800 picocar/vehicle1/telemetry src=1 type=1 seq=119 value1=1 value2=0
+2026-10-29T15:09:58+0800 picocar/vehicle1/telemetry src=1 type=1 seq=120 value1=1 value2=0
+2026-10-29T15:09:59+0800 picocar/vehicle1/status heartbeat seq=20
+2026-10-29T15:09:59+0800 picocar/vehicle1/telemetry src=1 type=1 seq=121 value1=1 value2=0
+2026-10-29T15:10:00+0800 picocar/vehicle1/telemetry src=1 type=1 seq=122 value1=1 value2=0
+2026-10-29T15:10:01+0800 picocar/vehicle1/telemetry src=1 type=1 seq=123 value1=1 value2=0
+2026-10-29T15:10:02+0800 picocar/vehicle1/telemetry src=1 type=1 seq=124 value1=1 value2=0
+2026-10-29T15:10:03+0800 picocar/vehicle1/telemetry src=1 type=1 seq=125 value1=1 value2=0
+2026-10-29T15:10:04+0800 picocar/vehicle1/status heartbeat seq=21
+2026-10-29T15:10:04+0800 picocar/vehicle1/telemetry src=1 type=1 seq=126 value1=1 value2=0
+2026-10-29T15:10:05+0800 picocar/vehicle1/telemetry src=1 type=1 seq=127 value1=1 value2=0
+2026-10-29T15:10:06+0800 picocar/vehicle1/telemetry src=1 type=1 seq=128 value1=1 value2=0
+2026-10-29T15:10:07+0800 picocar/vehicle1/telemetry src=1 type=1 seq=129 value1=1 value2=0
+2026-10-29T15:10:08+0800 picocar/vehicle1/telemetry src=1 type=1 seq=130 value1=1 value2=0
+2026-10-29T15:10:09+0800 picocar/vehicle1/status heartbeat seq=22
+2026-10-29T15:10:09+0800 picocar/vehicle1/telemetry src=1 type=1 seq=131 value1=1 value2=0
+2026-10-29T15:10:10+0800 picocar/vehicle1/telemetry src=1 type=1 seq=132 value1=1 value2=0
+2026-10-29T15:10:11+0800 picocar/vehicle1/telemetry src=1 type=1 seq=133 value1=1 value2=0
+2026-10-29T15:10:12+0800 picocar/vehicle1/telemetry src=1 type=1 seq=134 value1=1 value2=0
+2026-10-29T15:10:13+0800 picocar/vehicle1/telemetry src=1 type=1 seq=135 value1=1 value2=0
+2026-10-29T15:10:14+0800 picocar/vehicle1/status heartbeat seq=23
+2026-10-29T15:10:14+0800 picocar/vehicle1/telemetry src=1 type=1 seq=136 value1=1 value2=0
+2026-10-29T15:10:15+0800 picocar/vehicle1/telemetry src=1 type=1 seq=137 value1=1 value2=0
+2026-10-29T15:10:16+0800 picocar/vehicle1/telemetry src=1 type=1 seq=138 value1=1 value2=0
+2026-10-29T15:10:17+0800 picocar/vehicle1/telemetry src=1 type=1 seq=139 value1=1 value2=0
+2026-10-29T15:10:18+0800 picocar/vehicle1/telemetry src=1 type=1 seq=140 value1=1 value2=0
+2026-10-29T15:10:19+0800 picocar/vehicle1/status heartbeat seq=24
+2026-10-29T15:10:19+0800 picocar/vehicle1/telemetry src=1 type=1 seq=141 value1=1 value2=0
+2026-10-29T15:10:20+0800 picocar/vehicle1/telemetry src=1 type=1 seq=142 value1=1 value2=0
+2026-10-29T15:10:21+0800 picocar/vehicle1/telemetry src=1 type=1 seq=143 value1=1 value2=0
+2026-10-29T15:10:22+0800 picocar/vehicle1/telemetry src=1 type=1 seq=144 value1=1 value2=0
+2026-10-29T15:10:23+0800 picocar/vehicle1/telemetry src=1 type=1 seq=145 value1=1 value2=0
+2026-10-29T15:10:24+0800 picocar/vehicle1/status heartbeat seq=25
+2026-10-29T15:10:24+0800 picocar/vehicle1/telemetry src=1 type=1 seq=146 value1=1 value2=0
+2026-10-29T15:10:25+0800 picocar/vehicle1/telemetry src=1 type=1 seq=147 value1=1 value2=0
+2026-10-29T15:10:26+0800 picocar/vehicle1/telemetry src=1 type=1 seq=148 value1=1 value2=0
+2026-10-29T15:10:27+0800 picocar/vehicle1/telemetry src=1 type=1 seq=149 value1=1 value2=0
+2026-10-29T15:10:28+0800 picocar/vehicle1/telemetry src=1 type=1 seq=150 value1=1 value2=0
+2026-10-29T15:10:29+0800 picocar/vehicle1/status heartbeat seq=26
+2026-10-29T15:10:29+0800 picocar/vehicle1/telemetry src=1 type=1 seq=151 value1=1 value2=0
+2026-10-29T15:10:30+0800 picocar/vehicle1/telemetry src=1 type=1 seq=152 value1=1 value2=0
+2026-10-29T15:10:31+0800 picocar/vehicle1/telemetry src=1 type=1 seq=153 value1=1 value2=0
+2026-10-29T15:10:32+0800 picocar/vehicle1/telemetry src=1 type=1 seq=154 value1=1 value2=0
+2026-10-29T15:10:33+0800 picocar/vehicle1/telemetry src=1 type=1 seq=155 value1=1 value2=0
+2026-10-29T15:10:34+0800 picocar/vehicle1/status heartbeat seq=27
+2026-10-29T15:10:34+0800 picocar/vehicle1/telemetry src=1 type=1 seq=156 value1=1 value2=0
+2026-10-29T15:10:35+0800 picocar/vehicle1/telemetry src=1 type=1 seq=157 value1=1 value2=0
+2026-10-29T15:10:36+0800 picocar/vehicle1/telemetry src=1 type=1 seq=158 value1=1 value2=0
+2026-10-29T15:10:37+0800 picocar/vehicle1/telemetry src=1 type=1 seq=159 value1=1 value2=0
+2026-10-29T15:10:38+0800 picocar/vehicle1/telemetry src=1 type=1 seq=160 value1=1 value2=0
+2026-10-29T15:10:39+0800 picocar/vehicle1/status heartbeat seq=28
+2026-10-29T15:10:39+0800 picocar/vehicle1/telemetry src=1 type=1 seq=161 value1=1 value2=0
+2026-10-29T15:10:40+0800 picocar/vehicle1/telemetry src=1 type=1 seq=162 value1=1 value2=0
+2026-10-29T15:10:41+0800 picocar/vehicle1/telemetry src=1 type=1 seq=163 value1=1 value2=0
+2026-10-29T15:10:42+0800 picocar/vehicle1/telemetry src=1 type=1 seq=164 value1=1 value2=0
+2026-10-29T15:10:43+0800 picocar/vehicle1/telemetry src=1 type=1 seq=165 value1=1 value2=0
+2026-10-29T15:10:44+0800 picocar/vehicle1/status heartbeat seq=29
+2026-10-29T15:10:44+0800 picocar/vehicle1/telemetry src=1 type=1 seq=166 value1=1 value2=0
+2026-10-29T15:10:45+0800 picocar/vehicle1/telemetry src=1 type=1 seq=167 value1=1 value2=0
+2026-10-29T15:10:46+0800 picocar/vehicle1/telemetry src=1 type=1 seq=168 value1=1 value2=0
+2026-10-29T15:11:11+0800 picocar/vehicle1/telemetry src=1 type=1 seq=1 value1=1 value2=0
+2026-10-29T15:11:11+0800 picocar/vehicle1/telemetry src=1 type=1 seq=2 value1=1 value2=0
+2026-10-29T15:11:11+0800 picocar/vehicle1/telemetry src=1 type=1 seq=3 value1=1 value2=0
+2026-10-29T15:11:11+0800 picocar/vehicle1/telemetry src=1 type=1 seq=4 value1=1 value2=0
+2026-10-29T15:11:11+0800 picocar/vehicle1/telemetry src=1 type=1 seq=5 value1=1 value2=0
+2026-10-29T15:11:11+0800 picocar/vehicle1/telemetry src=1 type=1 seq=6 value1=1 value2=0
+2026-10-29T15:11:11+0800 picocar/vehicle1/telemetry src=1 type=1 seq=7 value1=1 value2=0
+2026-10-29T15:11:11+0800 picocar/vehicle1/telemetry src=1 type=1 seq=8 value1=1 value2=0
+2026-10-29T15:11:11+0800 picocar/vehicle1/telemetry src=1 type=1 seq=9 value1=1 value2=0
+2026-10-29T15:11:11+0800 picocar/vehicle1/telemetry src=1 type=1 seq=10 value1=1 value2=0
+2026-10-29T15:11:11+0800 picocar/vehicle1/telemetry src=1 type=1 seq=11 value1=1 value2=0
+2026-10-29T15:11:11+0800 picocar/vehicle1/telemetry src=1 type=1 seq=12 value1=1 value2=0
+2026-10-29T15:11:11+0800 picocar/vehicle1/telemetry src=1 type=1 seq=17 value1=1 value2=0
+2026-10-29T15:11:12+0800 picocar/vehicle1/telemetry src=1 type=1 seq=18 value1=1 value2=0
+2026-10-29T15:11:13+0800 picocar/vehicle1/telemetry src=1 type=1 seq=19 value1=1 value2=0
+2026-10-29T15:11:14+0800 picocar/vehicle1/telemetry src=1 type=1 seq=20 value1=1 value2=0
+2026-10-29T15:11:15+0800 picocar/vehicle1/telemetry src=1 type=1 seq=21 value1=1 value2=0
+2026-10-29T15:11:16+0800 picocar/vehicle1/status heartbeat seq=0
+2026-10-29T15:11:16+0800 picocar/vehicle1/telemetry src=1 type=1 seq=22 value1=1 value2=0
+2026-10-29T15:11:17+0800 picocar/vehicle1/telemetry src=1 type=1 seq=23 value1=1 value2=0
+2026-10-29T15:11:18+0800 picocar/vehicle1/telemetry src=1 type=1 seq=24 value1=1 value2=0
+2026-10-29T15:11:19+0800 picocar/vehicle1/telemetry src=1 type=1 seq=25 value1=1 value2=0
+2026-10-29T15:11:22+0800 picocar/vehicle1/telemetry src=1 type=1 seq=26 value1=1 value2=0
+2026-10-29T15:11:22+0800 picocar/vehicle1/status heartbeat seq=1
+2026-10-29T15:11:22+0800 picocar/vehicle1/telemetry src=1 type=1 seq=27 value1=1 value2=0
+2026-10-29T15:11:22+0800 picocar/vehicle1/telemetry src=1 type=1 seq=28 value1=1 value2=0
+2026-10-29T15:11:23+0800 picocar/vehicle1/telemetry src=1 type=1 seq=29 value1=1 value2=0
+2026-10-29T15:11:24+0800 picocar/vehicle1/telemetry src=1 type=1 seq=30 value1=1 value2=0
+2026-10-29T15:11:25+0800 picocar/vehicle1/telemetry src=1 type=1 seq=31 value1=1 value2=0
+2026-10-29T15:11:26+0800 picocar/vehicle1/status heartbeat seq=2
+2026-10-29T15:11:26+0800 picocar/vehicle1/telemetry src=1 type=1 seq=32 value1=1 value2=0
+2026-10-29T15:11:27+0800 picocar/vehicle1/telemetry src=1 type=1 seq=33 value1=1 value2=0
+2026-10-29T15:11:28+0800 picocar/vehicle1/telemetry src=1 type=1 seq=34 value1=1 value2=0
+2026-10-29T15:11:29+0800 picocar/vehicle1/telemetry src=1 type=1 seq=35 value1=1 value2=0
+2026-10-29T15:11:31+0800 picocar/vehicle1/telemetry src=1 type=1 seq=36 value1=1 value2=0
+2026-10-29T15:11:32+0800 picocar/vehicle1/status heartbeat seq=3
+2026-10-29T15:11:32+0800 picocar/vehicle1/telemetry src=1 type=1 seq=37 value1=1 value2=0
+2026-10-29T15:11:32+0800 picocar/vehicle1/telemetry src=1 type=1 seq=38 value1=1 value2=0
+2026-10-29T15:11:33+0800 picocar/vehicle1/telemetry src=1 type=1 seq=39 value1=1 value2=0
+2026-10-29T15:11:34+0800 picocar/vehicle1/telemetry src=1 type=1 seq=40 value1=1 value2=0
+2026-10-29T15:11:35+0800 picocar/vehicle1/telemetry src=1 type=1 seq=41 value1=1 value2=0
+2026-10-29T15:11:36+0800 picocar/vehicle1/status heartbeat seq=4
+2026-10-29T15:11:36+0800 picocar/vehicle1/telemetry src=1 type=1 seq=42 value1=1 value2=0
+2026-10-29T15:11:37+0800 picocar/vehicle1/telemetry src=1 type=1 seq=43 value1=1 value2=0
+2026-10-29T15:11:38+0800 picocar/vehicle1/telemetry src=1 type=1 seq=44 value1=1 value2=0
+2026-10-29T15:11:39+0800 picocar/vehicle1/telemetry src=1 type=1 seq=45 value1=1 value2=0
+2026-10-29T15:11:40+0800 picocar/vehicle1/telemetry src=1 type=1 seq=46 value1=1 value2=0
+2026-10-29T15:11:41+0800 picocar/vehicle1/status heartbeat seq=5
+2026-10-29T15:11:41+0800 picocar/vehicle1/telemetry src=1 type=1 seq=47 value1=1 value2=0
+2026-10-29T15:11:42+0800 picocar/vehicle1/telemetry src=1 type=1 seq=48 value1=1 value2=0
+2026-10-29T15:11:43+0800 picocar/vehicle1/telemetry src=1 type=1 seq=49 value1=1 value2=0
+2026-10-29T15:11:44+0800 picocar/vehicle1/telemetry src=1 type=1 seq=50 value1=1 value2=0
+2026-10-29T15:11:45+0800 picocar/vehicle1/telemetry src=1 type=1 seq=51 value1=1 value2=0
+2026-10-29T15:11:46+0800 picocar/vehicle1/status heartbeat seq=6
+2026-10-29T15:11:46+0800 picocar/vehicle1/telemetry src=1 type=1 seq=52 value1=1 value2=0
+2026-10-29T15:11:47+0800 picocar/vehicle1/telemetry src=1 type=1 seq=53 value1=1 value2=0
+2026-10-29T15:11:48+0800 picocar/vehicle1/telemetry src=1 type=1 seq=54 value1=1 value2=0
+2026-10-29T15:11:49+0800 picocar/vehicle1/telemetry src=1 type=1 seq=55 value1=1 value2=0
+2026-10-29T15:11:50+0800 picocar/vehicle1/telemetry src=1 type=1 seq=56 value1=1 value2=0
+2026-10-29T15:11:51+0800 picocar/vehicle1/status heartbeat seq=7
+2026-10-29T15:11:51+0800 picocar/vehicle1/telemetry src=1 type=1 seq=57 value1=1 value2=0
+2026-10-29T15:11:54+0800 picocar/vehicle1/telemetry src=1 type=1 seq=58 value1=1 value2=0
+2026-10-29T15:11:54+0800 picocar/vehicle1/telemetry src=1 type=1 seq=59 value1=1 value2=0
+2026-10-29T15:11:54+0800 picocar/vehicle1/telemetry src=1 type=1 seq=60 value1=1 value2=0
+2026-10-29T15:11:55+0800 picocar/vehicle1/telemetry src=1 type=1 seq=61 value1=1 value2=0
+2026-10-29T15:11:56+0800 picocar/vehicle1/status heartbeat seq=8
+2026-10-29T15:11:56+0800 picocar/vehicle1/telemetry src=1 type=1 seq=62 value1=1 value2=0
+2026-10-29T15:11:57+0800 picocar/vehicle1/telemetry src=1 type=1 seq=63 value1=1 value2=0
+2026-10-29T15:11:58+0800 picocar/vehicle1/telemetry src=1 type=1 seq=64 value1=1 value2=0
+2026-10-29T15:11:59+0800 picocar/vehicle1/telemetry src=1 type=1 seq=65 value1=1 value2=0
+2026-10-29T15:12:00+0800 picocar/vehicle1/telemetry src=1 type=1 seq=66 value1=1 value2=0
+2026-10-29T15:12:01+0800 picocar/vehicle1/status heartbeat seq=9
+2026-10-29T15:12:01+0800 picocar/vehicle1/telemetry src=1 type=1 seq=67 value1=1 value2=0
+2026-10-29T15:12:02+0800 picocar/vehicle1/telemetry src=1 type=1 seq=68 value1=1 value2=0
+2026-10-29T15:12:03+0800 picocar/vehicle1/telemetry src=1 type=1 seq=69 value1=1 value2=0
+2026-10-29T15:12:04+0800 picocar/vehicle1/telemetry src=1 type=1 seq=70 value1=1 value2=0
+2026-10-29T15:12:05+0800 picocar/vehicle1/telemetry src=1 type=1 seq=71 value1=1 value2=0
+2026-10-29T15:12:06+0800 picocar/vehicle1/status heartbeat seq=10
+2026-10-29T15:12:06+0800 picocar/vehicle1/telemetry src=1 type=1 seq=72 value1=1 value2=0
+2026-10-29T15:12:07+0800 picocar/vehicle1/telemetry src=1 type=1 seq=73 value1=1 value2=0
+2026-10-29T15:12:08+0800 picocar/vehicle1/telemetry src=1 type=1 seq=74 value1=1 value2=0
+2026-10-29T15:12:09+0800 picocar/vehicle1/telemetry src=1 type=1 seq=75 value1=1 value2=0
+2026-10-29T15:12:11+0800 picocar/vehicle1/telemetry src=1 type=1 seq=76 value1=1 value2=0
+2026-10-29T15:12:11+0800 picocar/vehicle1/status heartbeat seq=11
+2026-10-29T15:12:12+0800 picocar/vehicle1/telemetry src=1 type=1 seq=77 value1=1 value2=0
+2026-10-29T15:12:13+0800 picocar/vehicle1/telemetry src=1 type=1 seq=78 value1=1 value2=0
+2026-10-29T15:12:14+0800 picocar/vehicle1/telemetry src=1 type=1 seq=79 value1=1 value2=0
+2026-10-29T15:12:15+0800 picocar/vehicle1/telemetry src=1 type=1 seq=80 value1=1 value2=0

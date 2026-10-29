@@ -8,6 +8,7 @@
 #include "lwip/timeouts.h"
 #include "lwip/dhcp.h"
 #include "lwip/dns.h"
+#include "lwip/udp.h"
 #include "lwip/etharp.h"
 #include "lwip/inet_chksum.h"
 #include "lwip/prot/dhcp.h"
@@ -57,7 +58,19 @@ void test_buddy_init(void);
 void test_queue_telemetry(void);
 void test_consume_commands(void);
 
-static struct netif iface;
+static struct { struct netif netif[1]; } cyw43_state;
+#define iface cyw43_state.netif[0]
+#define CYW43_ITF_STA 0
+#define CYW43_DHCP_TIMEOUT_US 30000000ULL
+#include "firmware_radio_status.h"
+static T_CYW43_UTK_STATUS radio_status;
+static uint64_t dhcp_started_us;
+static unsigned dhcp_ipv4_adopted;
+static uint64_t time_us_64(void) { return (uint64_t)test_now*1000; }
+static void mp_memory_barrir(void) {}
+/* The IPv4 diagnostic adopter is not a DHCP or MQTT prerequisite. */
+static int lwip_utk_ipv4_adopt_netif(struct netif *n) { (void)n; return ERR_OK; }
+#include "firmware_dhcp.c"
 static struct dhcp lease;
 static ip4_addr_t client_ip, broker_ip, router_ip;
 static const unsigned char client_mac[6] = {2,0,0,0,0,4};
@@ -142,6 +155,8 @@ static void advance(unsigned ms) {
     assert(ms % 10 == 0);
     for(unsigned i=0; i<ms; i+=10) {
         test_now+=10; sys_check_timeouts();
+        radio_status.netif_link_up=netif_is_link_up(&iface);
+        update_dhcp_status();
         if(app_enabled) mqtt_utk_poll(&iface);
     }
 }
@@ -220,11 +235,34 @@ static void acquire_lease(int late) {
     assert(dhcp_supplied_address(&iface)); assert(ip4_addr_cmp(netif_ip4_addr(&iface),&client_ip));
     assert(ip4_addr_cmp(netif_ip4_gw(&iface),&router_ip));
     assert(ip4_addr_cmp(ip_2_ip4(dns_getserver(0)),&router_ip));
+    assert(radio_status.dhcp_complete);
+    assert(radio_status.dhcp_result==(late ? ERR_TIMEOUT : ERR_OK));
 }
 int main(int argc, char **argv) {
     assert(argc==2); const char *mode=argv[1];
     test_buddy_init();
-    acquire_lease(!strcmp(mode,"late_dhcp"));
+    if(!strcmp(mode,"dhcp_start_error")) {
+        struct udp_pcb *held[MEMP_NUM_UDP_PCB];
+        unsigned count=0;
+        lwip_init();
+        assert(netif_add(&iface,NULL,NULL,NULL,NULL,init_interface,ethernet_input));
+        netif_set_default(&iface); netif_set_up(&iface);
+        dhcp_set_struct(&iface,&lease);
+        /* Exhaust real lwIP UDP PCBs before the SDK-style pre-link start. */
+        while(count<MEMP_NUM_UDP_PCB && (held[count]=udp_new())!=NULL) count++;
+        assert(count>0 && udp_new()==NULL);
+        assert(dhcp_start(&iface)==ERR_MEM && lease.state==DHCP_STATE_OFF);
+        while(count) udp_remove(held[--count]);
+        netif_set_link_up(&iface);
+        app_enabled=1; advance(60000);
+        assert(lease.state==DHCP_STATE_OFF && discovers==0 && attempts==0);
+        /* An explicit restart can recover after resources become available. */
+        assert(dhcp_start(&iface)==ERR_OK);
+        assert(lease.state==DHCP_STATE_SELECTING && discovers>0);
+        puts("CONFIRMED LIMIT: initial DHCP PCB allocation failure stays OFF after link-up and 60s; explicit restart resumes discovery");
+        return 0;
+    }
+    acquire_lease(!strcmp(mode,"late_dhcp") || !strcmp(mode,"late_dhcp_mqtt"));
     if(!strcmp(mode,"dhcp") || !strcmp(mode,"late_dhcp")) {
         printf("PASS %-16s DHCP bound at %u ms with no USB code; DHCP packets=%u\n",mode,test_now,discovers);
         return 0;
@@ -279,7 +317,7 @@ int main(int argc, char **argv) {
         assert(attempts==2 && attempt_time[1]-failed==3000);
         puts("PASS connack_refused  broker rejection callback, retry after 3000 ms"); return 0;
     }
-    assert(!strcmp(mode,"success") || !strcmp(mode,"buddy_io"));
+    assert(!strcmp(mode,"success") || !strcmp(mode,"buddy_io") || !strcmp(mode,"late_dhcp_mqtt"));
     unsigned char connack[]={0x20,2,0,0};
     tcp_reply(TCP_ACK|TCP_PSH,9001,sent_next,connack,sizeof(connack));
     assert(connected && !connecting && mqtt_client_is_connected(mqtt_client));
@@ -290,6 +328,13 @@ int main(int argc, char **argv) {
     if(!strcmp(mode,"buddy_io")) test_queue_telemetry();
     advance(10); tcp_reply(TCP_ACK,server_seq,sent_next,NULL,0); advance(4990);
     assert(status_messages>0 && heartbeat_sequence==1);
+    if(!strcmp(mode,"success")) {
+        for(unsigned expected=2; expected<=7; expected++) {
+            tcp_reply(TCP_ACK,server_seq,sent_next,NULL,0);
+            advance(5000);
+            assert(status_messages==expected && heartbeat_sequence==expected);
+        }
+    }
     if(!strcmp(mode,"buddy_io")) {
         assert(telemetry_messages>0);
         const char *topics[]={MQTT_COMMAND_TOPIC,MQTT_COMMAND_TOPIC,MQTT_STATUS_TOPIC,MQTT_COMMAND_TOPIC};
@@ -310,6 +355,9 @@ int main(int argc, char **argv) {
         }
         test_consume_commands();
         puts("PASS buddy_io         real telemetry queue -> MQTT payload; START/STOP -> real command queue/consumer; wrong topic and invalid command rejected");
-    } else puts("PASS success          real TCP/MQTT handshake, subscription and heartbeat, no USB code");
+    } else if(!strcmp(mode,"late_dhcp_mqtt")) {
+        assert(radio_status.dhcp_result==ERR_TIMEOUT && dhcp_supplied_address(&iface));
+        puts("PASS late_dhcp_mqtt   diagnostic DHCP timeout stays latched, but a later real lease permits MQTT and heartbeat");
+    } else puts("PASS success          real TCP/MQTT handshake, subscription and seven five-second heartbeats, no USB code");
     return 0;
 }

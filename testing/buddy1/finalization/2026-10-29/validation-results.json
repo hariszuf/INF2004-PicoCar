@@ -1,0 +1,116 @@
+[
+  {
+    "check": "clock",
+    "exit_code": 0,
+    "command": [
+      "C:\\Python315\\python.exe",
+      "tools/test_clock_startup.py",
+      "--repo",
+      "C:\\Users\\muhdh\\.codex\\.chatgpt-projects\\g-p-6abcb00776a081918f2ebf953585b093\\buddy1-investigation\\finalization\\source",
+      "--cc",
+      "C:/msys64/ucrt64/bin/gcc.exe"
+    ]
+  },
+  {
+    "check": "network",
+    "exit_code": 0,
+    "command": [
+      "C:\\Python315\\python.exe",
+      "tools/buddy1_startup_tests/run_network_tests.py",
+      "--repo",
+      "C:\\Users\\muhdh\\.codex\\.chatgpt-projects\\g-p-6abcb00776a081918f2ebf953585b093\\buddy1-investigation\\finalization\\source",
+      "--sdk",
+      "C:/Users/muhdh/.pico-sdk/sdk/2.3.1",
+      "--cc",
+      "C:/msys64/ucrt64/bin/gcc.exe"
+    ]
+  },
+  {
+    "check": "usb",
+    "exit_code": 0,
+    "command": [
+      "C:\\Python315\\python.exe",
+      "tools/buddy1_startup_tests/run_usb_tests.py",
+      "--repo",
+      "C:\\Users\\muhdh\\.codex\\.chatgpt-projects\\g-p-6abcb00776a081918f2ebf953585b093\\buddy1-investigation\\finalization\\source",
+      "--cc",
+      "C:/msys64/ucrt64/bin/gcc.exe"
+    ]
+  },
+  {
+    "check": "join",
+    "exit_code": 0,
+    "command": [
+      "C:\\Python315\\python.exe",
+      "tools/test_wifi_startup.py",
+      "--source",
+      "C:\\Users\\muhdh\\.codex\\.chatgpt-projects\\g-p-6abcb00776a081918f2ebf953585b093\\buddy1-investigation\\finalization\\source\\lib\\libwifi\\sysdepend\\pico_rp2040\\cyw43_utk.c",
+      "--cc",
+      "C:/msys64/ucrt64/bin/gcc.exe"
+    ]
+  },
+  {
+    "check": "led",
+    "exit_code": 0,
+    "command": [
+      "C:\\Python315\\python.exe",
+      "tools/buddy1_startup_tests/test_led_diagnostic.py",
+      "--repo",
+      "C:\\Users\\muhdh\\.codex\\.chatgpt-projects\\g-p-6abcb00776a081918f2ebf953585b093\\buddy1-investigation\\finalization\\source",
+      "--cc",
+      "C:/msys64/ucrt64/bin/gcc.exe"
+    ]
+  },
+  {
+    "check": "owner",
+    "exit_code": 0,
+    "command": [
+      "C:\\Python315\\python.exe",
+      "tools/buddy1_startup_tests/test_radio_owner.py",
+      "--repo",
+      "C:\\Users\\muhdh\\.codex\\.chatgpt-projects\\g-p-6abcb00776a081918f2ebf953585b093\\buddy1-investigation\\finalization\\source",
+      "--cc",
+      "C:/msys64/ucrt64/bin/gcc.exe"
+    ]
+  },
+  {
+    "check": "build-uart",
+    "exit_code": 0,
+    "command": [
+      "C:/raylib/w64devkit/bin/make.exe",
+      "-B",
+      "SMP=0",
+      "CONSOLE=uart",
+      "WIFI=cyw43",
+      "WIFI_JOIN=1",
+      "WIFI_NETIF=1",
+      "WIFI_DHCP=1",
+      "WIFI_DNS=1",
+      "WIFI_MQTT=1",
+      "PICO_SDK_PATH=C:/Users/muhdh/.pico-sdk/sdk/2.3.1",
+      "TEMP_SRCS=../app_program/app_main.c $(wildcard ../app_program/buddy1/*.c) $(wildcard ../app_program/buddy5/*.c)",
+      "-j8"
+    ],
+    "uf2_sha256": "ed1ceeaeb06e8bca56ce19031d9796f7db68eada4899388c2552d95f47f3b893"
+  },
+  {
+    "check": "build-usb_cdc",
+    "exit_code": 0,
+    "command": [
+      "C:/raylib/w64devkit/bin/make.exe",
+      "-B",
+      "SMP=0",
+      "CONSOLE=usb_cdc",
+      "WIFI=cyw43",
+      "WIFI_JOIN=1",
+      "WIFI_NETIF=1",
+      "WIFI_DHCP=1",
+      "WIFI_DNS=1",
+      "WIFI_MQTT=1",
+      "PICO_SDK_PATH=C:/Users/muhdh/.pico-sdk/sdk/2.3.1",
+      "TEMP_SRCS=../app_program/app_main.c $(wildcard ../app_program/buddy1/*.c) $(wildcard ../app_program/buddy5/*.c)",
+      "-j8"
+    ],
+    "uf2_sha256": "cd523950ded2eb40ada8ff0fa77bd830fcb677df726df6561ec6eea1beed5a2e"
+  }
+]

@@ -1,0 +1,59 @@
+[
+  {
+    "time": "2026-10-29T15:08:47.4425517+08:00",
+    "status": {
+      "mqtt_connected": true,
+      "vehicle_heartbeat_fresh": true,
+      "heartbeat_age_seconds": 3.2
+    },
+    "messages": {
+      "picocar/vehicle1/telemetry": "src=1 type=1 seq=49 value1=1 value2=0",
+      "picocar/vehicle1/status": "heartbeat seq=5"
+    },
+    "car_connections": [
+      {
+        "RemotePort": 59555,
+        "State": 5,
+        "OwningProcess": 23120
+      }
+    ]
+  },
+  {
+    "time": "2026-10-29T15:08:54.0667900+08:00",
+    "status": {
+      "mqtt_connected": true,
+      "vehicle_heartbeat_fresh": true,
+      "heartbeat_age_seconds": 4.9
+    },
+    "messages": {
+      "picocar/vehicle1/telemetry": "src=1 type=1 seq=56 value1=1 value2=0",
+      "picocar/vehicle1/status": "heartbeat seq=6"
+    },
+    "car_connections": [
+      {
+        "RemotePort": 59555,
+        "State": 5,
+        "OwningProcess": 23120
+      }
+    ]
+  },
+  {
+    "time": "2026-10-29T15:09:00.2567634+08:00",
+    "status": {
+      "mqtt_connected": true,
+      "vehicle_heartbeat_fresh": true,
+      "heartbeat_age_seconds": 1.0
+    },
+    "messages": {
+      "picocar/vehicle1/telemetry": "src=1 type=1 seq=62 value1=1 value2=0",
+      "picocar/vehicle1/status": "heartbeat seq=8"
+    },
+    "car_connections": [
+      {
+        "RemotePort": 59555,
+        "State": 5,
+        "OwningProcess": 23120
+      }
+    ]
+  }
+]

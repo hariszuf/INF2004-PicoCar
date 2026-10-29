@@ -1,3 +1,5 @@
+> Historical investigation record. For final results, remaining limitations and scope, see [Buddy 1 final review](BUDDY1_FINAL_REVIEW.md).
+
 # Buddy 1: source and software investigation, 28 October 2026
 
 **Standalone operation remains unresolved.** The retry firmware did not restore
