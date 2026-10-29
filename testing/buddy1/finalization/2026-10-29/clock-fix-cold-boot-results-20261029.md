@@ -6,7 +6,7 @@ Firmware: buddy1-clock-fix-no-usb.uf2, SHA256
 Local source commit: `0f07d6df448da5ca5f581cf4cb89f229c51ba475`.
 
 The user performs the power cycles, using the same power bank without
-BOOTSEL, motors disabled and no wall charger. The assistant reads MQTT,
+BOOTSEL, motors disabled and no wall charger. Automated checks record MQTT traffic,
 dashboard state and broker sockets. Physical power-on instants are not
 independently measured. The continuous subscriber log is
 `clock-fix-cold-boots-20261029.log`; it records received MQTT traffic, not broker

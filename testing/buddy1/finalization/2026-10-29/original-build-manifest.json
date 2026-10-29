@@ -5,7 +5,7 @@
   "source_state": "Investigation copy plus buddy1-clock-fix.patch; not committed or pushed",
   "profile": "SMP=0 CONSOLE=uart; WiFi join/netif/DHCP/DNS/MQTT; app_main + Buddy 1 + Buddy 5",
   "change": "Configure WATCHDOG.TICK ENABLE=1, CYCLES=12 after clk_ref setup",
-  "physical_verification": "Not flashed or tested on hardware by assistant",
+  "physical_verification": "Build artifact only; subsequent physical observations are recorded separately in the cold-boot results",
   "checks": [
     "Original production startup fails tick-write assertion; corrected startup passes",
     "13 host network scenarios; seven five-second heartbeats with mocked clock",
