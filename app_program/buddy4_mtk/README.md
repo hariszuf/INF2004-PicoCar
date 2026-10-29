@@ -1,5 +1,31 @@
 # Buddy 4 micro T Kernel trial
 
+## Current test output: B4-TILT-PEAK-F
+
+This display-only revision preserves the clean DIAG-E USB-only timing path,
+motor-pin protection, calibration and all detection/estimation algorithms.
+NOW remains the current snapshot. A newly observed completed side-tilt event
+prints B4 RESULT once, with side, event number/end time, stable peak and median
+candidate in cm. Unconfirmed values say UNCONFIRMED, not zero. A side-tilt event
+can come from handling; it is not independently confirmed as a hump crossing.
+
+The 1 Hz monitor retains only the latest completed event, reports skipped
+intermediate event summaries and is not a lossless recorder. Start recording
+before each trial and wait at least 3 seconds after returning to SIDE_LEVEL.
+The original 11-field CSV remains unchanged. This firmware does not drive.
+
+Friend instructions and a plain-text results template:
+[Tilt/peak testing](../buddy4/TILT_PEAK_TEST.md),
+[copy/paste template](../buddy4/TILT_PEAK_RESULTS_TEMPLATE.txt).
+DIAG-E hardware evidence below predates this new output revision; F requires
+its own hardware check. Reported peak accuracy remains unvalidated.
+
+
+**Main Buddy 4 to-do list:** [Completed checkpoints and all remaining work](../buddy4/TODO.md).
+This includes MTK/team integration, height/motion validation, collision/possible-impact validation,
+Tribunal 1 and report/submission work.
+
+
 Status: separate trial, not merged into the live team application. Uses the professor-based kernel already in this repository. No changes are pushed to the professor's repository.
 
 ## Current checkpoint: B4-DIAG-E (2026-10-28)
@@ -432,10 +458,16 @@ cover pre-cleanup capture and retention. This diagnostic build does not change
 the numerical timeout or claim the hardware issue is fixed. Copy the full
 Timeout trace line in a stationary recording with motor power disconnected.
 
-## To do: shock detection
+## Collision detection and possible-impact validation
 
-- [ ] Define and validate shock detection as a Buddy 4 follow-up. Review the existing preliminary possible-impact detector first; decide whether it already covers the required shock event or needs an additional signal/metric. Do not create a duplicate detector without a distinct purpose.
-- [ ] Distinguish shock events from normal vibration, braking, ramp crossings and handling using labelled recordings. A shock flag alone must not be presented as confirmed collision detection.
-- [ ] Keep this observational until validated; no automatic motor action is authorized by this to-do entry. Do not deliberately crash the car or strike the sensor.
+Required collision-detection work is tracked in the
+[main Buddy 4 checklist](../buddy4/TODO.md#3-needs-robot).
+The existing preliminary possible-impact detector is retained; collision
+discrimination remains unvalidated. Validate against labelled normal motion,
+vibration, braking, handling and ramp crossings, measure false positives and
+document limits. Separate shock detection and dedicated vibration measurement
+are outside the current feature plan.
 
-Requested on 28 October 2026. This is planned work only; no new shock algorithm has been implemented or validated in this checkpoint.
+Keep bump_event, possible-impact events and confirmed-collision claims distinct.
+The detector remains observational, with no automatic motor action. Do not
+deliberately crash the car or strike the sensor.
