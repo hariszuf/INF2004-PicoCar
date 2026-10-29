@@ -1,0 +1,6 @@
+PASS: successful startup keeps radio, timeout and MQTT polling active without USB code
+CONFIRMED LIMIT: init failure receives no retry or network polling over 60 simulated seconds
+PASS: rejected first join retries after 5 seconds and reaches link-up
+PASS: pending join times out after 30 seconds and retries after 5 more seconds
+PASS: late link-up suppresses a potentially disruptive retry
+CONFIRMED LIMIT: no application rejoin after successful association later drops; driver auto-rejoin not modeled

@@ -1,0 +1,2 @@
+PASS: production join-control block, TM_WIFI_MQTT=0
+PASS: production join-control block, TM_WIFI_MQTT=1

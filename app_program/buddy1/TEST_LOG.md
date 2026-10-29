@@ -28,3 +28,18 @@ Future integration tests should verify:
 - Telemetry reception from other buddies
 - Network reconnection and failure recovery
 - Operation while motor and sensor tasks are active
+
+
+## Finalization checkpoint — 29 October 2026
+
+Runtime commit `0f07d6d`; review branch `review/buddy1-finalization`.
+Three user-performed power-bank cold boots and live MQTT heartbeat/telemetry
+were observed. START/STOP application consumption on this exact UART-only
+image, live Wi-Fi/broker reconnection and combined-controller operation remain
+hardware NOT RUN. Host parser/IPC and recovery-characterization tests are
+software evidence, not physical passes.
+
+See [the final review](../../docs/BUDDY1_FINAL_REVIEW.md) and `testing/buddy1/finalization/2026-10-29/`
+for firmware hash, build/test commands, raw evidence and remaining gates.
+The minimum-bit tribunal is not an implementation requirement under the
+lecturer clarification relayed by the user.
