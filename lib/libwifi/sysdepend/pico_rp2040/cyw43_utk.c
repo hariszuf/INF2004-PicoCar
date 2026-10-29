@@ -437,6 +437,7 @@ void cyw43_utk_link_state_changed(int up)
     mp_memory_barrir();
 }
 
+#if !TM_WIFI_MQTT
 static int scan_result(void *env, const cyw43_ev_scan_result_t *result)
 {
     T_CYW43_UTK_STATUS *status = env;
@@ -448,12 +449,13 @@ static int scan_result(void *env, const cyw43_ev_scan_result_t *result)
     }
     return 0;
 }
+#endif
 
 #if TM_WIFI_MQTT
 /* Diagnostic image only: Pico W's onboard LED is CYW43 GPIO 0, NOT RP2040
  * GPIO 25 (the radio chip select). Only the radio-owner task calls this.
- * Each 4-second group has 1=scan, 2=no link, 3=no IPv4, 4=no MQTT,
- * 5=scan-start failure; solid means MQTT was connected at the last poll.
+ * Each 4-second group has 2=no link, 3=no IPv4, 4=no MQTT,
+ * 5=initialization error; solid means MQTT was connected at the last poll.
  * Dark is ambiguous: failed boot/radio initialization/LED I/O are possible. */
 static void startup_led_poll(void)
 {
@@ -467,7 +469,6 @@ static void startup_led_poll(void)
     if((cyw43_state.itf_state & (1u << CYW43_ITF_STA)) == 0) return;
 
     if(radio_status.init_result != 0) pulses = 5;
-    else if(!radio_status.scan_complete) pulses = 1;
     else if(!netif_is_link_up(netif)) pulses = 2;
     else if(!netif_is_up(netif)
             || ip4_addr_isany_val(*netif_ip4_addr(netif))) pulses = 3;
@@ -486,7 +487,9 @@ static void startup_led_poll(void)
 
 void cyw43_utk_task(int32_t stacd, void *exinf)
 {
+#if !TM_WIFI_MQTT
     cyw43_wifi_scan_options_t options = {0};
+#endif
     int32_t result;
     bool was_scanning;
 #if TM_WIFI_JOIN
@@ -516,8 +519,14 @@ void cyw43_utk_task(int32_t stacd, void *exinf)
     } else {
         (void)cyw43_wifi_get_mac(&cyw43_state, CYW43_ITF_STA,
                                  radio_status.mac);
+#if TM_WIFI_MQTT
+        /* The configured-SSID join searches for the AP itself. A preliminary
+         * diagnostic scan must not gate application startup on its event. */
+        result = 0;
+#else
         result = cyw43_wifi_scan(&cyw43_state, &options, &radio_status,
                                  scan_result);
+#endif
     }
     cyw43_thread_exit();
 
@@ -534,7 +543,7 @@ void cyw43_utk_task(int32_t stacd, void *exinf)
 
     radio_status.init_result = result;
     radio_status.ready = (result == 0);
-    radio_status.scan_active = (result == 0);
+    radio_status.scan_active = !TM_WIFI_MQTT && (result == 0);
     mp_memory_barrir();
     radio_status.init_complete = 1;
 
@@ -607,16 +616,18 @@ void cyw43_utk_task(int32_t stacd, void *exinf)
             radio_status.scan_complete = 1;
         }
 #if TM_WIFI_JOIN
-        /* Preserve scan/join qualification profiles. MQTT deployments retry
+        /* MQTT joins directly, without waiting for a diagnostic scan. Retry
          * a failed initial join when the hotspot becomes available later.
          * A late successful link must never be disturbed by a retry. */
-        if((was_scanning && !radio_status.scan_active)
 #if TM_WIFI_MQTT
-           || (radio_status.scan_complete && radio_status.join_complete
+        if(!radio_status.join_started
+           || (radio_status.join_complete
                && radio_status.join_result != 0 && !radio_status.link_up
-               && time_us_64() - join_failed_us >= CYW43_JOIN_RETRY_US)
+               && time_us_64() - join_failed_us >= CYW43_JOIN_RETRY_US)) {
+#else
+        /* Qualification profiles still scan before their one-shot join. */
+        if(was_scanning && !radio_status.scan_active) {
 #endif
-          ) {
             radio_status.join_started = 1;
             radio_status.join_complete = 0;
             radio_status.join_elapsed_ms = 0;
