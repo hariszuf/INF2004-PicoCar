@@ -91,9 +91,14 @@ static void scan_task(INT stacd,void *exinf) {
       * clearance so the following lateral translation starts only when clear. */
      core.front_clearance_mm=b5_front_clearance(&filtered);
     } else if(guard_mode) {
-     core.front_clearance_mm=b5_front_clearance(&filtered);
-     if(!filtered.valid) b5_core_fail(&core,B5_FAULT_SENSOR,now);
-     else if(core.front_clearance_mm<=B5_GUARD_FRONT_MM) b5_core_fail(&core,B5_FAULT_NO_ROUTE,now);
+     /* One malformed HC-SR04 batch must not latch the whole run off. The
+      * controller keeps the last clear observation for 600 ms; a confirmed
+      * close return still stops immediately. */
+     if(filtered.valid) {
+      core.front_clearance_mm=b5_front_clearance(&filtered);
+      if(core.front_clearance_mm<=B5_GUARD_FRONT_MM)
+       b5_core_fail(&core,B5_FAULT_NO_ROUTE,now);
+     }
     } else {
      b5_range_t *confirmed=&filtered;
      if(core.state==B5_MONITORING) {

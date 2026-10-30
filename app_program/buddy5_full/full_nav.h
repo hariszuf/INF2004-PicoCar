@@ -8,6 +8,7 @@ typedef struct { unsigned kind; float value; } full_action_t;
 typedef struct {
  float x,y,heading,last_distance,last_heading,heading_origin;
  bool observed,active,issued,moving,forward_moving,motion_seen,failed,resumed;
+ bool recovery_stop;
  unsigned settled,line_seen,index,count,search;
  uint32_t completed_id,started,check_since;
  b5_request_t request;

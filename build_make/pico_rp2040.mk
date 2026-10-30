@@ -358,8 +358,8 @@ mtkernel_3/tinyusb/%.o: $(TINYUSB_PATH)/src/%.c
 	@echo 'Finished building: $<'
 	@echo ' '
 
-else ifneq ($(CONSOLE),uart)
-$(error Unknown CONSOLE '$(CONSOLE)'; use usb_cdc or uart)
+else ifneq ($(filter $(CONSOLE),uart none),$(CONSOLE))
+$(error Unknown CONSOLE '$(CONSOLE)'; use usb_cdc, uart, or none)
 endif
 
 ################################################################################
