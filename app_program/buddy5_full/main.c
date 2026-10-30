@@ -12,6 +12,12 @@
 #include "../buddy3/line_follow.h"
 #include "../buddy3/line_sensors.h"
 #include "../buddy3/line_config.h"
+#ifndef B5_HEADLESS
+#define B5_HEADLESS 0
+#endif
+#ifndef B5_TIGHT_COURSE
+#define B5_TIGHT_COURSE 0
+#endif
 #if TK_SUPPORT_SMP
 #error "This integration profile requires SMP=0"
 #endif
@@ -21,7 +27,9 @@
 #if TM_CONSOLE_UART
 #error "GP0 belongs to the line sensor: this profile requires USB-only console"
 #endif
+#if TM_CONSOLE_USB_CDC
 IMPORT UW tm_usb_state(void);
+#endif
 static b5_feedback_t feedback_shared;
 static b5_request_t pending_request;
 static bool request_pending;
@@ -30,7 +38,13 @@ static volatile bool user_stop_pending;
 static unsigned char commands[8];
 static unsigned command_head,command_tail;
 bool line_controller_active(void) { return run_enabled; }
-bool b5_line_usb_connected(void) { return tm_usb_state()>=3; }
+bool b5_line_usb_connected(void) {
+#if TM_CONSOLE_USB_CDC
+ return tm_usb_state()>=3;
+#else
+ return false;
+#endif
+}
 void b5_line_command_received(unsigned c) {
  UW irq;
  if(c!='R' && c!='S' && c!=' ') return;
@@ -79,7 +93,7 @@ static void controller_task(INT stacd,void *exinf) {
  full_nav_t nav; auto_start_t start;
  motion_update(); motion_get_status(&motor); full_nav_init(&nav,&motor);
  uint32_t now=buddy5_clock_ms(),last_motor=now,last_line=now,last_report=now;
- uint32_t run_since=0,lost_since=0;
+ uint32_t run_since=0,lost_since=0,last_guard_clear=0;
  uint8_t mask=0; bool fault_latched=false;
  (void)stacd; (void)exinf;
  auto_start_init(&start,now);
@@ -113,14 +127,32 @@ static void controller_task(INT stacd,void *exinf) {
   }
   int32_t guard_limit=(nav.active && nav.request.kind==B5_REQ_BYPASS) ?
                       B5_BYPASS_GUARD_FRONT_MM : B5_GUARD_FRONT_MM;
-  bool guard=scan.angle==0 && scan.front_valid && scan.front_clearance_mm>guard_limit &&
-             (uint32_t)(now-scan.front_timestamp_ms)<=400u;
+  bool guard_fresh=scan.angle==0 && scan.front_valid &&
+                   (uint32_t)(now-scan.front_timestamp_ms)<=400u;
+  bool guard=false;
+  if(guard_fresh) {
+   /* A measured close return stops immediately. Only a missing/invalid batch
+    * receives a short grace period. */
+   guard=scan.front_clearance_mm>guard_limit;
+   if(guard) last_guard_clear=now;
+   else last_guard_clear=0;
+  } else if(last_guard_clear &&
+            (uint32_t)(now-last_guard_clear)<=
+              ((B5_TIGHT_COURSE && nav.active && nav.request.kind==B5_REQ_BYPASS)?4000u:600u)) {
+   guard=true;
+  }
+  /* The side-looking scan can leave an old clear reading behind. Wait for
+   * the servo to face forward and acquire a new reading before ADVANCE. */
+  if(nav.active && nav.request.kind==B5_REQ_ADVANCE && !nav.forward_moving &&
+     !guard_fresh) guard=false;
   if((uint32_t)(now-last_motor)>=20u) {
    if((uint32_t)(now-last_motor)>60u && run_enabled) halt(&nav,&start,"motor scheduling delay");
    last_motor=now; motion_update(); motion_get_status(&motor);
    if(motor.fault==MOTION_FAULT_STALL) fault_latched=true;
-   if(run_enabled && (motor.fault!=MOTION_FAULT_NONE || (nav.forward_moving && !guard)))
-    halt(&nav,&start,"motor fault or forward range unavailable");
+   if(run_enabled && motor.fault!=MOTION_FAULT_NONE)
+    halt(&nav,&start,"motor fault");
+   if(run_enabled && nav.forward_moving && !guard)
+    halt(&nav,&start,"forward range unavailable while moving");
    full_nav_update(&nav,now,&motor,mask,guard);
    if(run_enabled && nav.failed) halt(&nav,&start,"navigation failed/pose mismatch");
    if(nav.resumed) { tm_printf((UB*)"[AUTO] LINE REACQUIRED: line following resumed.\n"); nav.resumed=false; }
@@ -130,6 +162,12 @@ static void controller_task(INT stacd,void *exinf) {
    * Do not make motor start depend on a first ultrasonic/IR sample: a missed
    * first sample otherwise leaves the car permanently stationary. */
   bool ready=motor.fault==MOTION_FAULT_NONE && !fault_latched;
+#if B5_HEADLESS
+  /* A fast power-bank boot can otherwise reach AUTO_START before the first
+   * filtered centre ping, skip line_follow_start(), and never retry it. */
+  ready=ready && scan.angle==0 && scan.front_valid &&
+        (uint32_t)(now-scan.front_timestamp_ms)<=400u;
+#endif
   auto_action_t action=auto_start_update(&start,now,nav.settled>=3,ready);
   if(action==AUTO_RESET) {
    line_follow_stop();
@@ -157,9 +195,10 @@ static void controller_task(INT stacd,void *exinf) {
    tm_printf((UB*)"[LINE] state=%d mask=%u target_mm_s=%d/%d actual_mm_s=%d/%d\n",
     line.state,(unsigned)mask,(int)(line.left_cmd_cm_s*10),(int)(line.right_cmd_cm_s*10),
     (int)(motor.left_speed_cm_s*10),(int)(motor.right_speed_cm_s*10));
-   tm_printf((UB*)"[AUTO] phase=%d enabled=%d line_mask=%u scan=%s fault=%d nominal_servo=%d front=%d x/y=%d/%d width=%d depth=%d..%d\n",
+   tm_printf((UB*)"[AUTO] phase=%d enabled=%d line_mask=%u scan=%s fault=%d nominal_servo=%d front=%d guard=%d fresh=%d x/y=%d/%d heading=%d width=%d depth=%d..%d\n",
     start.phase,run_enabled,(unsigned)mask,(UB*)b5_state_name(scan.state),scan.fault,scan.angle,scan.front_clearance_mm==B5_CLEAR_FRONT_MM?-1:scan.front_clearance_mm,
-    (int)nav.x,(int)nav.y,scan.profile.width_valid?scan.profile.width_mm:-1,
+    guard,guard_fresh,
+    (int)nav.x,(int)nav.y,(int)nav.heading,scan.profile.width_valid?scan.profile.width_mm:-1,
     scan.profile.depth_valid?scan.profile.depth_low_mm:-1,scan.profile.depth_valid?scan.profile.depth_high_mm:-1);
    last_report=now;
   }

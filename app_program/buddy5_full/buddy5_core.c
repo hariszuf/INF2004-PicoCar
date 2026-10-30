@@ -1,6 +1,10 @@
 #ifdef B5_FULL_TEST
 #include "buddy5_core.h"
 #include <string.h>
+#ifndef B5_TIGHT_COURSE
+#define B5_TIGHT_COURSE 0
+#endif
+#define B5_TIGHT_OFFSET_MM 160
 
 /* Q15 trig for 0,5,...60 degrees; no floating point runtime/library needed. */
 static const int32_t sn[13] = {0,2856,5690,8481,11207,13848,16384,
@@ -319,7 +323,15 @@ void b5_core_update(b5_core_t *c,uint32_t now,
         if (!scan_next(&c->scan)) {
             state(c,B5_PROCESSING,now);
             if (!process(c)) b5_core_fail(c,B5_FAULT_NO_ROUTE,now);
-            else request(c,B5_REQ_BYPASS,now,c->profile.front_mm,c->profile.offset_mm);
+            else {
+#if B5_TIGHT_COURSE
+                /* Preliminary 10 cm obstacle / narrow-board demonstration.
+                 * This is deliberately not the final 20 cm safety profile. */
+                if (ab(c->profile.offset_mm)>B5_TIGHT_OFFSET_MM)
+                    c->profile.offset_mm=c->profile.side*B5_TIGHT_OFFSET_MM;
+#endif
+                request(c,B5_REQ_BYPASS,now,c->profile.front_mm,c->profile.offset_mm);
+            }
         }
         break;
     }

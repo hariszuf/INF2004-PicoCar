@@ -5,6 +5,8 @@
 #include "../buddy3/line_follow.h"
 #include "../buddy3/line_sensors.h"
 enum { TURN=1, MOVE, CHECK_LINE };
+#define NAV_HEADING_ALIGNED_DEG 8.0f
+#define NAV_TURN_DEADBAND_DEG 4.0f
 static float absolute(float x) { return x<0?-x:x; }
 static float corrected_heading(const motion_status_t *m) {
  return (m->heading_deg/MOTION_TURN_SCALE)*B5_TURN_ODOMETRY_CORRECTION;
@@ -26,13 +28,13 @@ static void trip(full_nav_t *n,float target_y,bool check) {
 }
 bool full_nav_accept(full_nav_t *n,const b5_request_t *r,uint32_t now) {
  if(n->failed || (n->active && r->kind!=B5_REQ_STOP)) return false;
- n->request=*r; n->active=true; n->issued=false; n->moving=false; n->forward_moving=false; n->motion_seen=false;
+ n->request=*r; n->active=true; n->issued=false; n->moving=false; n->forward_moving=false; n->motion_seen=false; n->recovery_stop=false;
  n->resumed=false; n->index=n->count=n->search=0; n->started=now; n->check_since=0;
  switch(r->kind) {
  case B5_REQ_STOP: line_follow_stop(); motion_stop(); n->settled=0; break;
  case B5_REQ_BYPASS: trip(n,(float)r->lateral_mm,false); break;
  case B5_REQ_ADVANCE:
-  if(r->forward_mm<=n->x || absolute(n->heading)>4) { fail(n); return false; }
+  if(r->forward_mm<=n->x || absolute(n->heading)>NAV_HEADING_ALIGNED_DEG) { fail(n); return false; }
   {
    float dx=(float)r->forward_mm-n->x, dy=(float)r->lateral_mm-n->y;
    /* Small corrections only while alongside the box: a large spin could
@@ -74,11 +76,24 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
   return;
  }
  if(n->request.kind==B5_REQ_RESUME_LINE) {
-  if(n->settled>=3 && guard && n->line_seen>=3 && absolute(n->heading)<=4) {
+  if(n->settled>=3 && guard && n->line_seen>=3 && absolute(n->heading)<=NAV_HEADING_ALIGNED_DEG) {
    if(!line_follow_start()) { fail(n); return; }
    n->completed_id=n->request.id; n->active=false; n->resumed=true;
   }
   return;
+ }
+ /* During line recovery, stop the lateral sweep as soon as the front IR
+  * sensors consistently see the line. Finish by aligning the heading. */
+ if(n->request.kind==B5_REQ_RECOVER_LINE && n->issued &&
+    n->actions[n->index].kind==MOVE && n->line_seen>=3 &&
+    !n->recovery_stop) {
+  motion_stop(); n->recovery_stop=true;
+ }
+ if(n->recovery_stop) {
+  if(n->settled<3) return;
+  n->issued=false; n->moving=false; n->forward_moving=false;
+  n->motion_seen=false; n->recovery_stop=false;
+  n->index=2; n->check_since=0;
  }
  if(n->issued) {
   if(!still) n->motion_seen=true;
@@ -92,7 +107,7 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
   } else return;
  }
  if(n->index>=n->count) {
-  bool pose=absolute(n->heading)<=4;
+  bool pose=absolute(n->heading)<=NAV_HEADING_ALIGNED_DEG;
   if(n->request.kind==B5_REQ_BYPASS)
    pose=pose && absolute(n->x)<=20 && absolute(n->y-n->request.lateral_mm)<=20;
   if(n->request.kind==B5_REQ_ADVANCE)
@@ -105,7 +120,7 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
  full_action_t a=n->actions[n->index];
  if(a.kind==CHECK_LINE) {
   if(!n->check_since) n->check_since=now;
-  if(n->line_seen>=3 && absolute(n->heading)<=4) { ++n->index; return; }
+  if(n->line_seen>=3 && absolute(n->heading)<=NAV_HEADING_ALIGNED_DEG) { ++n->index; return; }
   if((uint32_t)(now-n->check_since)<300u) return;
   static const float candidates[]={20,-20,40,-40,60,-60};
   if(n->search>=6) { fail(n); return; }
@@ -114,7 +129,7 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
  motion_result_t result=MOTION_OK;
  if(a.kind==TURN) {
   float error=a.value-n->heading;
-  if(absolute(error)<=4) { ++n->index; return; }
+  if(absolute(error)<=NAV_TURN_DEADBAND_DEG) { ++n->index; return; }
   /* Convert desired physical rotation back into the under-reporting motion
    * controller's angle domain. */
   error/=B5_TURN_ODOMETRY_CORRECTION;
@@ -132,7 +147,7 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
 void full_nav_feedback(const full_nav_t *n,uint32_t timestamp,b5_feedback_t *f) {
  *f=(b5_feedback_t){0}; f->valid=true; f->timestamp_ms=timestamp;
  f->stopped=n->settled>=3 && !n->moving;
- f->heading_aligned=absolute(n->heading)<=4;
+ f->heading_aligned=absolute(n->heading)<=NAV_HEADING_ALIGNED_DEG;
  f->forward_mm=(int32_t)lroundf(n->x); f->lateral_mm=(int32_t)lroundf(n->y);
  f->completed_id=n->completed_id; f->request_failed=n->failed;
  f->line_acquired=n->line_seen>=3;
