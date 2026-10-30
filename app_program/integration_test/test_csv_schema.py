@@ -32,7 +32,7 @@ def calls(text):
         fmt=''.join(re.findall(r'"((?:\\.|[^"\\])*)"',parts[0]))
         yield fmt,parts[1:]
 
-for filename,expected in [('buddy4/main.c',33),('integration_test/main.c',73)]:
+for filename,expected in [('buddy4/main.c',39),('integration_test/main.c',79)]:
     text=(Path(__file__).parent.parent/filename).read_text()
     header=None; row=None; summary=None
     for fmt,args in calls(text):
@@ -44,6 +44,9 @@ for filename,expected in [('buddy4/main.c',33),('integration_test/main.c',73)]:
     assert header and row and summary
     assert len(header)==len(row)==expected,(filename,len(header),len(row))
     assert len(header)==len(set(header))
+    assert header[4:10]==['tilt_valid','acceleration_valid','measurement_quality',
+        'clipped_axes','clipped_samples','unsuitable_samples']
+    assert row[4:10]==['%d','%d','%s','%u','%lu','%lu']
     if filename.startswith('integration_test'):
         assert header[-18:-15]==['encoder_motion_state','encoder_motion_valid','encoder_motion_sample_us']
         assert row[-18:-15]==['%s','%d','%llu']

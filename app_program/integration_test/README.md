@@ -1,11 +1,17 @@
 # Buddy 2 + 3 + 4 integration prototype checkpoint
 
+30 October measurement-quality update: six quality fields now follow `valid`;
+acquisition validity alone does not authorize tilt/height. Impact uses finite,
+non-clipped acceleration; dynamic non-clipped inputs retain the existing detector
+behaviour. See [the Buddy 4 fault checkpoint](../buddy4/MEASUREMENT_QUALITY_CHECKPOINT.md).
+Earlier schema/checkpoint results below are historical.
+
 **Update 28 Oct 2026 (Buddy 2): slope / hump speed control is now connected.**
 After every IMU poll, `terrain_link_feed()` (`../shared/terrain_link.h`) passes
 Buddy 4's pitch/roll state to Buddy 2 `motion_set_terrain()`. Buddy 2 scales the
 speed targets (also Buddy 3's line-following commands) and adds a rate-limited
 gravity / raised-wheel power assist; see the Buddy 2 README. Buddy 4 and Buddy 3
-sources are unchanged. The CSV now has **73 columns**: `terrain_mode`,
+sources are unchanged. The CSV now has **79 columns**: `terrain_mode`,
 `terrain_speed_scale`, `left_terrain_duty`, `right_terrain_duty` were inserted
 after `stop_fault` (terrain_mode 0 FLAT, 1 UPHILL, 2 DOWNHILL, 3 HUMP_LEFT,
 4 HUMP_RIGHT). `test.ps1` also runs the new Buddy 2 terrain tests. The autonomous
@@ -181,7 +187,7 @@ needed. Record stationary baseline, selected mode/targets and the entire run, th
 S to stop. Keep USB connected. Save # metadata separately from CSV rows; parse by
 header and discard malformed/truncated rows. No lossless recording guarantee.
 
-Current schema: **69 integration columns**, **33 standalone columns**. Existing
+Current schema: **79 integration columns**, **39 standalone columns**. Existing
 IMU measurements/events, stability/median peaks, encoder speeds/distance, line state,
 faults and timing fields are retained. Added observer fields have explicit names:
 encoder_motion_state/valid/sample_us, possible_impact_valid/event/count/sample_us/

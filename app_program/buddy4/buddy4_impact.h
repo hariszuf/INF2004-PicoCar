@@ -23,7 +23,11 @@ typedef struct {
 } buddy4_impact_t;
 buddy4_impact_config_t buddy4_impact_default_config(void);
 bool buddy4_impact_init(buddy4_impact_t *d, buddy4_impact_config_t config);
-/* One call per poll. valid must mean NEW corrected data, not retained values.
+/* One call per poll. valid must mean NEW finite, non-clipped corrected data.
+ * Use IMU acceleration_valid, not tilt_valid: dynamic non-clipped input remains
+ * useful. Clipping makes amplitude/event assessment unknown, never proof of
+ * collision or no impact. Callers must expose clipping separately from this
+ * observer's false event pulse. Existing event count/time remain history.
  * Invalid/time faults clear baseline and pending evidence, preserving event history
  * and cooldown. First recovery sample primes baseline and cannot trigger.
  * possible_impact pulses for exactly the triggering input sample. */

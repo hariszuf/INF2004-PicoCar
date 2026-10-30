@@ -153,13 +153,33 @@ static buddy4_result_t acquire(buddy4_imu_t *imu,uint64_t sample,uint64_t now) {
     buddy4_result_t result=buddy4_poll(imu,sample);
     /* Same freshness gate and corrected axes used by SDK and isolated MTK. */
     buddy4_impact_update(&d,imu->output.accel_g[0],imu->output.accel_g[1],
-        imu->output.accel_g[2],result==BUDDY4_FRESH&&imu->output.valid,
+        imu->output.accel_g[2],result==BUDDY4_FRESH&&imu->output.valid&&imu->output.acceleration_valid,
         imu->output.timestamp_us,now);
     return result;
 }
 static void corrected_vector(fake_t *sensor,const buddy4_imu_t *imu,float mag) {
     vector(sensor,imu->config.accel_bias_g[0],imu->config.accel_bias_g[1],
         -mag/imu->config.accel_scale[2]+imu->config.accel_bias_g[2]);
+}
+static void clipped_acquisition(void) {
+ for(int history=0;history<2;++history) {
+  buddy4_imu_t imu;fake_t sensor;setup(&imu,&sensor);
+  assert(buddy4_impact_init(&d,buddy4_impact_default_config()));t=0;
+  corrected_vector(&sensor,&imu,1);t+=20000;acquire(&imu,t,t);
+  corrected_vector(&sensor,&imu,1.6f);t+=20000;acquire(&imu,t,t);
+  if(history) {t+=20000;acquire(&imu,t,t);assert(d.output.event_count==1);}
+  uint64_t event=d.output.event_us;
+  for(int i=0;i<20;++i) {
+   raw_vector(&sensor,INT16_MIN,INT16_MIN,INT16_MIN);t+=20000;acquire(&imu,t,t);
+   assert(imu.output.valid && !imu.output.acceleration_valid);
+   assert(!d.output.valid && !d.output.possible_impact && !d.pending_samples);
+   assert(d.output.event_count==(unsigned)history && d.output.event_us==event);
+  }
+  corrected_vector(&sensor,&imu,1);t+=20000;acquire(&imu,t,t);
+  assert(d.output.valid && !d.output.possible_impact);
+  corrected_vector(&sensor,&imu,1.6f);t+=20000;acquire(&imu,t,t);
+  assert(!d.output.possible_impact); /* Cannot bridge clipping. */
+ }
 }
 static void acquisition_faults(void) {
     for(int history=0;history<2;history++)for(int kind=0;kind<12;kind++) {
@@ -216,6 +236,6 @@ static void acquisition_faults(void) {
     }
 }
 int main(void) {
-    quiet();trigger();faults();boundaries_and_history();acquisition_faults();
+    quiet();trigger();faults();clipped_acquisition();boundaries_and_history();acquisition_faults();
     puts("Preliminary possible-impact synthetic tests passed");return 0;
 }

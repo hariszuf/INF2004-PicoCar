@@ -27,7 +27,14 @@ typedef struct {
     /* Kernel clock resolution is 10 ms. UINT32_MAX means unavailable age. */
     uint32_t poll_duration_ms, poll_interval_ms, sample_age_ms;
     bool timing_valid;
-    bool valid;
+    bool valid; /* Acquisition freshness only. */
+    bool acceleration_valid, tilt_valid;
+    int measurement_quality;
+    uint8_t clipped_axes, status_a;
+    uint32_t clipped_samples, unsuitable_samples;
+    bool sensor_config_valid;
+    uint8_t who_am_i, sensor_ctrl[6];
+    uint64_t config_checked_us;
     int poll_result, device_error;
     /* Latched until next IMU error or reset, even after successful recovery. */
     bool saved_error_present, saved_error_read, saved_error_time_valid;
