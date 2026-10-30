@@ -11,9 +11,11 @@ begin = app.index('static void buddy4_decimal(')
 helpers = app[begin:app.index('\n#endif', begin)]
 core = (source / 'app_program/buddy4/buddy4_imu.c').read_text(encoding='utf-8-sig')
 labels = core[core.index('const char *buddy4_terrain_name'):core.index('static void finish_side_event')]
+labels += core[core.index('const char *buddy4_quality_name'):core.index('static int classify_angle')]
 code = r'''
 #define BUDDY4_MTK_HOST_TEST
 #include "buddy4_task.h"
+#include "buddy4_imu.h"
 #include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -32,11 +34,11 @@ int main(void) {
     char value[16];
     buddy4_decimal(value,-0.14f);assert(strcmp(value,"-0.14")==0);
     buddy4_decimal(value,NAN);assert(strcmp(value,"N/A")==0);
-    s.valid=true;s.pitch_deg=-0.14f;s.roll_deg=0.08f;s.height_cm=0.02f;
+    s.valid=true;s.tilt_valid=true;s.measurement_quality=1;s.pitch_deg=-0.14f;s.roll_deg=0.08f;s.height_cm=0.02f;
     before=s;buddy4_print_readable(&s);
     assert(memcmp(&before,&s,sizeof(s))==0);
     assert(strstr(captured,"[B4] NOW")&&strstr(captured,"Pitch: -0.14 deg"));
-    assert(strstr(captured,"B4-TILT-PEAK-POSSIBLE-IMPACT-H USB-only"));
+    assert(strstr(captured,"B4-MEASUREMENT-QUALITY-I USB-only"));
     assert(strstr(captured,"Possible-impact detector NOW: INVALID"));
     assert(strstr(captured,"Saved cumulative possible-impact count: 0"));
     assert(!strstr(captured,"B4 RESULT")&&!strstr(captured,"Previous tilt"));
@@ -87,6 +89,20 @@ int main(void) {
     captured[0]=0;s.completed_events=5;buddy4_print_readable(&s);
     assert(strstr(captured,"1 intermediate event(s) not captured"));
     captured[0]=0;buddy4_print_readable(&s);assert(!strstr(captured,"B4 RESULT"));
+    captured[0]=0;s.valid=true;s.tilt_valid=false;s.measurement_quality=2;
+    s.clipped_axes=7;s.clipped_samples=1;s.unsuitable_samples=1;
+    s.raw[0]=s.raw[1]=s.raw[2]=-32768;s.magnitude_g=3.6249f;
+    s.acceleration_g[0]=-2.06f;s.pitch_deg=-35.67f;s.height_cm=NAN;
+    s.impact_valid=false;buddy4_print_readable(&s);
+    assert(strstr(captured,"Current tilt/height: N/A")&&!strstr(captured,"Pitch: -35.67"));
+    assert(strstr(captured,"Acquisition fresh=1 | Tilt usable=0 | Quality=CLIPPED"));
+    assert(strstr(captured,"Raw XYZ=(-32768,-32768,-32768)"));
+    assert(strstr(captured,"Magnitude=3.62 g")&&strstr(captured,"UNKNOWN_CLIPPED"));
+    assert(strstr(captured,"Saved clipped samples=1 (impact assessment indeterminate)"));
+    assert(strstr(captured,"Sensor readback:"));
+    captured[0]=0;s.clipped_axes=0;s.tilt_valid=true;s.measurement_quality=1;
+    buddy4_print_readable(&s);
+    assert(strstr(captured,"Saved clipped samples=1 (impact assessment indeterminate)"));
     puts("Tilt/peak/possible-impact console checks passed: current validity vs saved history, count-triggered event output, missed-detail warning, pulse independence and read-only snapshots.");
 }
 '''

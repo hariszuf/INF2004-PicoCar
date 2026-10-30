@@ -89,12 +89,16 @@ int main(void) {
             }
             result = buddy4_poll(&imu, time_us_64());
             /* Buddy 4 -> Buddy 2: slope / hump decides speed and power. */
-            terrain_link_feed(&imu, result);
+            if (result == BUDDY4_FRESH && !imu.output.tilt_valid) {
+                /* Quality failure is not a bus error. Publish invalid terrain. */
+                const motion_terrain_input_t unavailable = {0};
+                (void)motion_set_terrain(&unavailable);
+            } else terrain_link_feed(&imu, result);
             if (result == BUDDY4_FRESH && imu.output.valid) {
                 last_fresh = imu.output.timestamp_us; has_fresh = true;
             }
             buddy4_impact_update(&impact, imu.output.accel_g[0], imu.output.accel_g[1],
-                imu.output.accel_g[2], result == BUDDY4_FRESH && imu.output.valid,
+                imu.output.accel_g[2], result == BUDDY4_FRESH && imu.output.valid && imu.output.acceleration_valid,
                 imu.output.timestamp_us, time_us_64());
             runtime(&sensor, start);
             sampled = true;
@@ -110,7 +114,7 @@ int main(void) {
             printf("# standalone_Pico_SDK,commands=M_manual_L_line_A_left_test_D_right_test_R_then_G_stop_S_or_space,serial_stop_is_not_hardware_estop\n");
             printf("# calibration=buddy4_default_config,mounting_offsets_need_recalibration=%d,geometry_confirmed=%d\n",
                    imu.config.mounting_offsets_need_recalibration, imu.config.centre_spacing_confirmed);
-            printf("seq,time_us,result,valid,sample_us,imu_errors,raw_x,raw_y,raw_z,ax_g,ay_g,az_g,pitch_deg,roll_deg,pitch_filtered,roll_filtered,terrain,side,transient_g,bump,height_cm,event_side,peak_confirmed,peak_roll,peak_height,median_candidate_valid,median_candidate_roll_deg,median_candidate_height_cm,running,mode,line_state,line_mask,left_cmd,right_cmd,left_count,right_count,left_speed,right_speed,distance_cm,motor_state,motor_fault,stop_fault,terrain_mode,terrain_speed_scale,left_terrain_duty,right_terrain_duty,motor_skipped,line_skipped,imu_skipped,motor_late_us,line_late_us,imu_late_us,motor_runtime_us,line_runtime_us,imu_runtime_us,encoder_motion_state,encoder_motion_valid,encoder_motion_sample_us,possible_impact_valid,possible_impact_event,possible_impact_count,possible_impact_sample_us,possible_impact_event_us,possible_impact_magnitude_g,possible_impact_baseline_g,possible_impact_deviation_g,encoder_yaw_rate_estimate_rad_s,encoder_yaw_rate_estimate_deg_s,encoder_yaw_rate_estimate_valid,encoder_yaw_rate_estimate_sample_us,selected_target_left_cm_s,selected_target_right_cm_s,control_reason\n");
+            printf("seq,time_us,result,valid,tilt_valid,acceleration_valid,measurement_quality,clipped_axes,clipped_samples,unsuitable_samples,sample_us,imu_errors,raw_x,raw_y,raw_z,ax_g,ay_g,az_g,pitch_deg,roll_deg,pitch_filtered,roll_filtered,terrain,side,transient_g,bump,height_cm,event_side,peak_confirmed,peak_roll,peak_height,median_candidate_valid,median_candidate_roll_deg,median_candidate_height_cm,running,mode,line_state,line_mask,left_cmd,right_cmd,left_count,right_count,left_speed,right_speed,distance_cm,motor_state,motor_fault,stop_fault,terrain_mode,terrain_speed_scale,left_terrain_duty,right_terrain_duty,motor_skipped,line_skipped,imu_skipped,motor_late_us,line_late_us,imu_late_us,motor_runtime_us,line_runtime_us,imu_runtime_us,encoder_motion_state,encoder_motion_valid,encoder_motion_sample_us,possible_impact_valid,possible_impact_event,possible_impact_count,possible_impact_sample_us,possible_impact_event_us,possible_impact_magnitude_g,possible_impact_baseline_g,possible_impact_deviation_g,encoder_yaw_rate_estimate_rad_s,encoder_yaw_rate_estimate_deg_s,encoder_yaw_rate_estimate_valid,encoder_yaw_rate_estimate_sample_us,selected_target_left_cm_s,selected_target_right_cm_s,control_reason\n");
             header = false;
         }
         if (usb && control.event_pending) {
@@ -131,8 +135,10 @@ int main(void) {
                 o->ended_event.side, o->ended_event.peak_confirmed,
                 o->ended_event.peak_roll_deg, o->ended_event.peak_height_cm,
                 o->ended_event.median_candidate_valid,o->ended_event.median_candidate_roll_deg,o->ended_event.median_candidate_height_cm);
-            printf("%lu,%llu,%d,%d,%llu,%lu,%d,%d,%d,%.4f,%.4f,%.4f,%.3f,%.3f,%.3f,%.3f,%d,%d,%.4f,%d,%.3f,%d,%d,%.3f,%.3f,%d,%.3f,%.3f,%d,%d,%d,%u,%.3f,%.3f,%ld,%ld,%.3f,%.3f,%.3f,%d,%d,%lu,%d,%.3f,%.3f,%.3f,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%s,%d,%llu,%d,%d,%lu,%llu,%llu,%.4f,%.4f,%.4f,%.5f,%.4f,%d,%llu,%.3f,%.3f,%s\n",
+            printf("%lu,%llu,%d,%d,%d,%d,%s,%u,%lu,%lu,%llu,%lu,%d,%d,%d,%.4f,%.4f,%.4f,%.3f,%.3f,%.3f,%.3f,%d,%d,%.4f,%d,%.3f,%d,%d,%.3f,%.3f,%d,%.3f,%.3f,%d,%d,%d,%u,%.3f,%.3f,%ld,%ld,%.3f,%.3f,%.3f,%d,%d,%lu,%d,%.3f,%.3f,%.3f,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%s,%d,%llu,%d,%d,%lu,%llu,%llu,%.4f,%.4f,%.4f,%.5f,%.4f,%d,%llu,%.3f,%.3f,%s\n",
                 (unsigned long)seq++, (unsigned long long)time_us_64(), result,o->valid,
+                o->tilt_valid,o->acceleration_valid,buddy4_quality_name(o->quality),
+                (unsigned)o->clipped_axes,(unsigned long)o->clipped_samples,(unsigned long)o->unsuitable_samples,
                 (unsigned long long)o->timestamp_us,(unsigned long)o->error_count,
                 o->raw[0],o->raw[1],o->raw[2],o->accel_g[0],o->accel_g[1],o->accel_g[2],
                 o->pitch_deg,o->roll_deg,o->filtered_pitch_deg,o->filtered_roll_deg,

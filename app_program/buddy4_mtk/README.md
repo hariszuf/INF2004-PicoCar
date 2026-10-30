@@ -1,6 +1,20 @@
 # Buddy 4 micro T Kernel trial
 
-## Current test output: B4-TILT-PEAK-POSSIBLE-IMPACT-H
+## Current test output: B4-MEASUREMENT-QUALITY-I USB-only
+
+The endpoint-input validity gap is corrected. Fresh acquisition, usable corrected
+acceleration and usable tilt/height are distinct. The monitor shows raw XYZ,
+corrected acceleration/magnitude, clipping/quality counters and periodic sensor
+identity/configuration readback. Clipped impact assessment is indeterminate.
+Completed history survives; interrupted tilt evidence cannot finish a peak.
+
+See [the focused measurement-quality checkpoint](../buddy4/MEASUREMENT_QUALITY_CHECKPOINT.md)
+for reproduction, semantics, tests/builds, exact UF2 path and the single 25-second
+controlled stationary/tilt capture still needed. No hardware root cause is claimed.
+The G backup remains untouched. Default output is readable; optional MTK CSV now
+has 17 fields with explicit quality flags and masked invalid current tilt values.
+
+## Previous display checkpoint: H
 
 This display-only revision preserves the clean DIAG-E USB-only timing path,
 motor-pin protection, calibration and all detection/estimation algorithms.
@@ -27,7 +41,7 @@ recover intermediate timestamps, event waveforms, peak deviation/direction or a
 one-sample pulse missed between reads. It also cannot establish that contact or a
 collision occurred. Start recording
 before each trial and wait at least 3 seconds after returning to SIDE_LEVEL.
-The original 11-field CSV remains unchanged. This firmware does not drive.
+At that earlier checkpoint the original 11-field CSV was unchanged. This firmware does not drive.
 
 Friend instructions and a plain-text results template:
 [Tilt/peak testing](../buddy4/TILT_PEAK_TEST.md),

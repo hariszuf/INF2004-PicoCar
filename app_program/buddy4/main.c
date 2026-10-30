@@ -33,7 +33,7 @@ static void log_csv_header(const buddy4_config_t *config)
     printf("# preliminary_six_position,imperfect_orientation_alignment,"
            "mounting_offsets_need_recalibration=%d\n",
            config->mounting_offsets_need_recalibration);
-    printf("seq,poll_time_us,result,valid,sample_time_us,error_count,"
+    printf("seq,poll_time_us,result,valid,tilt_valid,acceleration_valid,measurement_quality,clipped_axes,clipped_samples,unsuitable_samples,sample_time_us,error_count,"
            "raw_x,raw_y,raw_z,ax_uncorrected_g,ay_uncorrected_g,az_uncorrected_g,"
            "ax_corrected_g,ay_corrected_g,az_corrected_g,magnitude_g,"
            "pitch_deg,pitch_filtered_deg,roll_deg,roll_filtered_deg,"
@@ -63,7 +63,7 @@ static void log_side_event_summary(const buddy4_output_t *output)
 static void log_csv_sample(uint32_t sequence, uint64_t poll_time_us,
                            buddy4_result_t result, const buddy4_output_t *output)
 {
-    printf("%lu,%llu,%d,%d,%llu,%lu,"
+    printf("%lu,%llu,%d,%d,%d,%d,%s,%u,%lu,%lu,%llu,%lu,"
            "%d,%d,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,"
            "%.2f,%.2f,%.2f,%.2f,%s,%s,%.4f,%d,"
            "%.2f,%d,%d,%d,%.2f,%.2f,%d,%.3f,%.3f\n",
@@ -71,6 +71,9 @@ static void log_csv_sample(uint32_t sequence, uint64_t poll_time_us,
            (unsigned long long)poll_time_us,
            (int)result,
            output->valid,
+           output->tilt_valid, output->acceleration_valid, buddy4_quality_name(output->quality),
+           (unsigned)output->clipped_axes, (unsigned long)output->clipped_samples,
+           (unsigned long)output->unsuitable_samples,
            (unsigned long long)output->timestamp_us,
            (unsigned long)output->error_count,
            (int)output->raw[0],

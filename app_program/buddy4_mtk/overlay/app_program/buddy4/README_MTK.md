@@ -1,5 +1,11 @@
 # Buddy 4 integration with the professor's micro T Kernel port
 
+Current correction, 30 October 2026: see [measurement quality](MEASUREMENT_QUALITY_CHECKPOINT.md).
+The isolated USB-only trial now separates acquisition/acceleration/tilt validity;
+optional CSV has 17 fields with six appended quality values, and invalid current
+integer tilt/height use -2147483647. Historical checkpoints below retain their
+original scope and schema descriptions.
+
 Checkpoint: 28 October 2026. The team application now registers Buddy 4 with the existing Buddy 1 and Buddy 5 tasks. The native team USB firmware compiles/links, and the new host tests pass. Hardware timing, bus operation and coexistence have not yet been verified. Nothing was flashed, operated, committed or pushed during this change.
 
 ## Base and scope

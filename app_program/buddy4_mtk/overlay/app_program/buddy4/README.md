@@ -1,4 +1,18 @@
 # Buddy 4 — IMU, Motion and Terrain Monitoring
+## Measurement validity correction, 30 October 2026
+
+Current diagnostic firmware: **B4-MEASUREMENT-QUALITY-I USB-only**.
+The latest recording exposed a reproduced software gap: successful fresh I2C
+acquisition could confirm tilt/height peaks from clipped input. Acquisition,
+acceleration quality and tilt suitability now have separate flags. Clipped or
+non-gravity-like input aborts tilt evidence; completed history survives. Clipped
+impact assessment is explicitly indeterminate. Calibration, offsets, geometry,
+tilt thresholds, USB-only output and motor protection are preserved.
+
+See [reproduction, quality semantics, tests/builds and one short hardware capture](MEASUREMENT_QUALITY_CHECKPOINT.md).
+The recording does not establish raw endpoint values or a hardware root cause.
+Historical checkpoint sections below predate this correction.
+
 
 **Main task list:** [Buddy 4 checklist — completed work, remaining tasks and dependencies](TODO.md).
 The latest isolated MTK checkpoint is in [the trial README](../buddy4_mtk/README.md).

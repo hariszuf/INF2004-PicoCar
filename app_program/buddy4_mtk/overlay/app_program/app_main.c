@@ -18,6 +18,7 @@
  * standard-library core header separate from kernel headers. */
 extern const char *buddy4_terrain_name(int state);
 extern const char *buddy4_side_name(int state);
+extern const char *buddy4_quality_name(int quality);
 /* 0: readable status (default); 1: original numeric CSV for recording.
  * Rebuild this trial after changing the setting. No serial commands needed. */
 #ifndef BUDDY4_CONSOLE_CSV
@@ -97,7 +98,7 @@ static void buddy4_print_new_impact(const buddy4_task_snapshot_t *s)
 static void buddy4_print_readable(const buddy4_task_snapshot_t *s)
 {
     char pitch[16], roll[16], height[16];
-    if (s->valid) {
+    if (s->valid && s->tilt_valid) {
         buddy4_decimal(pitch, s->pitch_deg);
         buddy4_decimal(roll, s->roll_deg);
         buddy4_decimal(height, s->height_cm);
@@ -106,15 +107,32 @@ static void buddy4_print_readable(const buddy4_task_snapshot_t *s)
         tm_printf((UB *)"     Estimated wheel height difference: %s cm (preliminary)\n", height);
     } else {
         /* Never present retained sensor readings as current measurements. */
-        tm_printf((UB *)"[B4] NOW | IMU: INVALID / waiting for fresh data | Current tilt/height: N/A\n");
+        tm_printf((UB *)"[B4] NOW | IMU: INVALID for tilt / waiting for suitable data | Current tilt/height: N/A\n");
     }
+    char ax[16], ay[16], az[16], mag[16];
+    buddy4_decimal(ax, s->acceleration_g[0]);
+    buddy4_decimal(ay, s->acceleration_g[1]);
+    buddy4_decimal(az, s->acceleration_g[2]);
+    buddy4_decimal(mag, s->magnitude_g);
+    tm_printf((UB *)"     Acquisition fresh=%u | Tilt usable=%u | Quality=%s | Clipped axes=0x%X | STATUS_A=0x%02X\n",
+        (UINT)s->valid, (UINT)s->tilt_valid, buddy4_quality_name(s->measurement_quality),
+        (UINT)s->clipped_axes, (UINT)s->status_a);
+    tm_printf((UB *)"     Raw XYZ=(%d,%d,%d) | Corrected g=(%s,%s,%s) | Magnitude=%s g | sample_ms=%u\n",
+        (INT)s->raw[0], (INT)s->raw[1], (INT)s->raw[2], ax, ay, az, mag,
+        (UINT)(s->sample_us / 1000u));
+    tm_printf((UB *)"     Saved clipped samples=%u (impact assessment indeterminate) | Unsuitable tilt samples=%u\n",
+        (UINT)s->clipped_samples, (UINT)s->unsuitable_samples);
+    tm_printf((UB *)"     Sensor readback: verified=%u at_ms=%u WHO=0x%02X CTRL0/1/2/3/4/7=%02X/%02X/%02X/%02X/%02X/%02X\n",
+        (UINT)s->sensor_config_valid, (UINT)(s->config_checked_us / 1000u), (UINT)s->who_am_i,
+        (UINT)s->sensor_ctrl[0], (UINT)s->sensor_ctrl[1], (UINT)s->sensor_ctrl[2],
+        (UINT)s->sensor_ctrl[3], (UINT)s->sensor_ctrl[4], (UINT)s->sensor_ctrl[5]);
     tm_printf((UB *)"     Timing: poll=%s | Reading age=%u ms | Poll interval=%u ms | Transfer time=%u ms | Timing valid=%u\n",
         s->poll_result == 0 ? "FRESH" : s->poll_result == 1 ? "NO_NEW_DATA" :
         s->poll_result == 2 ? "I2C_ERROR" : "NOT_READY",
         (UINT)s->sample_age_ms, (UINT)s->poll_interval_ms,
         (UINT)s->poll_duration_ms, (UINT)s->timing_valid);
     tm_printf((UB *)"     Possible-impact detector NOW: %s | Saved cumulative possible-impact count: %u\n",
-        s->impact_valid ? "VALID" : "INVALID", (UINT)s->impact_count);
+        s->valid && s->clipped_axes ? "UNKNOWN_CLIPPED" : s->impact_valid ? "VALID" : "INVALID", (UINT)s->impact_count);
     if (s->impact_count != 0) {
         tm_printf((UB *)"     Saved latest possible-impact time: %u.%03u s since boot | OBSERVATIONAL, NOT CONFIRMED COLLISION\n",
             (UINT)(s->impact_time_us / 1000000u),
@@ -144,7 +162,7 @@ static void buddy4_print_readable(const buddy4_task_snapshot_t *s)
         tm_printf((UB *)"     IRQ gaps (us): max=%u first=%u | At expiry: state=%u read_left=%u\n",
             (UINT)t[26], (UINT)t[27], (UINT)t[30], (UINT)t[31]);
     }
-    tm_printf((UB *)"     I2C errors: %u | Skipped sampling slots: %u | Build: B4-TILT-PEAK-POSSIBLE-IMPACT-H USB-only\n",
+    tm_printf((UB *)"     I2C errors: %u | Skipped sampling slots: %u | Build: B4-MEASUREMENT-QUALITY-I USB-only\n",
         (UINT)s->io_errors, (UINT)s->skipped_slots);
     buddy4_print_new_peak(s);
     buddy4_print_new_impact(s);
@@ -299,25 +317,28 @@ EXPORT INT usermain(void)
     /* Read-only diagnostics once per second; no motor actions. */
     (void)tk_chg_pri(TSK_SELF, 14);
     #if BUDDY4_CONSOLE_CSV
-    tm_printf((UB *)"# B4_MTK: seq valid errors pitch_mdeg roll_mdeg height_milli_cm events stable_milli_cm median_milli_cm skipped\n");
+    tm_printf((UB *)"# B4_MTK: seq valid errors pitch_mdeg roll_mdeg height_milli_cm events stable_milli_cm median_milli_cm skipped tilt_valid acceleration_valid quality clipped_axes clipped_samples unsuitable_samples\n");
     #else
     tm_printf((UB *)"[B4] Tilt/peak and possible-impact monitor; NOW is current. Saved results are retained observations. Possible impact does not mean confirmed collision.\n");
     #endif
     for (;;) {
         if (buddy4_task_get(&buddy4_diagnostic) >= E_OK) {
             #if BUDDY4_CONSOLE_CSV
-            tm_printf((UB *)"B4,%u,%u,%u,%d,%d,%d,%u,%d,%d,%u\n",
+            tm_printf((UB *)"B4,%u,%u,%u,%d,%d,%d,%u,%d,%d,%u,%u,%u,%d,%u,%u,%u\n",
                 (UINT)buddy4_diagnostic.sequence, (UINT)buddy4_diagnostic.valid,
                 (UINT)buddy4_diagnostic.io_errors,
-                (INT)(buddy4_diagnostic.pitch_deg * 1000),
-                (INT)(buddy4_diagnostic.roll_deg * 1000),
-                (INT)(buddy4_diagnostic.height_cm * 1000),
+                buddy4_diagnostic.valid && buddy4_diagnostic.tilt_valid ? (INT)(buddy4_diagnostic.pitch_deg * 1000) : -2147483647,
+                buddy4_diagnostic.valid && buddy4_diagnostic.tilt_valid ? (INT)(buddy4_diagnostic.roll_deg * 1000) : -2147483647,
+                buddy4_diagnostic.valid && buddy4_diagnostic.tilt_valid ? (INT)(buddy4_diagnostic.height_cm * 1000) : -2147483647,
                 (UINT)buddy4_diagnostic.completed_events,
                 buddy4_diagnostic.last_event.stable_valid ?
                     (INT)(buddy4_diagnostic.last_event.stable_cm * 1000) : -1,
                 buddy4_diagnostic.last_event.median_valid ?
                     (INT)(buddy4_diagnostic.last_event.median_cm * 1000) : -1,
-                (UINT)buddy4_diagnostic.skipped_slots);
+                (UINT)buddy4_diagnostic.skipped_slots,
+                (UINT)buddy4_diagnostic.tilt_valid, (UINT)buddy4_diagnostic.acceleration_valid,
+                (INT)buddy4_diagnostic.measurement_quality, (UINT)buddy4_diagnostic.clipped_axes,
+                (UINT)buddy4_diagnostic.clipped_samples, (UINT)buddy4_diagnostic.unsuitable_samples);
             #else
             buddy4_print_readable(&buddy4_diagnostic);
             #endif

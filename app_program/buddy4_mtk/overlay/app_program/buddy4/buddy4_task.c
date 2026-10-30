@@ -77,7 +77,7 @@ ER buddy4_task_get(buddy4_task_snapshot_t *out)
     out->sample_age_ms = e < E_OK || out->sample_us == 0 ? UINT32_MAX :
         elapsed_ms(now, out->sample_us);
     if (e < E_OK || expired(now, out->sample_us, IMU_MAX_AGE_US)) {
-        out->valid = false;
+        out->valid = out->tilt_valid = out->acceleration_valid = false;
         out->bump_event = out->side_event_ended = false;
     }
     if (e < E_OK || expired(now, out->poll_us, IMU_MAX_AGE_US)) {
@@ -118,7 +118,7 @@ static void process_once(uint64_t now)
         imu.ready = false;
         next.sequence++;
         next.poll_us = now;
-        next.valid = next.impact_valid = next.motion_valid = next.yaw_valid = false;
+        next.valid = next.tilt_valid = next.acceleration_valid = next.impact_valid = next.motion_valid = next.yaw_valid = false;
         next.bump_event = next.side_event_ended = next.possible_impact = false;
         next.timing_valid = false;
         next.poll_result = BUDDY4_NOT_READY;
@@ -126,6 +126,12 @@ static void process_once(uint64_t now)
         buddy4_impact_update(&impact, 0, 0, 0, false, now, now);
         publish();
         return;
+    }
+    /* At most one bounded verification per second, before acquisition. */
+    if (imu.ready && (next.config_checked_us == 0 ||
+        acquired - next.config_checked_us >= RETRY_US)) {
+        (void)buddy4_verify_config(&imu);
+        next.config_checked_us = acquired;
     }
     buddy4_result_t result = buddy4_poll(&imu, acquired);
     /* Diagnostic clock only: do not change acquisition timestamps or filters. */
@@ -135,7 +141,7 @@ static void process_once(uint64_t now)
     next.poll_interval_ms = next.sequence ? elapsed_ms(acquired, next.poll_us) : 0;
     buddy4_output_t *o = &imu.output;
     buddy4_impact_update(&impact, o->accel_g[0], o->accel_g[1],
-        o->accel_g[2], result == BUDDY4_FRESH && o->valid,
+        o->accel_g[2], result == BUDDY4_FRESH && o->valid && o->acceleration_valid,
         o->timestamp_us, acquired);
     if (!speed.valid) {
         buddy4_motion_update(&motion, 0, 0, false, acquired, acquired);
@@ -154,6 +160,15 @@ static void process_once(uint64_t now)
     next.sequence++;
     next.poll_us = acquired; next.sample_us = o->timestamp_us;
     next.valid = o->valid; next.poll_result = result;
+    next.tilt_valid = o->valid && o->tilt_valid;
+    next.acceleration_valid = o->valid && o->acceleration_valid;
+    next.measurement_quality = o->quality;
+    next.clipped_axes = o->clipped_axes; next.status_a = o->status_a;
+    next.clipped_samples = o->clipped_samples;
+    next.unsuitable_samples = o->unsuitable_samples;
+    next.sensor_config_valid = imu.sensor_config.valid;
+    next.who_am_i = imu.sensor_config.who_am_i;
+    memcpy(next.sensor_ctrl, imu.sensor_config.ctrl, sizeof(next.sensor_ctrl));
     if (o->error_count != next.io_errors) {
         next.saved_error_present = true;
         next.saved_error_code = device.last_error;
@@ -227,7 +242,7 @@ static void sensor_task(INT code, void *info)
              * Use the last known poll time; now may be unavailable. */
             buddy4_impact_update(&impact, 0, 0, 0, false,
                                  next.poll_us, next.poll_us);
-            next.valid = next.impact_valid = next.motion_valid = next.yaw_valid = false;
+            next.valid = next.tilt_valid = next.acceleration_valid = next.impact_valid = next.motion_valid = next.yaw_valid = false;
             next.bump_event = next.side_event_ended = next.possible_impact = false;
             next.timing_valid = false;
             next.device_error = (int)e;

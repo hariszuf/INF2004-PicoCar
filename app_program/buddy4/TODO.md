@@ -1,6 +1,6 @@
 # Buddy 4 main checklist
 
-Updated: 29 October 2026. This is the authoritative Buddy 4 remaining-work list;
+Updated: 30 October 2026. This is the authoritative Buddy 4 remaining-work list;
 use the READMEs for implementation/build details. Completed means the stated
 checkpoint exists, not that all assessed requirements or conditions are validated.
 Final team MTK integration is paused while teammates finish their migrations.
@@ -16,6 +16,24 @@ Collision detection remains required; the existing detector reports preliminary
 detection, dedicated vibration analysis and both-wheel/full-width height
 estimation are outside the agreed scope. The course scope is a one-side ramp;
 the higher practice ramp may be disregarded under the professor's announcement.
+
+## Current measurement-validity fault (30 October 2026)
+
+- [x] Reproduce successful-transfer endpoint XYZ in production buddy4_poll:
+  -35.67/-36.14 degrees, 6.66 cm, 3.6249 g and misleading stable/median peaks.
+- [x] Separate acquisition from clipping/finite acceleration and gravity-like tilt;
+  abort unsuitable pending/current events, retain completed results, preserve
+  non-clipped impact behaviour and expose clipped-impact uncertainty.
+- [x] Add raw/quality/configuration diagnostics, regression coverage and distinct
+  USB-only diagnostic firmware; run host/schema checks and affected builds.
+- [ ] Hardware confirmation: ONE 25-second level/right-tilt/level/left-tilt/level
+  capture with motor power disconnected. Do not repeat the full ramp batch.
+  Hardware raw values and root cause remain unknown; do not tune mounting offsets
+  from the suspicious derived values or treat fresh/zero errors as tilt validity.
+
+[Fault evidence, quality contract, build paths and capture interpretation](MEASUREMENT_QUALITY_CHECKPOINT.md).
+This current fault must be confirmed before relying on further height trials;
+older test/checklist entries retain their original scope and uncertainty.
 
 ## 1. Completed checkpoints—with clear limits
 
