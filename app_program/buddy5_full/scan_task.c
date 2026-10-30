@@ -28,7 +28,7 @@ static void emit(uint8_t type,int32_t a,int32_t b,uint32_t seq) {
  (void)buddy1_telemetry_submit(&m);
 }
 static void scan_task(INT stacd,void *exinf) {
- uint32_t settled=0,last_ping=0,last_report=0,delivered=0,front_time=0;
+ uint32_t settled=0,last_ping=0,last_report=0,delivered=0,front_time=0,last_bad=0;
  b5_state_t previous=(b5_state_t)99;
  b5_range_t readings[B5_SAMPLE_COUNT];
  unsigned count=0;
@@ -79,6 +79,11 @@ static void scan_task(INT stacd,void *exinf) {
    if(count==B5_SAMPLE_COUNT || urgent || (!no_echo && guard_mode)) {
     /* Motion changes acquisition pose: guard each new echo directly. */
     b5_range_t filtered=(urgent || (!no_echo && guard_mode))?reading:b5_filter(readings);
+    if(core.state==B5_AVOIDING && core.phase<2 && !filtered.valid &&
+       (uint32_t)(now-last_bad)>=1000u) {
+     tm_printf((UB*)"[SCAN] retry invalid reading at angle=%d\n",angle);
+     last_bad=now;
+    }
     (void)line_controller_feedback(&feedback);
     if(forward) { front_valid=filtered.valid; front_time=now; }
     if(core.state==B5_SCANNING)
