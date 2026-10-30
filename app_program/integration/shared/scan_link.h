@@ -1,8 +1,8 @@
-#ifndef B5_LINE_TEST_H
-#define B5_LINE_TEST_H
+#ifndef B5_SCAN_LINK_H
+#define B5_SCAN_LINK_H
 #include <stdint.h>
 #include <stdbool.h>
-#include "buddy5_core.h"
+#include "../buddy5/buddy5_core.h"
 typedef struct {
  b5_state_t state;
  b5_fault_t fault;

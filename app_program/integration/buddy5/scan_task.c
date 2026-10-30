@@ -1,12 +1,12 @@
 #ifdef B5_FULL_TEST
 #include <tk/tkernel.h>
 #include <tm/tmonitor.h>
-#include "line_test.h"
+#include "scan_link.h"
 #include "platform.h"
 #include "range_policy.h"
 #include "buddy5_servo.h"
-#include "../buddy5/ultrasonic.h"
-#include "../buddy1/telemetry.h"
+#include "../../buddy5/ultrasonic.h"
+#include "../../buddy1/telemetry.h"
 static b5_core_t core;
 static line_scan_status_t shared;
 static bool reset_pending, abort_pending;
