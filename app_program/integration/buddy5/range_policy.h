@@ -1,7 +1,7 @@
 #ifndef B5_RANGE_POLICY_H
 #define B5_RANGE_POLICY_H
 #include "buddy5_core.h"
-#include "../buddy5/ultrasonic.h"
+#include "../../buddy5/ultrasonic.h"
 /* The sensor is mounted above the chassis.  Echoes below this range are from
  * the car/mounting rather than an obstacle that can be avoided at 200 mm. */
 #define B5_SELF_ECHO_DEAD_ZONE_MM 90u

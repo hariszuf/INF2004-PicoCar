@@ -1,9 +1,9 @@
 #ifdef B5_FULL_TEST
-#include "full_nav.h"
+#include "vehicle_nav.h"
 #include <math.h>
-#include "../buddy2/motion_config.h"
-#include "../buddy3/line_follow.h"
-#include "../buddy3/line_sensors.h"
+#include "../../buddy2/motion_config.h"
+#include "../../buddy3/line_follow.h"
+#include "../../buddy3/line_sensors.h"
 enum { TURN=1, MOVE, CHECK_LINE };
 #define NAV_HEADING_ALIGNED_DEG 8.0f
 #define NAV_TURN_DEADBAND_DEG 4.0f

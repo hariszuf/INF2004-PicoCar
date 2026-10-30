@@ -2,16 +2,16 @@
 #include <tk/tkernel.h>
 #include <tm/tmonitor.h>
 #include "platform.h"
-#include "line_test.h"
-#include "full_nav.h"
+#include "scan_link.h"
+#include "vehicle_nav.h"
 #include "auto_start.h"
-#include "../buddy1/buddy1.h"
+#include "../../buddy1/buddy1.h"
 #include "buddy5_servo.h"
-#include "../buddy5/ultrasonic.h"
-#include "../buddy2/motion_control.h"
-#include "../buddy3/line_follow.h"
-#include "../buddy3/line_sensors.h"
-#include "../buddy3/line_config.h"
+#include "../../buddy5/ultrasonic.h"
+#include "../../buddy2/motion_control.h"
+#include "../../buddy3/line_follow.h"
+#include "../../buddy3/line_sensors.h"
+#include "../../buddy3/line_config.h"
 #ifndef B5_HEADLESS
 #define B5_HEADLESS 0
 #endif
@@ -22,7 +22,7 @@
 #error "This integration profile requires SMP=0"
 #endif
 #if CNF_TIMER_PERIOD != 1
-#error "Use full_test.mk (1ms kernel tick required)"
+#error "Use picocar_integration.mk (1ms kernel tick required)"
 #endif
 #if TM_CONSOLE_UART
 #error "GP0 belongs to the line sensor: this profile requires USB-only console"

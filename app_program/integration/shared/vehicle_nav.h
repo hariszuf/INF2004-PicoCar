@@ -1,9 +1,9 @@
-#ifndef FULL_NAV_H
-#define FULL_NAV_H
+#ifndef VEHICLE_NAV_H
+#define VEHICLE_NAV_H
 #include <stdint.h>
 #include <stdbool.h>
-#include "buddy5_core.h"
-#include "../buddy2/motion_control.h"
+#include "../buddy5/buddy5_core.h"
+#include "../../buddy2/motion_control.h"
 typedef struct { unsigned kind; float value; } full_action_t;
 typedef struct {
  float x,y,heading,last_distance,last_heading,heading_origin;
