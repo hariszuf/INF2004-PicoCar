@@ -1,0 +1,262 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PicoCar Control Center</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #101827;
+            color: #eef2ff;
+            margin: 0;
+            padding: 24px;
+        }
+
+        main {
+            max-width: 1000px;
+            margin: auto;
+        }
+
+        h1 { margin-bottom: 8px; }
+
+        .subtitle { color: #94a3b8; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 16px;
+            margin-top: 24px;
+        }
+
+        .card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .label {
+            color: #94a3b8;
+            font-size: 14px;
+        }
+
+        .value {
+            font-size: 26px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .online { color: #4ade80; }
+        .offline { color: #fb7185; }
+
+        pre {
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            font-size: 14px;
+        }
+
+        button {
+            padding: 14px 28px;
+            margin: 8px 8px 8px 0;
+            border: none;
+            border-radius: 8px;
+            background: #2563eb;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+    </style>
+</head>
+<body>
+<main>
+    <h1>🚗 PicoCar Control Center</h1>
+    <p class="subtitle">INF2004 — Live MQTT Telemetry</p>
+
+    <div class="grid">
+        <section class="card">
+            <div class="label">MQTT Broker</div>
+            <div class="value" id="mqtt-connection">Checking...</div>
+        </section>
+
+        <section class="card">
+            <div class="label">PicoCar Heartbeat</div>
+            <div class="value" id="vehicle-connection">Checking...</div>
+        </section>
+    </div>
+
+    <div class="grid">
+        <section class="card">
+            <div class="label">Dashboard API</div>
+            <div class="value online" id="api">Connecting...</div>
+        </section>
+
+        <section class="card">
+            <div class="label">Latest Status Message</div>
+            <div class="value" id="status">Waiting...</div>
+        </section>
+
+        <section class="card">
+            <div class="label">Telemetry Sequence</div>
+            <div class="value" id="sequence">—</div>
+        </section>
+
+        <section class="card">
+            <div class="label">Last Telemetry</div>
+            <div class="value" id="telemetry-age">Waiting...</div>
+        </section>
+    </div>
+    <section class="card" style="margin-top:24px">
+        <h2>Remote Commands</h2>
+
+        <button onclick="sendCommand('START')">
+            START
+        </button>
+
+        <button onclick="sendCommand('STOP')">
+            STOP
+        </button>
+
+        <p id="command-result">No command sent yet.</p>
+    </section>
+
+    <section class="card" style="margin-top:24px">
+        <h2>Latest Telemetry Payload</h2>
+        <pre id="telemetry">Waiting for MQTT telemetry...</pre>
+    </section>
+</main>
+
+<script>
+    const statusTopic = "picocar/vehicle1/status";
+    const telemetryTopic = "picocar/vehicle1/telemetry";
+
+    let previousTelemetry = null;
+    let lastTelemetrySeen = null;
+
+    async function refreshDashboard() {
+        try {
+            const response = await fetch("/api/telemetry", {
+                cache: "no-store"
+            });
+
+            if (!response.ok) {
+                throw new Error("API request failed");
+            }
+
+            const data = await response.json();
+
+            const api = document.getElementById("api");
+            api.textContent = "Connected";
+            api.className = "value online";
+
+            document.getElementById("status").textContent =
+                data[statusTopic] || "Waiting...";
+
+            const telemetry = data[telemetryTopic];
+
+            if (telemetry) {
+                document.getElementById("telemetry").textContent =
+                    telemetry;
+
+                const sequence = telemetry.match(/seq=(\d+)/);
+
+                if (sequence) {
+                    document.getElementById("sequence").textContent =
+                        sequence[1];
+                }
+
+                if (telemetry !== previousTelemetry) {
+                    previousTelemetry = telemetry;
+                    lastTelemetrySeen = Date.now();
+                }
+            }
+
+            document.getElementById("telemetry-age").textContent =
+                lastTelemetrySeen === null
+                    ? "Waiting..."
+                    : Math.floor(
+                        (Date.now() - lastTelemetrySeen) / 1000
+                      ) + "s ago";
+
+        } catch (error) {
+            const api = document.getElementById("api");
+            api.textContent = "Disconnected";
+            api.className = "value offline";
+        }
+    }
+
+    async function sendCommand(command) {
+    const output = document.getElementById("command-result");
+
+    try {
+        const response = await fetch(
+            `/api/command/${command}`,
+            { method: "POST" }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.detail || "Request failed");
+        }
+
+        output.textContent =
+            `${command}: accepted for MQTT publishing`;
+
+    } catch (error) {
+        output.textContent =
+            `${command}: ERROR — ${error.message}`;
+    }
+}
+
+    async function refreshConnectionStatus() {
+    try {
+        const response = await fetch("/api/status");
+
+        if (!response.ok) {
+            throw new Error("Status API unavailable");
+        }
+
+        const data = await response.json();
+
+        const mqtt = document.getElementById("mqtt-connection");
+        mqtt.textContent = data.mqtt_connected
+            ? "Connected"
+            : "Disconnected";
+        mqtt.className = data.mqtt_connected
+            ? "value online"
+            : "value offline";
+
+        const vehicle = document.getElementById("vehicle-connection");
+        vehicle.textContent = data.vehicle_heartbeat_fresh
+            ? "Online"
+            : "Offline / Stale";
+        vehicle.className = data.vehicle_heartbeat_fresh
+            ? "value online"
+            : "value offline";
+
+    } catch (error) {
+        for (const id of [
+            "mqtt-connection",
+            "vehicle-connection"
+        ]) {
+            const element = document.getElementById(id);
+            element.textContent = "Unavailable";
+            element.className = "value offline";
+        }
+    }
+}
+
+refreshDashboard();
+setInterval(refreshDashboard, 1000);
+
+refreshConnectionStatus();
+setInterval(refreshConnectionStatus, 1000);
+</script>
+</body>
+</html>
