@@ -149,6 +149,30 @@ def check(browser, url, output):
     page.locator("#stop-command").click()
     expect(page.locator("#command-result")).to_contain_text("STOP: publication queued")
 
+    # A source/type declaration is not a Buddy 4 measurement schema.
+    imu_fields = [
+        "imu-status", "pitch", "roll", "wheel-height", "terrain", "side",
+        "estimated-motion", "turn-rate", "imu-quality", "imu-freshness",
+        "imu-sample-age", "imu-io-errors", "imu-clipped-samples",
+        "imu-unsuitable-samples", "peak-height", "median-peak-height",
+        "peak-side", "peak-time", "impact-result", "impact-time", "impact-count",
+    ]
+    page.goto(url + "#imu")
+    for kind in (7, 8):
+        telemetry["picocar/vehicle1/telemetry"] = f"src=4 type={kind} seq={20 + kind} value1=1234 value2=5678"
+        refresh()
+        for field in imu_fields:
+            expect(page.locator(f"#{field}")).to_have_text("N/A")
+    expect(page.locator("#view-imu")).to_contain_text("Preliminary estimates")
+    expect(page.locator("#view-imu")).to_contain_text("Observational, not a confirmed collision")
+    status.update(vehicle_heartbeat_fresh=False, heartbeat_age_seconds=20)
+    refresh()
+    expect(page.locator("#vehicle-connection")).to_have_text("Stale")
+    for field in imu_fields:
+        expect(page.locator(f"#{field}")).to_have_text("N/A")
+    status.update(vehicle_heartbeat_fresh=True, heartbeat_age_seconds=1)
+    refresh()
+
     # Synthetic input stays in this check; screenshots are browser-test evidence.
     views = ["overview", "motion", "line", "imu", "obstacle", "safety", "diagnostics"]
     for width, height in [(1440, 1000), (768, 1024), (390, 844), (320, 740)]:
@@ -162,8 +186,8 @@ def check(browser, url, output):
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (width, view, "overflow")
             assert page.locator("#stop-command").bounding_box()["y"] < height, (width, view, "STOP below fold")
             if view == "imu":
-                expect(page.locator("#peak-height")).to_have_text("N/A")
-                expect(page.locator("#pitch")).to_have_text("N/A")
+                for field in imu_fields:
+                    expect(page.locator(f"#{field}")).to_have_text("N/A")
             if width >= 390:
                 page.screenshot(path=str(output / f"{view}-{width}.png"), full_page=True)
         if width <= 768:

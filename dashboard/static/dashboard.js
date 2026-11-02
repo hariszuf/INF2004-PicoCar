@@ -29,7 +29,7 @@ const sections = {
         ["Tracking & barcode", [["Line detection", "line-detection"], ["Tracking state", "tracking-state"], ["Barcode result", "barcode-result"]]],
     ],
     imu: [
-        ["Current orientation", [["IMU status", "imu-status"], ["Pitch", "pitch"], ["Roll", "roll"]]],
+        ["Current orientation", [["IMU status", "imu-status"], ["Pitch", "pitch"], ["Roll", "roll"], ["Wheel-height difference (cm, preliminary)", "wheel-height"]]],
         ["Terrain & motion", [["Terrain classification", "terrain"], ["Side classification", "side"], ["Estimated motion", "estimated-motion"], ["Turn rate", "turn-rate"]]],
     ],
     obstacle: [
@@ -83,24 +83,43 @@ for (const [view, panels] of Object.entries(sections)) {
     note.className = "integration-note";
     note.textContent = view === "obstacle"
         ? "Only verified Buddy 5 text fields are interpreted. Sensor validity and sample age are not supplied by the current MQTT envelope."
+        : view === "imu"
+        ? "Buddy 4 is not connected to MQTT. Current measurements and saved event results remain N/A. A fresh vehicle heartbeat does not establish sensor freshness."
         : "Sensor measurements are not integrated into the current MQTT interface. N/A does not mean zero or healthy.";
     const grid = document.createElement("div");
     grid.className = "two-column";
     for (const [title, fields] of panels) grid.append(metricPanel(title, fields));
     root.append(note, grid);
     if (view === "imu") {
+        const diagnosticsHeading = document.createElement("div");
+        diagnosticsHeading.className = "section-heading";
+        diagnosticsHeading.innerHTML = "<h2>Sensor diagnostics</h2><span class='muted'>Sensor freshness and measurement quality are separate</span>";
+        const diagnostics = document.createElement("div");
+        diagnostics.className = "two-column";
+        diagnostics.append(
+            metricPanel("Acquisition diagnostics", [["Sensor freshness", "imu-freshness"], ["Last reading age (ms)", "imu-sample-age"], ["I²C / configuration errors", "imu-io-errors"]]),
+            metricPanel("Measurement quality", [["IMU measurement quality", "imu-quality"], ["Clipped sample count", "imu-clipped-samples"], ["Unsuitable tilt sample count", "imu-unsuitable-samples"]]),
+        );
+        root.append(diagnosticsHeading, diagnostics);
         const heading = document.createElement("div");
         heading.className = "section-heading";
         heading.innerHTML = "<h2>Saved event results</h2><span class='muted'>Separate from current sensor measurements</span>";
         const events = document.createElement("div");
         events.className = "two-column";
-        events.append(
-            metricPanel("Peak-height result", [["Saved peak height", "peak-height"], ["Event time", "peak-time"]]),
-            metricPanel("Possible-impact result", [["Saved impact result", "impact-result"], ["Event time", "impact-time"]]),
-        );
+        const ramp = metricPanel("Ramp-height result", [["Saved stable peak height (cm)", "peak-height"], ["Saved median peak height (cm)", "median-peak-height"], ["Detected side", "peak-side"], ["Event timestamp (device uptime)", "peak-time"]]);
+        const rampNote = document.createElement("p");
+        rampNote.className = "panel-note";
+        rampNote.textContent = "Preliminary estimates. Stable and median peaks have independent validity; saved results are not current wheel-height readings.";
+        ramp.append(rampNote);
+        const impact = metricPanel("Possible-impact result", [["Latest possible-impact event", "impact-result"], ["Event timestamp (device uptime)", "impact-time"], ["Possible-impact event count", "impact-count"]]);
+        const impactNote = document.createElement("p");
+        impactNote.className = "panel-note";
+        impactNote.textContent = "Observational, not a confirmed collision. Event history remains separate from current sensor validity.";
+        impact.append(impactNote);
+        events.append(ramp, impact);
         const note = document.createElement("p");
         note.className = "panel-note";
-        note.textContent = "Saved results are not integrated into MQTT. No event has been inferred from live orientation.";
+        note.textContent = "Saved results and counters are not integrated into MQTT. N/A does not mean no event occurred or a count of zero.";
         root.append(heading, events, note);
     }
     const details = document.createElement("details");
@@ -112,8 +131,21 @@ for (const [view, panels] of Object.entries(sections)) {
     const protocolNote = document.createElement("p");
     protocolNote.textContent = view === "obstacle"
         ? "Source 5, type 50 reports state/fault; type 54 reports derived front clearance in mm and commanded servo angle in degrees. A clearance of -1 is unavailable. These are browser-held last observations, not guaranteed current samples. Raw messages remain in MQTT diagnostics."
+        : view === "imu"
+        ? "Buddy 4 has a native snapshot, but no MQTT publisher submission or agreed payload mapping for its measurements. Source 4 and IMU/hump type identifiers alone do not define units, validity or timestamps. Raw payloads remain available in MQTT diagnostics without populating these fields."
         : "Raw source/type fields remain visible in MQTT diagnostics. Measurements need confirmed payload meanings, units and validity before integration.";
     details.append(summary, explanation, protocolNote);
+    if (view === "imu") {
+        for (const text of [
+            "Firmware quality states are GRAVITY_LIKE, NON_GRAVITY, CLIPPED, NONFINITE and UNAVAILABLE. Acquisition validity and gravity-based tilt validity are distinct. Clipped samples also contribute to the unsuitable tilt count; these counts must not be added together.",
+            "Sensor age must come from Buddy 4 sample timing and validity, never the vehicle heartbeat or browser payload age. Old or invalid readings must not be shown as live. Ramp event timestamps are device uptime, not wall-clock time; detected sides include LEFT_WHEEL_UP, RIGHT_WHEEL_UP and SIDE_LEVEL.",
+            "Possible-impact history is observational. The current Buddy 4 snapshot does not expose a possible-obstruction event or timestamp, so those fields are omitted.",
+        ]) {
+            const paragraph = document.createElement("p");
+            paragraph.textContent = text;
+            details.append(paragraph);
+        }
+    }
     root.append(details);
 }
 
