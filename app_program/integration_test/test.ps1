@@ -20,7 +20,7 @@ try {
     if ($LASTEXITCODE) { throw 'Scheduler compilation failed' }
     & ./build-host/scheduler.exe
     if ($LASTEXITCODE) { throw 'Scheduler tests failed' }
-    & gcc -std=c11 -Wall -Wextra -Werror -I../buddy2 -I../buddy3 drive_control.c test_drive_control.c -o build-host/drive.exe
+    & gcc -std=c11 -Wall -Wextra -Werror -UNDEBUG -I../buddy2 -I../buddy3 -I../buddy4 ../buddy4/buddy4_imu.c drive_control.c test_drive_control.c -o build-host/drive.exe -lm
     if ($LASTEXITCODE) { throw 'Drive compilation failed' }
     & ./build-host/drive.exe
     if ($LASTEXITCODE) { throw 'Drive safety tests failed' }
@@ -40,10 +40,31 @@ try {
     if ($LASTEXITCODE) { throw 'Possible-impact compilation failed' }
     & ./build-host/impact.exe
     if ($LASTEXITCODE) { throw 'Possible-impact tests failed' }
+    & gcc -std=c11 -Wall -Wextra -Werror -UNDEBUG -I../buddy4 ../buddy4/buddy4_obstruction.c test_obstruction.c -o build-host/obstruction.exe -lm
+    if ($LASTEXITCODE) { throw 'Possible-obstruction compilation failed' }
+    & ./build-host/obstruction.exe
+    if ($LASTEXITCODE) { throw 'Possible-obstruction tests failed' }
+    & gcc -std=c11 -Wall -Wextra -Werror -UNDEBUG -I../buddy4 -I../buddy2 ../buddy4/buddy4_obstruction.c buddy4_obstruction_sdk.c test_obstruction_sdk.c -o build-host/obstruction-sdk.exe -lm
+    if ($LASTEXITCODE) { throw 'SDK obstruction adapter compilation failed' }
+    & ./build-host/obstruction-sdk.exe
+    if ($LASTEXITCODE) { throw 'SDK obstruction adapter tests failed' }
     & gcc -std=c11 -Wall -Wextra -Werror -UNDEBUG -I../buddy4 ../buddy4/buddy4_encoder_yaw.c test_encoder_yaw.c -o build-host/encoder-yaw.exe -lm
     if ($LASTEXITCODE) { throw 'Encoder yaw estimate compilation failed' }
     & ./build-host/encoder-yaw.exe
     if ($LASTEXITCODE) { throw 'Encoder yaw estimate tests failed' }
+    # Run the actual SDK main loop with simulated I2C, USB and motor hardware.
+    $telemetryFlags = @('-Werror', '-Wno-type-limits', '-UNDEBUG', '-Ihost_sdk', '-I../buddy3', '-I../buddy4', '-I../shared',
+        '-DMOTION_MIN_DUTY=0.10f', '-DMOTION_BREAKAWAY_DUTY=0.22f', '-DMOTION_STALL_DUTY=0.6f',
+        '-DMOTION_STALL_TIME_MS=1500u', '-DMOTION_FEEDFORWARD_DUTY_PER_CM_S=0.0125f')
+    $telemetrySources = @('test_main_telemetry.c', 'drive_control.c', 'buddy4_obstruction_sdk.c',
+        '../buddy4/buddy4_imu.c', '../buddy4/buddy4_impact.c', '../buddy4/buddy4_motion.c',
+        '../buddy4/buddy4_encoder_yaw.c', '../buddy4/buddy4_obstruction.c', '../buddy3/line_follow.c')
+    & gcc @common @telemetryFlags @motion @telemetrySources -o build-host/main-telemetry.exe -lm
+    if ($LASTEXITCODE) { throw 'Actual SDK main-loop telemetry compilation failed' }
+    foreach ($scenarioId in 0..3) {
+        & ./build-host/main-telemetry.exe $scenarioId
+        if ($LASTEXITCODE) { throw "Actual SDK main-loop telemetry scenario $scenarioId failed" }
+    }
     & python test_csv_schema.py
     if ($LASTEXITCODE) { throw 'CSV schema checks failed' }
 } finally { Pop-Location }

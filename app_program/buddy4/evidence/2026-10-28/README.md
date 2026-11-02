@@ -20,3 +20,25 @@ Original capture bytes are preserved in raw/. manifest.json records SHA-256 hash
 ![Settled height](charts/stationary_height_comparison.png)
 
 The latest after-correction moving stable peaks are 0.994 cm left and 0.989 cm right; median peaks are 1.049 cm left and 1.065 cm right. These support limited single-wheel verification, not collision/yaw validation or general course accuracy. No firmware changes or new robot tests were performed to prepare this evidence bundle.
+
+## Later reported checkpoint: 2 November 2026
+
+The figures above and their original hashes belong to 28 October. The operator
+has since reported a completed 1.00 cm SDK height checkpoint, detailed in
+[report Section 5.7](../../Buddy4_Terrain_Analysis_Report_Draft.md#57-reported-2-november-1-cm-sdk-height-validation).
+No corresponding original file was identified for the following new series in
+the scoped repository evidence/Downloads review; source path and hash are
+therefore **unavailable**, not inferred from an older recording:
+
+| Reported capture | Conditions / finding | Outstanding source verification |
+|---|---|---|
+| Flat baseline | 505 valid samples / 10.08 s; 0.319 cm mean live height; FLAT/SIDE_LEVEL; no I2C errors/clipping | Original filename/path, interval, quality fields and mean |
+| Left tyre Test 1 | 1.00 cm reference; saved stable 1.242 cm / median 1.312 cm reported | Saved fields, validity and event identity |
+| Left tyre Test 2 | 1.00 cm reference; live maximum 1.360 cm reported | Live sample and any separately confirmed saved event |
+| Right tyre Test 1 | 1.00 cm reference; live maximum 0.798 cm; earlier saved values 0.640/0.467 | Exact saved-field identities, validity and side classification unresolved |
+| Right tyre Test 2 | 1.00 cm reference; live maximum 0.750 cm, positive roll reported; operator confirms complete unassisted motor-driven crossing | Original samples/side; no saved peaks claimed |
+
+Rightward drift was operator-observed during the left-tyre tests and is referred
+to Buddy 2 for investigation. The reported identified estimates satisfy +/-1 cm
+for these conditions; no general accuracy claim follows. No raw bytes, filenames,
+existing manifests or hashes were changed, and no new figure was generated.

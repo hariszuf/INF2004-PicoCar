@@ -1,5 +1,19 @@
 # Buddy 4 micro T Kernel trial
 
+## Handover status, 2 November 2026
+
+The full isolated regression suite and `SMP=0 CONSOLE=usb_cdc` build pass again.
+See [the current ownership/integration guide](../buddy4/HANDOVER.md) for exact
+artifacts, schemas and blockers. The live team app still starts Buddy 1/5;
+this overlay defaults to IMU-only and is not merged into live startup/build files.
+The speed mailbox has no producer wired, and the native snapshot does not yet
+carry possible-obstruction state or the required motor-command context.
+
+The [two successful obstruction hardware recordings](../buddy4/evidence/2026-11-02/FOAM_SUCCESS.md)
+use SDK driving firmware. They do not validate MTK motor operation or native
+obstruction integration. No algorithm, kernel or driver was changed for handover.
+The older display/diagnostic checkpoints below describe their own versions.
+
 ## Current test output: B4-MEASUREMENT-QUALITY-I USB-only
 
 The endpoint-input validity gap is corrected. Fresh acquisition, usable corrected

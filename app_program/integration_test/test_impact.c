@@ -1,7 +1,10 @@
 #include "buddy4_impact.h"
 #include <assert.h>
+#include <float.h>
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 /* Reuse the authoritative fake-I2C fixtures, including transfer injection. */
 #define main original_imu_test_main
 #include "../buddy4/tests/test_imu.c"
@@ -26,6 +29,9 @@ static void quiet(void) {
     for(int i=0;i<100;i++) {
         float a=i*0.01f; assert(!xyz(sinf(a),0,cosf(a)).possible_impact);
     }
+    for(int i=99;i>=0;i--) {
+        float a=i*0.01f; assert(!xyz(sinf(a),0,cosf(a)).possible_impact);
+    }
     for(int i=0;i<200;i++) assert(!g(1+0.05f*sinf(i*0.4f)).possible_impact);
     assert(d.output.event_count==0);
     reset(); assert(!g(1.6f).possible_impact); assert(!g(1).possible_impact);
@@ -46,10 +52,105 @@ static void trigger(void) {
     for(int i=0;i<30;i++) g(1);
     g(1.6f);assert(g(1.6f).possible_impact && d.output.event_count==3);
     reset();g(0.4f);assert(g(0.4f).possible_impact); /* Negative transient. */
-    reset();
+    assert(buddy4_impact_init(&d,buddy4_impact_default_config()));t=0;
     /* Same magnitude signal on a strongly tilted vector is not suppressed. */
     xyz(0.6f,0,0.8f);xyz(0.96f,0,1.28f);
     assert(xyz(0.96f,0,1.28f).possible_impact);
+}
+static void horizontal_contact(void) {
+    /* Orthogonal to gravity: old |norm(a)-1| is only 0.0966 g for 0.45 g
+     * horizontal contact. Cover both polarities, axes, diagonal and mounting. */
+    const float cases[][6]={
+        {0,0,1, 0.45f,0,0}, {0,0,1, -0.45f,0,0},
+        {0,0,1, 0,0.45f,0}, {0,0,1, 0,-0.45f,0},
+        {0,0,1, 0.27f,0.36f,0}, {1,0,0, 0,0,0.45f},
+        {0.6f,0,0.8f, 0.36f,0,-0.27f}
+    };
+    for(unsigned c=0;c<sizeof(cases)/sizeof(cases[0]);c++) {
+        const float *b=cases[c], *h=b+3;
+        assert(buddy4_impact_init(&d,buddy4_impact_default_config()));t=0;
+        xyz(b[0],b[1],b[2]);
+        buddy4_impact_output_t o=xyz(b[0]+h[0],b[1]+h[1],b[2]+h[2]);
+        assert(o.valid&&!o.possible_impact);
+        assert(fabsf(o.magnitude_g-o.baseline_g)<0.10f);
+        o=xyz(b[0]+h[0],b[1]+h[1],b[2]+h[2]);
+        assert(o.possible_impact&&o.event_count==1);
+        assert(fabsf(o.deviation_g-0.45f)<1e-5f);
+        for(int i=0;i<40;i++) {
+            o=xyz(b[0]+h[0],b[1]+h[1],b[2]+h[2]);
+            assert(!o.possible_impact&&o.event_count==1); /* Frozen reference. */
+        }
+        xyz(b[0],b[1],b[2]);xyz(b[0],b[1],b[2]);
+        xyz(b[0]+h[0],b[1]+h[1],b[2]+h[2]);
+        assert(xyz(b[0]+h[0],b[1]+h[1],b[2]+h[2]).possible_impact);
+        assert(d.output.event_count==2);
+    }
+    /* A negative horizontal change from an established moving baseline is
+     * observable too, even though its total magnitude returns toward 1 g. */
+    assert(buddy4_impact_init(&d,buddy4_impact_default_config()));t=0;
+    xyz(0.45f,0,1);assert(!g(1).possible_impact);
+    assert(g(1).possible_impact&&d.output.event_count==1);
+    /* Below vector threshold remains unconfirmed; do not lower 0.30 g. */
+    reset();for(int i=0;i<50;i++)assert(!xyz(0.29f,0,1).possible_impact);
+    assert(d.output.event_count==0);
+}
+static void ordinary_driving(void) {
+    reset();
+    /* Stationary XYZ noise, including lateral noise invisible to magnitude. */
+    for(int i=0;i<500;i++)
+        assert(!xyz(0.015f*sinf(i*0.7f),0.02f*cosf(i*0.3f),
+                    1+0.015f*sinf(i*0.4f)).possible_impact);
+    /* Representative gentle forward start, coast, braking and reverse start.
+     * These synthetic envelopes are not measured limits of the real vehicle. */
+    const float drive[]={0,0.12f,0,-0.12f,0,-0.12f,0,0.12f,0};
+    for(unsigned j=0;j<sizeof(drive)/sizeof(drive[0]);j++)
+        for(int i=0;i<30;i++)assert(!xyz(drive[j],0,1).possible_impact);
+    for(int i=0;i<300;i++) /* Smooth lateral acceleration through turns. */
+        assert(!xyz(0,0.12f*sinf(i*0.02f),1).possible_impact);
+    /* Pitch/roll ramp crossings, two 0.6 s slopes, with mild propulsion
+     * and vertical vibration. Both sides, with hold and gradual return. */
+    for(int axis=0;axis<2;axis++)for(int sign=-1;sign<=1;sign+=2)
+        for(int i=0;i<100;i++) {
+            float fraction=i<30?i/30.0f:(i<50?1:(i<80?(80-i)/30.0f:0));
+            float a=sign*0.20944f*fraction;
+            float x=axis==0?sinf(a):0, y=axis==1?sinf(a):0;
+            assert(!xyz(x+0.05f*sinf(i*0.06f),y,
+                        cosf(a)+0.02f*sinf(i*0.4f)).possible_impact);
+        }
+    assert(d.output.event_count==0);
+    /* Known ambiguity, explicitly retained as POSSIBLE_IMPACT: an abrupt
+     * 30-degree reorientation cannot be separated from contact without gyro
+     * or external context. Gradual reorientation above does not trigger. */
+    reset();xyz(0.5f,0,0.8660254f);
+    assert(xyz(0.5f,0,0.8660254f).possible_impact);
+}
+static void vector_confirmation(void) {
+    reset();
+    for(int i=0;i<40;i++) { /* Isolated and alternating horizontal spikes. */
+        assert(!xyz(i%2?0.6f:-0.6f,0,1).possible_impact);
+        assert(!g(1).possible_impact);
+    }
+    assert(d.output.event_count==0);
+    /* Confirmation is elapsed time AND at least two fresh qualifying samples. */
+    reset();xyz(0.45f,0,1);
+    for(int i=1;i<4;i++) {
+        buddy4_impact_update(&d,0.45f,0,1,true,t+i*5000,t+i*5000);
+        assert(!d.output.possible_impact);
+    }
+    t+=20000;buddy4_impact_update(&d,0.45f,0,1,true,t,t);
+    assert(d.output.possible_impact);
+    /* Allowed 40 ms sample spacing also confirms. Longer gaps cannot bridge. */
+    reset();xyz(0.45f,0,1);t+=40000;
+    buddy4_impact_update(&d,0.45f,0,1,true,t,t);
+    assert(d.output.possible_impact);
+    reset();xyz(0.45f,0,1);t+=40001;
+    buddy4_impact_update(&d,0.45f,0,1,true,t,t);
+    assert(d.output.valid&&!d.output.possible_impact&&d.output.deviation_g==0);
+    /* Finite component inputs can still overflow a vector subtraction. */
+    assert(buddy4_impact_init(&d,buddy4_impact_default_config()));t=0;
+    xyz(FLT_MAX*0.75f,0,0);xyz(-FLT_MAX*0.75f,0,0);
+    assert(!d.output.valid&&!d.output.possible_impact&&d.output.event_count==0);
+    assert(g(1).valid&&!d.output.possible_impact);
 }
 static void faults(void) {
     for(int kind=0;kind<8;kind++) {
@@ -161,12 +262,19 @@ static void corrected_vector(fake_t *sensor,const buddy4_imu_t *imu,float mag) {
     vector(sensor,imu->config.accel_bias_g[0],imu->config.accel_bias_g[1],
         -mag/imu->config.accel_scale[2]+imu->config.accel_bias_g[2]);
 }
+static void corrected_disturbance(fake_t *sensor,const buddy4_imu_t *imu,int horizontal) {
+    if (!horizontal) { corrected_vector(sensor,imu,1.6f); return; }
+    vector(sensor,0.45f/imu->config.accel_scale[0]+imu->config.accel_bias_g[0],
+        imu->config.accel_bias_g[1],
+        -1/imu->config.accel_scale[2]+imu->config.accel_bias_g[2]);
+}
 static void clipped_acquisition(void) {
- for(int history=0;history<2;++history) {
+ for(int horizontal=0;horizontal<2;++horizontal)for(int history=0;history<2;++history) {
   buddy4_imu_t imu;fake_t sensor;setup(&imu,&sensor);
+  imu.config=buddy4_default_config();assert(buddy4_configure(&imu));
   assert(buddy4_impact_init(&d,buddy4_impact_default_config()));t=0;
   corrected_vector(&sensor,&imu,1);t+=20000;acquire(&imu,t,t);
-  corrected_vector(&sensor,&imu,1.6f);t+=20000;acquire(&imu,t,t);
+  corrected_disturbance(&sensor,&imu,horizontal);t+=20000;acquire(&imu,t,t);
   if(history) {t+=20000;acquire(&imu,t,t);assert(d.output.event_count==1);}
   uint64_t event=d.output.event_us;
   for(int i=0;i<20;++i) {
@@ -177,11 +285,12 @@ static void clipped_acquisition(void) {
   }
   corrected_vector(&sensor,&imu,1);t+=20000;acquire(&imu,t,t);
   assert(d.output.valid && !d.output.possible_impact);
-  corrected_vector(&sensor,&imu,1.6f);t+=20000;acquire(&imu,t,t);
+  corrected_disturbance(&sensor,&imu,horizontal);t+=20000;acquire(&imu,t,t);
   assert(!d.output.possible_impact); /* Cannot bridge clipping. */
  }
 }
 static void acquisition_faults(void) {
+    for(int horizontal=0;horizontal<2;horizontal++)
     for(int history=0;history<2;history++)for(int kind=0;kind<12;kind++) {
         buddy4_imu_t imu;fake_t sensor;
         setup(&imu,&sensor);
@@ -191,7 +300,7 @@ static void acquisition_faults(void) {
         corrected_vector(&sensor,&imu,1);
         assert(acquire(&imu,t,t)==BUDDY4_FRESH);
         assert(fabsf(d.output.magnitude_g-1)<0.001f);
-        corrected_vector(&sensor,&imu,1.6f);t+=20000;
+        corrected_disturbance(&sensor,&imu,horizontal);t+=20000;
         assert(acquire(&imu,t,t)==BUDDY4_FRESH&&!d.output.possible_impact);
         if(history) {
             t+=20000;assert(acquire(&imu,t,t)==BUDDY4_FRESH);
@@ -222,20 +331,87 @@ static void acquisition_faults(void) {
             t+=20000;assert(acquire(&imu,t,t)==BUDDY4_FRESH);
             assert(d.output.valid&&!d.output.possible_impact);
         }
-        corrected_vector(&sensor,&imu,1.6f);
+        corrected_disturbance(&sensor,&imu,horizontal);
         t+=20000;acquire(&imu,t,t);assert(!d.output.possible_impact);
         t+=20000;acquire(&imu,t,t);
         assert(d.output.possible_impact==!history);
         assert(d.output.event_count==1); /* Recovery cannot bypass old cooldown. */
         corrected_vector(&sensor,&imu,1);
         for(int i=0;i<30;i++){t+=20000;acquire(&imu,t,t);}
-        corrected_vector(&sensor,&imu,1.6f);
+        corrected_disturbance(&sensor,&imu,horizontal);
         t+=20000;acquire(&imu,t,t);assert(!d.output.possible_impact);
         t+=20000;acquire(&imu,t,t);
         assert(d.output.possible_impact&&d.output.event_count==2);
     }
 }
+static void reported_peak_confirmation_limits(void) {
+    /* Synthetic counterexamples using the REPORTED 0.5645 g peak, separate
+     * from the recorded-vector replay below. Amplitude alone cannot establish its
+     * duration, sample freshness or the detector's prior arming state. */
+    reset();
+    buddy4_impact_output_t out=xyz(0.5645f,0,1);
+    assert(out.valid&&fabsf(out.deviation_g-0.5645f)<1e-6f);
+    assert(!out.possible_impact&&d.pending_samples==1);
+    /* Even a gravity-like magnitude permits a single isolated dynamic sample. */
+    assert(out.magnitude_g>=0.8f&&out.magnitude_g<=1.2f);
+    out=g(1);
+    assert(out.valid&&!out.possible_impact&&out.event_count==0&&d.pending_samples==0);
+
+    /* Two nominal 20 ms releases can be slightly less than 20 ms apart.
+     * Such a pair does not meet the present elapsed-time requirement. */
+    reset();xyz(0.5645f,0,1);
+    t+=19999;buddy4_impact_update(&d,0.5645f,0,1,true,t,t);
+    assert(d.output.valid&&!d.output.possible_impact&&d.pending_samples==2);
+    assert(!g(1).possible_impact&&d.output.event_count==0);
+
+    /* The same amplitude DOES confirm when fresh evidence spans >=20 ms.
+     * Retain this positive control rather than accepting one-sample spikes. */
+    reset();xyz(0.5645f,0,1);
+    t+=20001;buddy4_impact_update(&d,0.5645f,0,1,true,t,t);
+    assert(d.output.valid&&d.output.possible_impact&&d.output.event_count==1);
+    /* An already-confirmed disturbance cannot repeat without calm/cooldown. */
+    for(int i=0;i<30;i++)assert(!xyz(0.5645f,0,1).possible_impact);
+    assert(d.output.event_count==1);
+    puts("Reported 0.5645 g synthetic cases: isolated/19999 us pair rejected; 20001 us pair confirmed (not latest-recording replay)");
+}
+static void recorded_short_impulses(const char *name,unsigned expected_rows,float expected_peak) {
+    char path[1024];size_t prefix=0;
+    for(size_t i=0;__FILE__[i];i++)if(__FILE__[i]=='/'||__FILE__[i]=='\\')prefix=i+1;
+    snprintf(path,sizeof(path),"%.*s../buddy4/evidence/2026-11-02/%s",(int)prefix,__FILE__,name);
+    FILE *file=fopen(path,"r");assert(file);
+    reset();char line[8192];unsigned rows=0,recorded_above=0,replayed_above=0;
+    float peak=0,recorded_peak=0;
+    while(fgets(line,sizeof(line),file)) {
+        char *data=strstr(line," -> ");data=data?data+4:line;
+        if(*data<'0'||*data>'9')continue;
+        char *field[87];unsigned n=0;
+        for(char *v=strtok(data,",");v&&n<87;v=strtok(NULL,","))field[n++]=v;
+        if(n!=86)continue;
+        uint64_t sample=strtoull(field[10],NULL,10),now=strtoull(field[1],NULL,10);
+        /* Reprime at the first recorded vector: pre-capture XYZ reference is
+         * unavailable. Use corrected recorded XYZ without recalibration. */
+        if(!rows)assert(buddy4_impact_init(&d,buddy4_impact_default_config()));
+        buddy4_impact_update(&d,strtof(field[15],NULL),strtof(field[16],NULL),strtof(field[17],NULL),
+            atoi(field[2])==BUDDY4_FRESH&&atoi(field[3])&&atoi(field[5]),sample,now);
+        assert(!d.output.possible_impact&&d.output.event_count==0);
+        if(d.output.deviation_g>peak)peak=d.output.deviation_g;
+        float recorded=strtof(field[71],NULL);
+        if(recorded>recorded_peak)recorded_peak=recorded;
+        recorded_above+=recorded>=0.30f;
+        replayed_above+=d.output.deviation_g>=0.30f;rows++;
+    }
+    fclose(file);assert(rows==expected_rows&&recorded_above==1);
+    assert(replayed_above==1&&fabsf(recorded_peak-expected_peak)<1e-6f);
+    /* Missing rows and pre-capture reference cannot reproduce the hidden XYZ
+     * baseline exactly. Compare event/confirmation behavior, not exact amplitude. */
+    printf("Recorded %s: %u vectors, one above-threshold sample, no impact; replay peak %.4f g (initial reference reprimes)\n",name,rows,peak);
+}
 int main(void) {
-    quiet();trigger();faults();clipped_acquisition();boundaries_and_history();acquisition_faults();
+    recorded_short_impulses("foam_contact_1510.txt",773,0.3265f);
+    recorded_short_impulses("foam_contact_1513.txt",669,0.5645f);
+    recorded_short_impulses("normal_driving_1346.txt",996,0.3175f);
+    reported_peak_confirmation_limits();
+    quiet();trigger();horizontal_contact();ordinary_driving();vector_confirmation();
+    faults();clipped_acquisition();boundaries_and_history();acquisition_faults();
     puts("Preliminary possible-impact synthetic tests passed");return 0;
 }

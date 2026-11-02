@@ -1,14 +1,24 @@
 # Buddy 4 Terrain Analysis Report Draft
 
 Project: INF2004 Autonomous PicoCar  
-Evidence checkpoint: 28 October 2026  
-Status: Working draft; final integration and validation results remain pending.
+Evidence checkpoint: 2 November 2026 (height captures from 28 October retained)
+
+Status: Evidence-backed working draft; final team integration, rubric review and broader validation remain pending.
+
+Current source ownership, fresh test/build results and native integration blockers
+are documented in [HANDOVER.md](HANDOVER.md). Hardware measurements below come
+from preserved captures or are explicitly attributed to the operator; this
+documentation work performed no robot operation. No algorithm/calibration changed.
 
 ## 1. Purpose and scope
 
 Buddy 4 implements IMU acquisition and calibration, tilt and terrain detection, preliminary hump-height estimation, motion classification, possible-impact logging, and estimated turn rate. The implementation provides reusable processing modules and separate standalone and driving-test applications.
 
-The confirmed course arrangement raises one wheel on a ramp while the opposite wheel remains on the lower surface. The professor revised the final ramp to approximately the smaller practice ramp height and permitted disregarding the higher practice ramp. The smaller ramp used in the latest tests was measured by the operator as 1.0 cm. This measured value was used as a reference, not embedded in the estimation algorithm.
+The operator's course setup raises one wheel on a ramp while the opposite wheel
+remains on the lower surface. The operator measured the smaller test ramp as
+1.0 cm. This is an external nominal reference, not a height embedded in the
+algorithm. Course/rubric announcements still require their original references
+for a final submission; this draft does not independently audit those requirements.
 
 ## 2. Hardware and processing architecture
 
@@ -62,7 +72,12 @@ Validity flags distinguish an unconfirmed estimate from a measured zero. Placeme
 
 ### 5.1 Reference and procedure
 
-The latest ramp reference height was reported as 1.00 cm. Manual driving targets were 3.0 cm/s per wheel. The ramp was centred in the selected tyre path, the other wheel stayed on flat ground, and valid moving trials were unassisted. Stationary measurements used motor power off and no hand support during recording.
+The ramp reference height was reported as 1.00 cm. Manual driving targets were
+3.0 cm/s per wheel. The operator described centred placement under the selected
+tyre, the opposite wheel on flat ground and unassisted moving crossings.
+Stationary recordings were described as motor-power-off and unsupported.
+These physical protocol details are operator provenance, not independently
+observable from CSV alone.
 
 Incomplete CSV fragments were excluded rather than interpreted with shifted columns. Complete logged rows are observations, not necessarily independent module updates. Numerical summaries below refer to the previously reviewed captures; original files should accompany the submission where appropriate.
 
@@ -109,9 +124,100 @@ These are two checks, not a general accuracy specification or a controlled stati
 
 **Figure 2.** Recorded moving event peaks: squares show the stable estimator and circles show the median estimator. Black segments indicate the nominal 1 cm reference. The before-correction groups contain two valid left and three right runs; after-correction groups contain only one run per side. Invalid Left 1 is excluded. This is a limited observational comparison, not a controlled accuracy study.
 
-### 5.5 Historical evidence
+### 5.5 Historical evidence boundary
 
-Before the latest mounting correction, six crossings of a measured 2.2-2.3 cm hump produced median estimates from 2.319 to 2.510 cm, with an overall mean of 2.414 cm. Median confirmation was 6/6 and stable confirmation was 5/6. These results belong to an earlier calibration checkpoint and must not be pooled with the latest 1 cm trials as one accuracy dataset.
+The README retains earlier larger-hump and book-test summaries. Their source
+captures are not indexed in the current height bundle, so their numerical
+claims are not used as verified evidence for this report's conclusions. Do not
+pool different calibration versions as one accuracy dataset. The manifest-backed
+1 cm measurements above were rechecked against preserved files for this update.
+
+### 5.6 Controlled possible-obstruction observations
+
+The operator reports completion of controlled SDK tilt/terrain, one-tyre ramp,
+motion classification and turning checks. The latest two original foam-test
+recordings are preserved unchanged and independently parsed for recorded outputs.
+
+| Observation | Test 1 | Test 2 |
+|---|---:|---:|
+| Complete 86-column rows | 722 | 669 |
+| Excluded numeric fragments | 5 | 2 |
+| First obstruction host timestamp | 15:42:25.084 | 15:44:36.218 |
+| Obstruction count | 0 to 1 | 0 to 1 |
+| Firmware event-to-SERIAL_STOP interval | 143.497 ms | 286.393 ms |
+| New IMU possible-impact events | 0 | 0 |
+
+Both logs have GRAVITY_LIKE quality in all complete rows and zero I2C errors.
+At each event, forward command remains 3/3 cm/s, both measured wheel speeds are
+near zero, and motor/stop faults are zero. Each event flag appears in two rows
+with the same retained observation timestamp/count; this is one event per test.
+
+The operator explicitly confirms physical foam contact in Test 1. Test 2 verifies
+a second recorded possible-obstruction event; its physical contact details and
+instant are not independently confirmed. Neither trial independently timestamps
+contact, so contact-to-detection latency cannot be calculated. The reported
+approximately 160 ms for Test 1 is event-to-first-stopped-row on the host log;
+Test 2's 328 ms is event-to-host-S-send annotation. These differ from firmware
+event-to-control intervals; mixed serial annotations are not a transport-latency
+measurement. Exact originals, hashes, exclusions and timing definitions are in
+[FOAM_SUCCESS.md](evidence/2026-11-02/FOAM_SUCCESS.md) and its manifest.
+
+These observations support the tested SDK obstruction behavior; two selected
+positive logs do not establish general sensitivity, specificity or a false-positive
+rate. Earlier misses and unusable-IMU recordings remain in the evidence archive.
+
+### 5.7 Reported 2 November 1 cm SDK height validation
+
+The operator reports completion of the tested 1.00 cm SDK peak-height checkpoint.
+The corresponding flat and four ramp originals were not identifiable in the
+scoped local evidence or Downloads review. Consequently all new numerical
+results in this subsection are **previously reported**, not independently
+recomputed here. They remain separate from the manifest-backed 28 October
+results in Sections 5.3-5.4. No raw filename or hash is invented.
+
+The reported flat baseline spans 10.08 s and 505 valid samples, with mean live
+height difference 0.319 cm, FLAT/SIDE_LEVEL and zero I2C errors or clipping.
+For nominal flat ground the reference height difference is zero, so the reported
+baseline offset is +0.319 cm; it must not be compared with a 1 cm raised-wheel
+reference or silently subtracted from separate ramp tests. A SIDE_LEVEL label
+does not require a zero-valued geometric estimate.
+
+Signed error below is estimate minus the operator's 1.00 cm ramp reference.
+Live maxima are transient candidates and are not completed saved event peaks.
+
+| Trial / result | Reported estimate, cm | Signed error, cm | Result identity / evidence status |
+|---|---:|---:|---|
+| Left tyre Test 1 | 1.242 | +0.242 | Reported saved stable peak; original confirmation/event fields unavailable |
+| Left tyre Test 1 | 1.312 | +0.312 | Reported saved median peak; original validity/event fields unavailable |
+| Left tyre Test 2 | 1.360 | +0.360 | Maximum live height candidate; no saved peak asserted |
+| Right tyre Test 1 | 0.798 | -0.202 | Maximum live height candidate; actual side classification not independently verified |
+| Right tyre Test 2 | 0.750 | -0.250 | Maximum live height candidate; positive roll reported, no saved peak asserted |
+| Right tyre Test 1, earlier saved-value report | 0.640 / 0.467 | Not assigned | Exact fields, validity, event identity and side unresolved; excluded from height-error conclusions |
+
+The operator confirms Right Test 2 was a complete, unassisted motor-driven
+crossing. Its reported positive roll is consistent with right-tyre elevation
+under the current sign convention; without the original, this does not verify
+the saved event's side or invent a completed stable/median result. For Right
+Test 1, inspect `event_side`/`side`, `peak_confirmed`, `peak_height`,
+`median_candidate_valid`, `median_candidate_height_cm` and any SIDE_EVENT_END
+summary in the matching original schema before identifying 0.640/0.467. Saved
+history can belong to an earlier event; current live side alone is insufficient.
+
+**The reported estimates meet the +/-1 cm target under the tested 1.00 cm SDK
+conditions**, with absolute ramp errors 0.202-0.360 cm for the identified results.
+This is a bounded, operator-reported checkpoint; raw verification of the latest
+series, broader accuracy/repeatability and final native MTK qualification remain
+pending. It is not a universal accuracy claim or proof that every saved-peak
+estimator confirmed every crossing. Reference-height uncertainty is unquantified.
+
+The left estimates exceed the reference while the right live estimates fall
+below it. Comparisons mix saved and live measurements and therefore cannot
+establish estimator bias or a correction factor. The operator observed rightward
+drift during the left-tyre tests. Refer tracking/encoder/motor-control investigation
+to Buddy 2; the recordings and physical cause still need review. Do not alter
+IMU calibration, mounting offsets, thresholds or height scale to compensate.
+The larger reported flat offset than the earlier 0.028 cm mean is also not a
+controlled calibration comparison: matching setup/original evidence is missing.
 
 ## 6. Motion, impact and turn-rate processing
 
@@ -119,23 +225,79 @@ Motion classification uses signed encoder speeds and reports STOPPED, FORWARD, R
 
 Low opposing speeds can cancel in the mean while failing turn thresholds. UNKNOWN periods during slow turns are therefore possible and were observed. Repeated encoder timestamps must not advance confirmation.
 
-The possible-impact detector compares acceleration magnitude with a tracked nonzero baseline. Provisional criteria are at least 0.30 g deviation, two or more fresh samples spanning 20 ms, gaps no greater than 40 ms, and a 500 ms cooldown plus two calm samples no greater than 0.10 g for rearming. It is separate from bump_event and does not control motors or safety stops. Ramps, braking, vibration and handling may resemble impacts; collision discrimination remains unvalidated.
+The possible-impact signal is the norm of corrected XYZ minus a tracked XYZ
+baseline, preserving horizontal changes that total acceleration magnitude can
+hide. The vector reference includes gravity and slowly varying acceleration;
+it is not independently measured gravity. Provisional criteria remain at least
+0.30 g deviation, two or more fresh samples spanning 20 ms, gaps no greater than
+40 ms, and a 500 ms cooldown plus two calm samples no greater than 0.10 g for
+rearming. It is separate from bump_event and does not stop motors. Ramps,
+braking, vibration and handling can resemble impact. The earlier 0.5645 g foam
+peak was isolated and did not satisfy confirmation; an above-threshold normal
+braking spike also remained unconfirmed. These are documented limits, not grounds
+to accept all single-sample peaks.
 
-Encoder yaw is estimated as (right speed - left speed) / 11.3 in rad/s, then converted to degrees/s. Positive denotes left/counterclockwise rotation. Selected timed-turn recordings averaged +10.38 degrees/s left and -10.60 degrees/s right, including startup. No independent reference angle/time measurement was made. Numerical accuracy and professor acceptance remain pending.
+A separate encoder-assisted POSSIBLE_OBSTRUCTION observer first requires 500 ms
+of established straight forward motion under unchanged eligible demand. Both
+wheel speeds must subsequently stay at or below min(0.5 cm/s, 20% of demand)
+for 100 ms. It preserves only established history through a bounded 200 ms
+unequal-wheel transition or a separate <=40 ms pitch-only pause; no slowdown
+evidence accumulates during those transitions, and the two allowances cannot
+be chained. Freshness, usable IMU, flat/level terrain context and command/motor
+state constrain eligibility; stops, turns, faults, changed context or stale data
+cancel. Confirmation, re-establishment and cooldown prevent repeated claims at
+rest. The SDK adapter qualifies actual controller observations, not an invented
+underlying encoder acquisition timestamp. This is evidence of unexpected lost
+wheel rotation, not proof of collision, and it never automatically stops motors.
 
-Buddy 5 ultrasonic readings are planned as obstacle-proximity context, not proof of contact. Combined collision-context testing awaits that integration. Turn-rate validation itself does not require ultrasonic data.
+Encoder yaw is estimated as (right speed - left speed) / 11.3 in rad/s, then
+converted to degrees/s. Positive denotes left/counterclockwise rotation.
+Historical direction observations and the operator's completed turning checks
+support functional sign/classification behavior. Their full raw turn captures
+are not indexed here, so historical numerical averages are not presented as
+newly verified measurements. No independent reference angle/time establishes
+yaw accuracy or professor acceptance.
+
+Buddy 5 can provide optional obstacle-proximity context, not proof of contact.
+It is not required for the implemented encoder-assisted observation or for
+initial native IMU integration. Any future fusion needs a shared timing/validity
+contract and its own qualification; none is claimed here.
 
 ## 7. Software verification and remaining work
 
-The reported offset-change checkpoint passed host regressions, CSV checks for 33 standalone and 69 integration columns, native CTest 1/1, and both firmware builds. Two pre-existing Buddy 3 warnings remained. These are reported test results, not fresh runs performed while drafting this report. Software checks do not establish hardware accuracy or safety.
+Fresh verification on 2 November 2026 passed standalone CTest 1/1, complete SDK
+integration tests and the complete isolated MTK suite. Schema/formatter checks
+pass for 39 standalone, 86 SDK and 17 optional MTK fields. Standalone and SDK
+Pico W firmware builds verify, and the isolated `SMP=0 CONSOLE=usb_cdc` image
+builds. Earlier 33/69-column recordings retain their original schema and are
+never parsed as current logs. Existing Buddy 3 comparison and MTK newlib file-I/O
+stub warnings remain. Evidence hashes, the original successful captures and
+`git diff --check` are verified. Commands and artifact SHA-256 values are in
+[HANDOVER.md](HANDOVER.md). Software checks do not establish hardware accuracy.
 
-Remaining work includes Buddy 5 integration, final micro-T-Kernel conversion and course checks, collision discrimination and independent turn-rate validation, geometry reconciliation, and final report completion.
+Remaining work includes live MTK startup/build registration, native I2C/console
+review, a real Buddy 2 producer and obstruction command-context adapter, agreed
+motor-safety/telemetry ownership, concurrency/course qualification, broader
+collision discrimination, independent yaw accuracy and geometry reconciliation.
+The isolated speed snapshot currently has no obstruction fields. See the concrete
+blockers in HANDOVER.md. No production change was made to resolve these during
+the documentation handover; the team must review the integration contracts.
 
 The agreed plan defers Tribunal 1 implementation until a working integrated baseline is measured. The team must then document field ranges and minimum-bit representations, safely synchronise shared packed data, use compact binary MQTT payloads, and compare measured RAM, relevant message sizes, functionality and performance before/after. Tribunal 1 compliance is not yet established.
 
 ## 8. Draft conclusion
 
-The current prototype acquires calibrated acceleration and provides terrain, motion and event outputs. Correcting the fixed mounting roll offset reduced the observed left/right height asymmetry in limited 1 cm checks. Both corrected moving trials confirmed a single-wheel event and produced estimates close to the measured nominal height.
+The latest reported 1 cm SDK height checkpoint meets the +/-1 cm target for
+the supplied saved/live estimates under those test conditions (Section 5.7).
+This completion is distinct from broader accuracy and native MTK qualification;
+the latest originals and Right Test 1's saved-field/side identities remain open.
+
+The current prototype acquires calibrated acceleration and provides terrain,
+motion and observational events. The fixed mounting roll correction reduced
+observed asymmetry in limited 1 cm checks. Both corrected moving height trials
+confirmed a single-wheel event near the operator's nominal height. Two latest
+SDK logs also demonstrate possible-obstruction events before SERIAL_STOP, with
+physical foam contact explicitly operator-confirmed in Test 1.
 
 The evidence supports a working preliminary single-side height method for the tested setup. It does not establish general height accuracy, reliable collision classification, numerical yaw-rate accuracy or final integrated course performance. Those claims remain outside the demonstrated results.
 
@@ -145,6 +307,11 @@ Use the Buddy 4 README as the detailed checkpoint index. Preserve original captu
 
 
 ### Recording index for the latest height results
+
+The table below indexes the **28 October** originals. The newer 2 November
+flat/left/right series in Section 5.7 has no identified original path yet; the
+[existing height evidence index](evidence/2026-10-28/README.md) records that gap.
+Do not relabel older files or reuse their hashes for the reported newer tests.
 
 The [evidence index](evidence/2026-10-28/README.md) explains row selection and exclusions. The [manifest](evidence/2026-10-28/manifest.json) records original-file SHA-256 hashes, calibration versions, accepted row counts and event summaries. Raw files are preserved unchanged.
 

@@ -1,6 +1,6 @@
 # Buddy 4 main checklist
 
-Updated: 30 October 2026. This is the authoritative Buddy 4 remaining-work list;
+Updated: 2 November 2026. This is the authoritative Buddy 4 remaining-work list;
 use the READMEs for implementation/build details. Completed means the stated
 checkpoint exists, not that all assessed requirements or conditions are validated.
 Final team MTK integration is paused while teammates finish their migrations.
@@ -16,6 +16,57 @@ Collision detection remains required; the existing detector reports preliminary
 detection, dedicated vibration analysis and both-wheel/full-width height
 estimation are outside the agreed scope. The course scope is a one-side ramp;
 the higher practice ramp may be disregarded under the professor's announcement.
+
+## Latest SDK observation/safety checkpoint (2 November 2026)
+
+- [x] **Tested 1.00 cm SDK peak-height validation checkpoint** completed on the
+  operator's report. Left Test 1: reported saved stable/median 1.242/1.312 cm;
+  Left Test 2: live maximum 1.360 cm; Right Tests 1/2: live maxima 0.798/0.750 cm.
+  Right Test 2 was operator-confirmed unassisted and complete, with positive roll
+  reported. The supplied estimates meet the +/-1 cm target for these conditions;
+  broader accuracy and native MTK qualification remain pending. See the
+  [latest comparison and evidence qualifications](Buddy4_Terrain_Analysis_Report_Draft.md#57-reported-2-november-1-cm-sdk-height-validation).
+- [ ] Locate/index the latest flat and four ramp originals. Independently verify
+  the reported 505-sample, 10.08 s flat mean of 0.319 cm and zero errors/clipping;
+  resolve Right Test 1's 0.640/0.467 saved-field identities, validity and event
+  side before treating them as right-side saved height results. No corresponding
+  original was identified during this documentation review.
+- [x] Complete controlled SDK functional checks of tilt/terrain, one-tyre ramp,
+  motion and turning (operator-reported). Existing local height recordings and
+  historical direction summaries remain indexed; general height/yaw accuracy
+  and final native coexistence are separate unfinished tasks.
+- [x] Verify the two latest original foam recordings: one new obstruction count
+  in each before SERIAL_STOP, no new possible-impact event. Test 1 foam contact
+  is explicitly operator-confirmed; Test 2 physical details/timing are not
+  independently verified. See [hardware evidence](evidence/2026-11-02/FOAM_SUCCESS.md).
+- [x] Run fresh standalone/SDK/MTK regression suites, 39/86/17-column schema
+  checks and all three firmware builds; preserve algorithms, originals and
+  unrelated changes. [Ownership, commands, artifacts and blockers](HANDOVER.md).
+- [x] Update the terrain analysis draft with locally verified height results,
+  current vector/obstruction processing, hardware observations and limits.
+- [x] Preserve both 15:10/15:13 foam recordings and reproduce their isolated IMU
+  peaks and pitch-guard reset. Add a <=40 ms pitch-only history pause for an
+  already established observer, with full fresh slowdown confirmation afterward.
+  Normal/braking/ramp replays, safety regressions, integration/MTK suites and SDK
+  build pass; the later bounded hardware observations are recorded above. See
+  [the evidence, exact changes and UF2 hash](OBSTRUCTION_BRIEF_PITCH_CHECKPOINT.md).
+- [x] Reproduce the recorded foam-contact miss and add bounded retention of
+  previously established forward motion through a brief measured asymmetry;
+  retain the full two-wheel slowdown confirmation and all context cancellation.
+- [x] Reproduce fresh NON_GRAVITY raw (-32760,-32760,-32760) through the production
+  IMU decoder; block SDK arming and latch stopped on fresh unusable tilt while
+  armed/driving. Recovery requires explicit R then G. Software checks/build pass.
+- [ ] Qualify the final native team application: startup/stop/rearm, usable-IMU
+  safety, normal motion/turns/ramps, contact observations and recovery under
+  concurrent workload. Completed SDK checks do not prove native coexistence.
+  Do not inject sensor faults with motors live.
+- [ ] Resolve the intermittent hardware measurement failure. Zero I2C errors and
+  healthy readings after restart do not establish its cause or permanent recovery.
+
+See [the recorded evidence, regressions, firmware and limits](OBSTRUCTION_IMU_SAFETY_CHECKPOINT.md).
+These are software and bounded SDK hardware checkpoints, not confirmed collision
+classification, general accuracy or final team MTK integration. Earlier dated sections below
+retain their historical scope.
 
 ## Current measurement-validity fault (30 October 2026)
 
@@ -167,17 +218,17 @@ older test/checklist entries retain their original scope and uncertainty.
 ## 3. Needs robot
 
 - [ ] **Mounting, calibration, tilt and run/recovery checks**
-  - **Status:** Preliminary six-position coefficients/fixed offsets exist; course-board bias unresolved. F hardware validation pending.
+  - **Status:** Controlled SDK tilt/terrain checks are operator-reported complete. General calibration accuracy, older sensor-fault root cause and native recovery/coexistence remain open; do not reinterpret old F/H checkpoints as latest SDK status.
   - **Needs:** Rigid mounting, verified surface/reference positions and robot operator; repeat relevant checks in final MTK.
   - **Evidence / finish condition:** Labelled H captures of flat/uphill/downhill, both sides, return to level, longer cadence/error/skip monitoring and missing-data recovery. Recheck offsets if mounting moved; do not zero against an unverified board.
 
-- [ ] **Measured hump/peak-height tests**
-  - **Status:** Limited earlier one-side results; general accuracy and repeatability unestablished.
+- [ ] **Broader height accuracy and repeatability**
+  - **Status:** Controlled SDK one-tyre ramp validation is complete for the reported setup, with local 1 cm evidence. Broader height accuracy/repeatability and final native crossings remain unestablished.
   - **Needs:** Measured smaller ramp centred under each tyre; driving firmware for unassisted crossings.
   - **Evidence / finish condition:** Repeated left/right crossings with reference height, stable/median validity, estimates, errors, failures and exclusions; justify chosen estimator. Test nearby heights if available; do not hardcode 1 cm. Handling/manual previews do not close unassisted validation. Disclose caster/tyre, acceleration, combined pitch/roll and board-bias limits.
 
-- [ ] **Physical collision validation**
-  - **Status:** Preliminary possible-impact detection only; collision discrimination unvalidated.
+- [ ] **Broader physical collision discrimination**
+  - **Status:** Two SDK possible-obstruction events are verified in original logs; Test 1 foam contact is operator-confirmed. This closes the bounded observation checkpoint, not general collision classification, false-positive rates or all-contact detectability.
   - **Needs:** Agreed event meaning and non-destructive procedure with independent labels; Buddy 5 only if ultrasonic context is chosen.
   - **Evidence / finish condition:** Labelled normal motion, vibration, braking, handling and ramps plus agreed collision scenarios; measure false positives/misses and document limits. Keep bump_event, possible-impact events and confirmed-collision claims distinct. Do not crash the car or strike the sensor; no automatic motor action without explicit team requirement/review.
 
@@ -188,6 +239,10 @@ previews from unassisted crossing evidence.
 
 ## 4. Needs teammates
 
+- [ ] **Rightward drift: Buddy 2 motor-control investigation**
+  - **Status:** Rightward drift was operator-observed during the latest left-tyre tests; its cause is unverified.
+  - **Needs:** Buddy 2 to review matched wheel demand, encoder response, motor control and mechanical tracking, then coordinate any repeat crossing. Buddy 4 supplies observations; do not compensate by changing IMU offsets or height scale.
+  - **Evidence / finish condition:** Preserve the drift recording and compare straight tracking/encoder behavior before and after any separately reviewed motor-control correction.
 - [ ] **Encoder motion/turn-rate integration and physical validation**
   - **Status:** MTK motion/yaw unavailable without a coherent fresh signed-wheel-speed producer; accuracy and professor acceptance remain open.
   - **Needs:** Buddy 2 data/adapter, robot and independent angle/time reference; reconcile Buddy 4's measured 11.3 cm spacing with recorded Buddy 2 value 12.2 cm. Buddy 5 is not required.
@@ -221,10 +276,10 @@ establish team-wide compliance.
   - **Evidence / finish condition:** Agreed compact binary MQTT fields/decoder, measured RAM and relevant message sizes before/after, correctness/timing comparisons and original change-document cross-check for Week 13. CSV debug text alone is insufficient.
 
 
-## 6. Report and final submission—report deferred
+## 6. Report and final submission
 
 - [ ] **Final report and acceptance decisions**
-  - **Status:** Working draft exists; report writing and professor clarification remain deferred.
+  - **Status:** Evidence-backed terrain draft updated on 2 November 2026. Final team/course results, complete historical source traceability, rubric/references and Tribunal measurements remain pending.
   - **Needs:** Final evidence, agreed collision interpretation, height accuracy expectations, encoder-rate acceptance and Tribunal comparisons.
   - **Evidence / finish condition:** Update draft when resumed: MTK architecture, USB/UART timeout cause, bounded DIAG-E results, calibration/height repeatability, motion/yaw/collision limits, figures/citations and Tribunal table/comparisons. Cross-check actual briefing/rubric; do not invent unavailable accuracy statistics.
 
