@@ -189,3 +189,54 @@ algorithms in this documentation handover.
 The terrain report is an updated evidence-backed **draft**, not a final course/
 team acceptance report. Complete traceability for historical summaries, final
 team results, rubric/references and Tribunal evidence before submission.
+
+## Teammate AI-assisted integration prompt
+
+Give your AI assistant access to the **current team repository and branch**, not just
+this handover. Read this file, `buddy4/README.md`, `buddy4/TODO.md`,
+`buddy4_mtk/README.md` and the actual source before making changes.
+
+Copy-paste prompt:
+
+> Integrate Buddy 4 into our INF2004 PicoCar **final team µT-Kernel application**.
+> First read `app_program/buddy4/HANDOVER.md`, `README.md`, `TODO.md`,
+> `app_program/buddy4_mtk/README.md`, the portable Buddy 4 sources, isolated
+> MTK overlay and the team's current native startup, I2C driver, build files,
+> Buddy 2 encoder/motor interfaces and Buddy 1 telemetry interfaces.
+>
+> Start with an integration plan listing files to change, ownership and
+> missing contracts. Identify which work is already present before editing.
+> Reuse the existing portable IMU, impact, motion, encoder yaw and obstruction
+> implementations rather than rewriting their algorithms. Do **not** copy
+> standalone or SDK-test `main.c` into MTK or overwrite live team files with
+> `buddy4_mtk/overlay` wholesale. The overlay is a reference only.
+>
+> Coordinate the native GP16/GP17 I2C0 configuration and exclusive bus access.
+> Arrange a single owned Buddy 4 task/state; poll fresh IMU data at the documented
+> cadence, using monotonic timestamps and honoring acquisition, acceleration and
+> tilt validity separately. Never auto-zero or silently change calibration.
+> Supply coherent signed wheel speeds with **actual sample timestamps** and
+> validity from Buddy 2 for motion/yaw. For possible obstruction, additionally
+> supply fresh motor-command, stop/brake, session and terrain context; the speed
+> mailbox alone is not enough. Preserve Buddy 2 motor safety ownership and
+> agree the 11.3 cm versus 12.2 cm geometry before adjusting either module.
+>
+> Coordinate output units, valid/unknown states, current versus saved peaks,
+> event counts/timestamps and delivery policy with Buddy 1/dashboard owners.
+> Do not claim possible-impact or POSSIBLE_OBSTRUCTION is a confirmed collision.
+> Do not let Buddy 4 drive motors directly unless the team explicitly agrees to
+> a reviewed safety contract.
+>
+> Run existing tests before and after each integration step. Verify clean native
+> build and on-robot startup, stop/rearm, flat/tilt, left/right one-wheel ramp,
+> turning, foam-contact observations, I2C failure/recovery and concurrent task
+> behavior. Do not inject sensor faults with motor power enabled. Record new
+> evidence separately from earlier SDK/isolated-MTK results.
+>
+> Do not delete original logs or source evidence, overwrite teammate changes,
+> push to the professor repository, or claim final integration passed without
+> actual test results. Present a reviewable diff and remaining blockers.
+
+**Handover boundary:** portable Buddy 4 algorithms and bounded SDK verification
+are available; native command/encoder producers, obstruction publication,
+shared telemetry and final MTK coexistence are **not** already completed.
