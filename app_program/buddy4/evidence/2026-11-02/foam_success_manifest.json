@@ -1,0 +1,70 @@
+[
+  {
+    "file": "Pasted text(20261102-074240).txt",
+    "sha256": "28d902310ccd82da889448a91857ce9ca4fecd959d96f28ce4f38d7d0f475931",
+    "bytes": 296866,
+    "complete_rows": 722,
+    "rejected_numeric_lines": 5,
+    "driving_rows": 178,
+    "quality_counts": {
+      "GRAVITY_LIKE": 722
+    },
+    "operator_confirmed_physical_foam_contact": true,
+    "independently_timestamped_contact": false,
+    "obstruction_count_change": [
+      0,
+      1
+    ],
+    "distinct_obstruction_events": 1,
+    "event_flag_rows": 2,
+    "first_event_host_timestamp": "15:42:25:084",
+    "event_observation_us": 9160237,
+    "slow_ms_at_event": 116,
+    "event_left_right_cm_s": [
+      0.007,
+      0.008
+    ],
+    "serial_stop_control_us": 9303734,
+    "event_to_stop_control_us": 143497,
+    "first_stopped_csv_host_timestamp": "15:42:25:244",
+    "first_stopped_csv_time_us": 9321888,
+    "event_to_first_stopped_csv_us": 161651,
+    "host_S_send_timestamp": "15:42:25:287",
+    "new_possible_impact_events": 0,
+    "firmware_identity": "Updated SDK integration firmware, operator-reported; no binary hash in capture"
+  },
+  {
+    "file": "Pasted text(20261102-074448).txt",
+    "sha256": "5dbc3fbfc8da8db6585be5ffd08f27f841dd8daa3f236e80e7744ab19c2cf292",
+    "bytes": 275824,
+    "complete_rows": 669,
+    "rejected_numeric_lines": 2,
+    "driving_rows": 169,
+    "quality_counts": {
+      "GRAVITY_LIKE": 669
+    },
+    "operator_confirmed_physical_foam_contact": false,
+    "independently_timestamped_contact": false,
+    "obstruction_count_change": [
+      0,
+      1
+    ],
+    "distinct_obstruction_events": 1,
+    "event_flag_rows": 2,
+    "first_event_host_timestamp": "15:44:36:218",
+    "event_observation_us": 10880237,
+    "slow_ms_at_event": 116,
+    "event_left_right_cm_s": [
+      0.004,
+      0.004
+    ],
+    "serial_stop_control_us": 11166630,
+    "event_to_stop_control_us": 286393,
+    "first_stopped_csv_host_timestamp": "15:44:36:506",
+    "first_stopped_csv_time_us": 11181918,
+    "event_to_first_stopped_csv_us": 301681,
+    "host_S_send_timestamp": "15:44:36:546",
+    "new_possible_impact_events": 0,
+    "firmware_identity": "Updated SDK integration firmware, operator-reported; no binary hash in capture"
+  }
+]

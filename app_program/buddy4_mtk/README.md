@@ -1,5 +1,35 @@
 # Buddy 4 micro T Kernel trial
 
+## Handover status, 2 November 2026
+
+The full isolated regression suite and `SMP=0 CONSOLE=usb_cdc` build pass again.
+See [the current ownership/integration guide](../buddy4/HANDOVER.md) for exact
+artifacts, schemas and blockers. The live team app still starts Buddy 1/5;
+this overlay defaults to IMU-only and is not merged into live startup/build files.
+The speed mailbox has no producer wired, and the native snapshot does not yet
+carry possible-obstruction state or the required motor-command context.
+
+The [two successful obstruction hardware recordings](../buddy4/evidence/2026-11-02/FOAM_SUCCESS.md)
+use SDK driving firmware. They do not validate MTK motor operation or native
+obstruction integration. No algorithm, kernel or driver was changed for handover.
+The older display/diagnostic checkpoints below describe their own versions.
+
+### For teammates integrating the final native MTK application
+
+Use the [Buddy 4 handover's copy-paste AI integration prompt](../buddy4/HANDOVER.md#teammate-ai-assisted-integration-prompt)
+together with the [portable API README](../buddy4/README.md) and
+[remaining-work checklist](../buddy4/TODO.md). The overlay and generated
+`build/source/` tree are **not** the authoritative live team application;
+review and selectively adapt native task/device integration without overwriting
+Buddy 1/2/3/5 or existing board/driver/console changes.
+
+The successful 1 cm left/right crossings and foam-obstruction observations
+were recorded using SDK driving firmware, **not** this isolated MTK trial.
+Native integration still requires real Buddy 2 speed and command producers,
+obstruction state publication, team telemetry, reviewed motor safety ownership,
+and concurrent startup/stop/fault/recovery qualification. Do not interpret
+the isolated IMU-only build as evidence that these dependencies are connected.
+
 ## Current test output: B4-MEASUREMENT-QUALITY-I USB-only
 
 The endpoint-input validity gap is corrected. Fresh acquisition, usable corrected
