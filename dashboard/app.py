@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 import paho.mqtt.client as mqtt
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 import time
 from fastapi import HTTPException
 
@@ -65,6 +66,8 @@ app = FastAPI(
     title="PicoCar Dashboard",
     lifespan=lifespan,
 )
+
+app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 
 
 @app.get("/")
