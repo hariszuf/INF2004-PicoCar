@@ -424,3 +424,37 @@ setInterval(() => {
     updateConnectionDisplay();
     updateTelemetryDisplay();
 }, 1000);
+
+// Opt-in local preview: swap CSS without clearing telemetry or replaying commands.
+if (new URLSearchParams(location.search).get("preview") === "1") {
+    const versions = new Map();
+    async function watchPreviewFiles() {
+        for (const path of ["/static/dashboard.css", "/static/index.html", "/static/dashboard.js"]) {
+            try {
+                const response = await fetch(path, { method: "HEAD", cache: "no-store", signal: AbortSignal.timeout(3000) });
+                const version = response.headers.get("etag") || response.headers.get("last-modified");
+                if (!response.ok || !version) continue;
+                if (versions.has(path) && versions.get(path) !== version) {
+                    if (path.endsWith(".css")) {
+                        const current = document.querySelector('link[rel="stylesheet"]');
+                        const updated = current.cloneNode();
+                        updated.href = `${path}?v=${Date.now()}`;
+                        updated.addEventListener("load", () => current.remove(), { once: true });
+                        updated.addEventListener("error", () => updated.remove(), { once: true });
+                        current.after(updated);
+                    } else if (pendingCommands.size === 0) {
+                        location.reload();
+                        return;
+                    } else {
+                        continue;
+                    }
+                }
+                versions.set(path, version);
+            } catch {
+                // Keep the last loaded interface if the local server is restarting.
+            }
+        }
+        setTimeout(watchPreviewFiles, 1000);
+    }
+    watchPreviewFiles();
+}

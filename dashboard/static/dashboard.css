@@ -67,17 +67,21 @@ nav a[aria-current="page"] { background: var(--raised); color: var(--blue); }
 .station-header { display: flex; align-items: center; gap: var(--space-4); min-height: 64px; padding: var(--space-3) var(--space-8); background: var(--surface); border-bottom: 1px solid var(--border); }
 .station-name { font-weight: 600; }
 .station-context { color: var(--muted); font-size: 12px; margin-left: auto; }
-.connection-bar { position: sticky; top: 0; z-index: 3; background: var(--surface); border-bottom: 1px solid var(--border); padding: var(--space-4) var(--space-8) var(--space-3); display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--space-5); row-gap: var(--space-3); }
-.connection-states { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-3); align-items: start; }
-.connection-states > div { min-width: 0; }
-.small-label { display: block; font-size: 12px; color: var(--muted); margin-bottom: var(--space-1); }
+.connection-bar { position: sticky; top: 0; z-index: 3; background: var(--surface); border-bottom: 2px solid var(--blue); padding: var(--space-6) var(--space-8); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-4) var(--space-5); }
+.connection-states { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-4); }
+.connection-states > div { min-width: 0; min-height: 116px; padding: var(--space-4); background: var(--raised); border: 1px solid var(--control-border); border-radius: var(--radius); }
+.connection-states > div:has([data-tone="good"]) { background: var(--green-bg); border-color: var(--green); }
+.connection-states > div:has([data-tone="warning"]) { background: var(--amber-bg); border-color: var(--amber); }
+.connection-states > div:has([data-tone="fault"]) { background: var(--red-bg); border-color: var(--red); }
+.small-label { display: block; font-size: 13px; color: var(--muted); margin-bottom: var(--space-2); }
 .state { display: inline-block; font-size: 13px; font-weight: 600; }
+.connection-states .state { display: block; font-size: 26px; font-weight: 650; line-height: 1.2; letter-spacing: -0.02em; overflow-wrap: anywhere; }
 [data-tone="good"] { color: var(--green); }
 [data-tone="warning"] { color: var(--amber); }
 [data-tone="fault"] { color: var(--red); }
 [data-tone="neutral"] { color: var(--muted); }
-.status-detail { display: block; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.remote-controls { display: flex; align-items: start; gap: var(--space-2); }
+.status-detail { display: block; margin-top: var(--space-2); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.remote-controls { grid-column: 2; grid-row: 2; display: flex; align-items: center; gap: var(--space-2); }
 .command-button, .quiet-button { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 44px; border-radius: var(--radius); padding: var(--space-2) var(--space-4); font-weight: 600; border: 1px solid var(--control-border); background: var(--surface); color: var(--text); text-decoration: none; }
 .command-button { min-width: 100px; color: var(--surface); border-color: transparent; }
 .menu-button { display: none; }
@@ -89,7 +93,7 @@ nav a[aria-current="page"] { background: var(--raised); color: var(--blue); }
 button:active { transform: translateY(1px); }
 button:disabled { color: var(--muted); background: var(--neutral-bg); border-color: var(--border); transform: none; }
 button[aria-busy="true"] { cursor: progress; }
-.command-feedback { grid-column: 1 / -1; display: flex; justify-content: space-between; flex-wrap: wrap; gap: var(--space-1) var(--space-4); color: var(--muted); font-size: 12px; }
+.command-feedback { grid-column: 1; grid-row: 2; align-self: center; display: grid; gap: var(--space-1); color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
 #command-result { font-weight: 500; }
 main { max-width: 1440px; margin: 0 auto; padding: var(--space-8); min-width: 0; }
 main:focus { outline: none; }
@@ -159,7 +163,9 @@ pre { padding: var(--space-4); background: var(--ground); border-radius: var(--r
 .workspace-footer { display: flex; justify-content: space-between; gap: var(--space-4); margin-top: var(--space-8); color: var(--muted); font-size: 12px; }
 @media (max-width: 1250px) {
     .connection-bar { padding-inline: var(--space-6); }
-    .connection-states { gap: var(--space-2); }
+    .connection-states { gap: var(--space-3); }
+    .connection-states > div { padding: var(--space-3); min-height: 108px; }
+    .connection-states .state { font-size: 22px; }
     .command-button { min-width: 84px; padding-inline: var(--space-3); }
     main { padding: var(--space-6); }
     .overview-lead { gap: var(--space-5); }
@@ -174,14 +180,16 @@ pre { padding: var(--space-4); background: var(--ground); border-radius: var(--r
 @media (max-width: 700px) {
     .station-header { padding: var(--space-2) var(--space-4); gap: var(--space-3); }
     .station-context { display: none; }
-    .connection-bar { padding: var(--space-3) var(--space-4); grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2) var(--space-3); }
+    .connection-bar { padding: var(--space-3) var(--space-4); grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
     .connection-states { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
-    .connection-states .small-label { font-size: 11px; margin: 0; }
-    .connection-states .state { font-size: 12px; }
-    .status-detail { font-size: 11px; }
-    .remote-controls { flex-direction: column; align-self: center; }
+    .connection-states > div { min-height: 82px; padding: var(--space-2) var(--space-3); }
+    .connection-states .small-label { font-size: 12px; margin-bottom: var(--space-1); }
+    .connection-states .state { font-size: 18px; }
+    .status-detail { font-size: 11px; margin-top: var(--space-1); }
+    .remote-controls { grid-column: 1; grid-row: 2; flex-direction: row; }
+    .remote-controls .command-button { flex: 1; }
     .command-button { min-width: 92px; min-height: 44px; font-size: 13px; }
-    .command-feedback { display: block; }
+    .command-feedback { grid-column: 1; grid-row: 3; display: block; }
     #command-disclaimer { display: none; }
     main { padding: var(--space-5) var(--space-4); }
     .page-heading { align-items: start; flex-wrap: wrap; gap: var(--space-3); }
