@@ -46,6 +46,43 @@ integration and transport details are expandable. IMU measurements and saved
 peak-height/possible-impact results are separate, with explicit placeholders
 until their MQTT integration is available.
 
+## Buddy 4 telemetry integration status
+
+The IMU view mirrors fields supported by the native Buddy 4 snapshot in
+`app_program/buddy4_mtk/overlay/app_program/buddy4/buddy4_task.h`:
+
+| Dashboard fields | Native snapshot fields |
+| --- | --- |
+| Quality, freshness, reading age | `measurement_quality`, `valid`, `tilt_valid`, `sample_age_ms` |
+| I²C / configuration errors | `io_errors` (from the IMU configuration/transfer error count) |
+| Clipped and unsuitable tilt counts | `clipped_samples`, `unsuitable_samples` |
+| Current pitch, roll, wheel-height difference | `pitch_deg`, `roll_deg`, `height_cm` |
+| Terrain, side, estimated motion, turn rate | `terrain`, `side`, `motion_state`, `encoder_yaw_deg_s`, with their validity flags |
+| Saved stable/median peaks and detected side | `last_event.stable_cm`, `median_cm`, `side`, with separate `stable_valid` / `median_valid` flags |
+| Saved ramp event timestamp | `last_event.end_us` (device uptime) |
+| Possible-impact history and count | `impact_time_us`, `impact_count`; `possible_impact` is a current one-sample pulse, not persistent history |
+
+These are **native firmware fields, not an MQTT schema**. The publisher in
+`lib/libnet/lwip/mqtt_utk.c` currently sends only `src`, `type`, `seq`, `value1`
+and `value2`. Buddy 4 does not submit its snapshot to the Buddy 1 MQTT outbox.
+Source 4 / IMU type 7 / hump type 8 declarations do not establish a field mapping.
+All Buddy 4 measurement, diagnostic, event and count values therefore remain
+**N/A**, even if a source-4 payload is observed or the heartbeat is fresh.
+
+The quality names in `app_program/buddy4/buddy4_imu.c` are `GRAVITY_LIKE`,
+`NON_GRAVITY`, `CLIPPED`, `NONFINITE` and `UNAVAILABLE`; there is no single
+`INVALID` quality enum. Clipped samples are also unsuitable for tilt, so the two
+counters overlap and must not be summed. An unavailable age is represented in
+the native snapshot by `UINT32_MAX`, not zero. The native accessor ages current
+IMU validity separately from retained event history.
+
+Ramp-height estimates are preliminary. Side labels describe chassis orientation,
+not proof that a particular wheel rose rather than the opposite wheel dropped.
+Saved peaks require their estimator validity flags. Possible-impact observations
+are not confirmed collisions; a false current pulse must not erase event history.
+The current Buddy 4 snapshot has no possible-obstruction event/timestamp, so that
+optional feature is omitted. No firmware or telemetry protocol is changed here.
+
 ## Meaning of the indicators
 
 - MQTT Broker reports this dashboard's broker connection.
