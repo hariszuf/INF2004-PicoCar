@@ -24,12 +24,20 @@ driving-test application are not the final native team firmware.
 
 ## A. Buddy 4: remaining individual verification
 
-- [ ] **Locate and verify the latest 2 November flat and four ramp recordings.**
-  Index originals with firmware/configuration and check flat baseline, event-side,
-  saved-versus-live validity, and Right Test 1's unresolved 0.640/0.467 values.
-  Do not fabricate filenames, relabel live maxima as saved results, or mix
-  calibration versions. The earlier 28 October 1 cm captures are already
-  preserved and analysed in the report.
+- [ ] **Archive the latest 2 November ramp originals in the repository.**
+  The five original conversation uploads have now been identified and analysed:
+  `Pasted text(20261102-080100).txt` (flat),
+  `Pasted text(20261102-080513).txt` (left 1; duplicate bytes at 080701),
+  `Pasted text(20261102-080853).txt` (left 2),
+  `Pasted text(20261102-081048).txt` (right 1), and
+  `Pasted text(20261102-081212).txt` (right 2). Flat: 505 complete
+  86-column rows, 10.08 s, mean live height difference 0.3187 cm.
+  Saved SIDE_EVENT_END confirms left 1 stable/median 1.242/1.312 cm,
+  left 2 1.295/1.360 cm, right 1 0.467/0.640 cm with side=+1.
+  Right 2 has maximum live 0.750 cm but no SIDE_EVENT_END in supplied
+  capture. The recordings were found in conversation attachments, **not yet
+  copied to a tracked evidence directory**; preserve exact bytes and manifest
+  hashes when archiving. See report Section 5.7.
 - [ ] **Resolve or explicitly document the intermittent IMU measurement fault.**
   The software quality guard is implemented, but its hardware root cause is
   unknown. If still required, collect the single specified **25-second**
