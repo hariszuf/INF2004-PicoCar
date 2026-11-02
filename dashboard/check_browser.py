@@ -209,12 +209,61 @@ def main():
             browser = playwright.chromium.launch(executable_path=args.chromium, headless=True, args=["--no-sandbox"])
             try:
                 check(browser, f"http://127.0.0.1:{server.server_port}/", args.output)
+                check_preview(browser, f"http://127.0.0.1:{server.server_port}/")
             finally:
                 browser.close()
     finally:
         server.shutdown()
         server.server_close()
         thread.join()
+
+
+def check_preview(browser, url):
+    page = browser.new_page()
+    page.clock.install(time="2026-11-02T00:00:00Z")
+    page.clock.pause_at("2026-11-02T00:00:00Z")
+    versions = {"dashboard.css": "1", "index.html": "1", "dashboard.js": "1"}
+    commands = []
+
+    def static(route):
+        if route.request.method == "HEAD":
+            name = route.request.url.rsplit("/", 1)[1]
+            route.fulfill(headers={"etag": versions[name]})
+        else:
+            route.continue_()
+
+    def api(route):
+        if "/command/" in route.request.url:
+            commands.append(route.request.url)
+        route.fulfill(json={} if route.request.url.endswith("telemetry") else {
+            "mqtt_connected": False, "vehicle_heartbeat_fresh": False, "heartbeat_age_seconds": None,
+        })
+
+    def last_head(response):
+        return response.request.method == "HEAD" and response.url.endswith("dashboard.js")
+
+    page.route("**/static/**", static)
+    page.route("**/api/**", api)
+    with page.expect_response(last_head):
+        page.goto(url + "?preview=1#imu")
+    page.wait_for_timeout(100)
+    page.evaluate("window.previewMarker = true")
+    versions["dashboard.css"] = "2"
+    with page.expect_response(last_head):
+        with page.expect_request(lambda request: "dashboard.css?v=" in request.url):
+            page.clock.fast_forward(1000)
+    page.wait_for_timeout(100)
+    expect(page.locator('link[rel="stylesheet"]')).to_have_count(1)
+    assert page.evaluate("window.previewMarker") is True
+    expect(page.locator("#view-imu")).to_be_visible()
+    versions["index.html"] = "2"
+    with page.expect_navigation(wait_until="domcontentloaded"):
+        page.clock.fast_forward(1000)
+    assert page.evaluate("window.previewMarker") is None
+    expect(page.locator("#view-imu")).to_be_visible()
+    assert not commands
+    page.close()
+    print("PASS: preview CSS swaps preserve page state; HTML changes reload without publishing commands")
 
 
 if __name__ == "__main__":

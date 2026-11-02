@@ -19,6 +19,20 @@ Run one server worker and one dashboard instance per broker: the MQTT client ID
 is `picocar-dashboard`, and cached messages are held in memory.
 On Linux or macOS, use `dashboard/.venv/bin/python` for the same commands.
 
+## Local design preview
+
+Run the server normally, then open `http://127.0.0.1:8000/?preview=1`.
+This opt-in mode checks the three frontend files for changes every second.
+Saving CSS replaces the stylesheet without clearing telemetry observations.
+Saving HTML or JavaScript refreshes the page and resets browser-held observations;
+refresh waits until command requests have settled. No commands are replayed.
+The normal dashboard URL does not run this file watcher. No extra packages,
+commits or pushes are needed to preview local file changes.
+
+Changes made in a separate cloud checkout must first be copied or applied as a
+patch to this local checkout. The preview watches files on the machine running
+FastAPI; it does not synchronize files between machines.
+
 ## Dashboard views
 
 The sidebar opens seven views: Overview, Motion control (Buddy 2), Line & barcode
