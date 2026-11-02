@@ -166,58 +166,47 @@ These observations support the tested SDK obstruction behavior; two selected
 positive logs do not establish general sensitivity, specificity or a false-positive
 rate. Earlier misses and unusable-IMU recordings remain in the evidence archive.
 
-### 5.7 Reported 2 November 1 cm SDK height validation
+### 5.7 Rechecked 2 November 1 cm SDK height recordings
 
-The operator reports completion of the tested 1.00 cm SDK peak-height checkpoint.
-The corresponding flat and four ramp originals were not identifiable in the
-scoped local evidence or Downloads review. Consequently all new numerical
-results in this subsection are **previously reported**, not independently
-recomputed here. They remain separate from the manifest-backed 28 October
-results in Sections 5.3-5.4. No raw filename or hash is invented.
+The five original serial recordings were subsequently identified among the
+conversation uploads and analysed. They have **not yet been archived into the
+tracked GitHub evidence directory**; the filename-to-condition associations below
+refer to those uploads, not paths or hashes established inside this repository.
+This is a separate test series from the manifest-backed 28 October results in
+Sections 5.3–5.4. The operator's ramp reference was nominally 1.00 cm; physical
+reference uncertainty was not quantified.
 
-The reported flat baseline spans 10.08 s and 505 valid samples, with mean live
-height difference 0.319 cm, FLAT/SIDE_LEVEL and zero I2C errors or clipping.
-For nominal flat ground the reference height difference is zero, so the reported
-baseline offset is +0.319 cm; it must not be compared with a 1 cm raised-wheel
-reference or silently subtracted from separate ramp tests. A SIDE_LEVEL label
-does not require a zero-valued geometric estimate.
+The flat recording (`Pasted text(20261102-080100).txt`) has 505 complete
+86-column rows across 10.08 s, with mean *live* wheel-height difference
+approximately 0.3187 cm. This nonzero flat baseline must not be silently
+subtracted from other trials or treated as an independently measured level
+calibration.
 
-Signed error below is estimate minus the operator's 1.00 cm ramp reference.
-Live maxima are transient candidates and are not completed saved event peaks.
+| Trial | Conversation-upload original | Saved stable, cm | Saved median, cm | Live maximum, cm | Interpretation |
+|---|---|---:|---:|---:|---|
+| Left tyre 1 | `Pasted text(20261102-080513).txt` | 1.242 | 1.312 | Not used here | Saved SIDE_EVENT_END; a byte-identical duplicate was received as `080701` |
+| Left tyre 2 | `Pasted text(20261102-080853).txt` | 1.295 | 1.360 | Not used here | Saved SIDE_EVENT_END |
+| Right tyre 1 | `Pasted text(20261102-081048).txt` | 0.467 | 0.640 | 0.798 | Saved SIDE_EVENT_END reports side=+1; live maximum is a distinct measurement |
+| Right tyre 2 | `Pasted text(20261102-081212).txt` | Not available | Not available | 0.750 | Complete unassisted crossing reported by operator; no SIDE_EVENT_END in supplied capture |
 
-| Trial / result | Reported estimate, cm | Signed error, cm | Result identity / evidence status |
-|---|---:|---:|---|
-| Left tyre Test 1 | 1.242 | +0.242 | Reported saved stable peak; original confirmation/event fields unavailable |
-| Left tyre Test 1 | 1.312 | +0.312 | Reported saved median peak; original validity/event fields unavailable |
-| Left tyre Test 2 | 1.360 | +0.360 | Maximum live height candidate; no saved peak asserted |
-| Right tyre Test 1 | 0.798 | -0.202 | Maximum live height candidate; actual side classification not independently verified |
-| Right tyre Test 2 | 0.750 | -0.250 | Maximum live height candidate; positive roll reported, no saved peak asserted |
-| Right tyre Test 1, earlier saved-value report | 0.640 / 0.467 | Not assigned | Exact fields, validity, event identity and side unresolved; excluded from height-error conclusions |
+The recorded saved values and identified live maxima are within **+/-1 cm**
+of the nominal 1.00 cm reference for these limited SDK conditions. For example,
+Left 2 saved-median error is +0.360 cm; Right 1 saved-stable error is -0.533 cm.
+Right 2's live maximum error is -0.250 cm but **does not** establish a valid
+completed peak. This is not a universal accuracy/repeatability result or proof
+of detection of every physical crossing. Avoid combining saved and live values
+into one accuracy statistic.
 
-The operator confirms Right Test 2 was a complete, unassisted motor-driven
-crossing. Its reported positive roll is consistent with right-tyre elevation
-under the current sign convention; without the original, this does not verify
-the saved event's side or invent a completed stable/median result. For Right
-Test 1, inspect `event_side`/`side`, `peak_confirmed`, `peak_height`,
-`median_candidate_valid`, `median_candidate_height_cm` and any SIDE_EVENT_END
-summary in the matching original schema before identifying 0.640/0.467. Saved
-history can belong to an earlier event; current live side alone is insufficient.
+The operator reported rightward drift during left-tyre runs; tracking and
+matched-wheel speed investigation belongs with Buddy 2. This does not justify
+changing Buddy 4 calibration, geometry or thresholds. The current series and
+earlier 28 October calibration checks have different recording conditions, so
+their flat offsets should not be compared as a controlled experiment.
 
-**The reported estimates meet the +/-1 cm target under the tested 1.00 cm SDK
-conditions**, with absolute ramp errors 0.202-0.360 cm for the identified results.
-This is a bounded, operator-reported checkpoint; raw verification of the latest
-series, broader accuracy/repeatability and final native MTK qualification remain
-pending. It is not a universal accuracy claim or proof that every saved-peak
-estimator confirmed every crossing. Reference-height uncertainty is unquantified.
-
-The left estimates exceed the reference while the right live estimates fall
-below it. Comparisons mix saved and live measurements and therefore cannot
-establish estimator bias or a correction factor. The operator observed rightward
-drift during the left-tyre tests. Refer tracking/encoder/motor-control investigation
-to Buddy 2; the recordings and physical cause still need review. Do not alter
-IMU calibration, mounting offsets, thresholds or height scale to compensate.
-The larger reported flat offset than the earlier 0.028 cm mean is also not a
-controlled calibration comparison: matching setup/original evidence is missing.
+**Evidence follow-up:** preserve the uploaded original bytes, compute and
+record SHA-256 hashes, check row exclusions and firmware provenance, and index
+the series under `buddy4/evidence/` before submission. Until then, these
+conversation uploads are reviewed but not repository-manifest-backed.
 
 ## 6. Motion, impact and turn-rate processing
 
@@ -287,10 +276,12 @@ The agreed plan defers Tribunal 1 implementation until a working integrated base
 
 ## 8. Draft conclusion
 
-The latest reported 1 cm SDK height checkpoint meets the +/-1 cm target for
-the supplied saved/live estimates under those test conditions (Section 5.7).
-This completion is distinct from broader accuracy and native MTK qualification;
-the latest originals and Right Test 1's saved-field/side identities remain open.
+The rechecked 2 November 1 cm SDK recordings contain confirmed left and
+right saved events, with results within +/-1 cm of the operator's nominal
+reference under those conditions. Right Test 2 has a live maximum but lacks a
+saved SIDE_EVENT_END in the supplied capture. The originals remain to be
+archived in the repository; broader accuracy and final MTK qualification are
+still pending.
 
 The current prototype acquires calibrated acceleration and provides terrain,
 motion and observational events. The fixed mounting roll correction reduced
@@ -308,10 +299,10 @@ Use the Buddy 4 README as the detailed checkpoint index. Preserve original captu
 
 ### Recording index for the latest height results
 
-The table below indexes the **28 October** originals. The newer 2 November
-flat/left/right series in Section 5.7 has no identified original path yet; the
-[existing height evidence index](evidence/2026-10-28/README.md) records that gap.
-Do not relabel older files or reuse their hashes for the reported newer tests.
+The table below indexes the **28 October** repository originals. The newer
+2 November flat/left/right originals have been identified in conversation
+uploads (Section 5.7), but are **not yet archived or hashed in the repository**.
+Do not relabel older files or reuse their hashes for newer trials.
 
 The [evidence index](evidence/2026-10-28/README.md) explains row selection and exclusions. The [manifest](evidence/2026-10-28/manifest.json) records original-file SHA-256 hashes, calibration versions, accepted row counts and event summaries. Raw files are preserved unchanged.
 
