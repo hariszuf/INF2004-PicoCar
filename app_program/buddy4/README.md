@@ -34,19 +34,20 @@ checkpoints below retain their historical scope; this section and TODO are curre
 ### Latest reported 1.00 cm SDK height checkpoint
 
 The operator reports a 10.08 s flat baseline with 505 valid samples, mean live
-height difference 0.319 cm, FLAT/SIDE_LEVEL and zero I2C errors/clipping. Left
-Test 1's reported **saved stable/median** peaks are 1.242/1.312 cm; Left Test 2's
-**live maximum candidate** is 1.360 cm. Right Tests 1/2 have reported live maxima
-0.798/0.750 cm. Right Test 2 was operator-confirmed a complete, unassisted
+height difference 0.319 cm, FLAT/SIDE_LEVEL and zero I2C errors/clipping. Left Test 1's saved stable/median peaks are 1.242/1.312 cm; Left Test 2's
+saved peaks are 1.295/1.360 cm. Right Test 1's saved peaks are
+0.467/0.640 cm, and Right Test 2's live maximum is 0.750 cm. Right Test 2 was operator-confirmed a complete, unassisted
 motor-driven crossing with positive roll reported. Rightward drift during the
 left-tyre tests belongs to a Buddy 2 motor-control investigation; no cause is assumed.
 
-The latest corresponding originals were not identified locally. These are
-reported results, not newly verified raw measurements. Right Test 1's earlier
-0.640/0.467 saved values have unresolved field identities and side classification;
-do not label them stable/median right-side peaks. The
-[report comparison](Buddy4_Terrain_Analysis_Report_Draft.md#57-reported-2-november-1-cm-sdk-height-validation)
-separates saved results from live candidates and records signed errors. The
+The latest original serial captures have since been identified in conversation
+uploads and reviewed, but they are not yet archived in the tracked repository.
+Left Test 2 confirms saved stable/median peaks 1.295/1.360 cm. Right Test 1
+confirms 0.467/0.640 cm stable/median peaks for a right-side event; Right Test 2
+has a 0.750 cm live maximum but no saved SIDE_EVENT_END in its supplied capture.
+See report Section 5.7 for filenames, evidence status and limitations. The
+[report comparison](Buddy4_Terrain_Analysis_Report_Draft.md#57-rechecked-2-november-1-cm-sdk-height-recordings)
+separates saved results from live candidates and records the evidence limits. The
 reported estimates meet the +/-1 cm target under the tested conditions; this
 does not establish universal accuracy or final MTK qualification.
 
