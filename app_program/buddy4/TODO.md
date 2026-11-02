@@ -68,6 +68,25 @@ These are software and bounded SDK hardware checkpoints, not confirmed collision
 classification, general accuracy or final team MTK integration. Earlier dated sections below
 retain their historical scope.
 
+## Team-facing handover and integration status (2 November 2026)
+
+- [x] Publish reusable Buddy 4 file ownership, native integration blockers and
+  copy-paste teammate AI integration instructions in
+  [HANDOVER.md](HANDOVER.md#teammate-ai-assisted-integration-prompt).
+- [x] Record SDK **functional** turn-direction/motion and bounded foam
+  `POSSIBLE_OBSTRUCTION` successes separately from numerical yaw accuracy and
+  broader collision discrimination. Do not repeat successful 1 cm ramp trials
+  solely to close the tested SDK checkpoint.
+- [ ] **Buddy 2 / native team:** reconcile signed encoder speeds, actual sample
+  timestamps, validity and 11.3 versus 12.2 cm geometry; investigate reported
+  rightward driving drift without changing Buddy 4 tilt calibration.
+- [ ] **Native MTK team:** register Buddy 4, review I2C0 GP16/GP17 and bus
+  ownership, provide full motor-command context for obstruction, agree motor
+  stop/rearm responsibility and connect telemetry with Buddy 1.
+- [ ] **Buddy 4 + team:** perform final native MTK coexistence and course checks
+  before claiming project-wide completion. Earlier SDK/isolated MTK evidence
+  does not replace this qualification.
+
 ## Current measurement-validity fault (30 October 2026)
 
 - [x] Reproduce successful-transfer endpoint XYZ in production buddy4_poll:
