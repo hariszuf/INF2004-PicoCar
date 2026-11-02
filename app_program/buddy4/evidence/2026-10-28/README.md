@@ -26,17 +26,20 @@ The latest after-correction moving stable peaks are 0.994 cm left and 0.989 cm r
 The figures above and their original hashes belong to 28 October. The operator
 has since reported a completed 1.00 cm SDK height checkpoint, detailed in
 [report Section 5.7](../../Buddy4_Terrain_Analysis_Report_Draft.md#57-reported-2-november-1-cm-sdk-height-validation).
-No corresponding original file was identified for the following new series in
-the scoped repository evidence/Downloads review; source path and hash are
-therefore **unavailable**, not inferred from an older recording:
+The newer original recordings were subsequently identified and reviewed among
+conversation uploads, but **have not yet been copied to the repository evidence
+folder or hashed here**. The names and revised results are in
+[report Section 5.7](../../Buddy4_Terrain_Analysis_Report_Draft.md#57-rechecked-2-november-1-cm-sdk-height-recordings).
+The following table records what remains to archive:
 
-| Reported capture | Conditions / finding | Outstanding source verification |
+| Recording | Reviewed finding | Archival follow-up |
 |---|---|---|
-| Flat baseline | 505 valid samples / 10.08 s; 0.319 cm mean live height; FLAT/SIDE_LEVEL; no I2C errors/clipping | Original filename/path, interval, quality fields and mean |
-| Left tyre Test 1 | 1.00 cm reference; saved stable 1.242 cm / median 1.312 cm reported | Saved fields, validity and event identity |
-| Left tyre Test 2 | 1.00 cm reference; live maximum 1.360 cm reported | Live sample and any separately confirmed saved event |
-| Right tyre Test 1 | 1.00 cm reference; live maximum 0.798 cm; earlier saved values 0.640/0.467 | Exact saved-field identities, validity and side classification unresolved |
-| Right tyre Test 2 | 1.00 cm reference; live maximum 0.750 cm, positive roll reported; operator confirms complete unassisted motor-driven crossing | Original samples/side; no saved peaks claimed |
+| Flat | 505 complete rows, 10.08 s, mean live height 0.3187 cm | Copy exact conversation original and record SHA-256 |
+| Left tyre Test 1 | Saved stable/median 1.242/1.312 cm | Preserve event/source bytes |
+| Left tyre Test 2 | Saved stable/median 1.295/1.360 cm | Preserve event/source bytes |
+| Right tyre Test 1 | Saved stable/median 0.467/0.640 cm, side +1 | Preserve event/source bytes |
+| Right tyre Test 2 | Maximum live 0.750 cm, no saved SIDE_EVENT_END in supplied capture | Do not invent saved peak |
+
 
 Rightward drift was operator-observed during the left-tyre tests and is referred
 to Buddy 2 for investigation. The reported identified estimates satisfy +/-1 cm
