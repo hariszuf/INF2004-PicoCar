@@ -20,3 +20,28 @@ Original capture bytes are preserved in raw/. manifest.json records SHA-256 hash
 ![Settled height](charts/stationary_height_comparison.png)
 
 The latest after-correction moving stable peaks are 0.994 cm left and 0.989 cm right; median peaks are 1.049 cm left and 1.065 cm right. These support limited single-wheel verification, not collision/yaw validation or general course accuracy. No firmware changes or new robot tests were performed to prepare this evidence bundle.
+
+## Later reported checkpoint: 2 November 2026
+
+The figures above and their original hashes belong to 28 October. The operator
+has since reported a completed 1.00 cm SDK height checkpoint, detailed in
+[report Section 5.7](../../Buddy4_Terrain_Analysis_Report_Draft.md#57-reported-2-november-1-cm-sdk-height-validation).
+The newer original recordings were subsequently identified and reviewed among
+conversation uploads, but **have not yet been copied to the repository evidence
+folder or hashed here**. The names and revised results are in
+[report Section 5.7](../../Buddy4_Terrain_Analysis_Report_Draft.md#57-rechecked-2-november-1-cm-sdk-height-recordings).
+The following table records what remains to archive:
+
+| Recording | Reviewed finding | Archival follow-up |
+|---|---|---|
+| Flat | 505 complete rows, 10.08 s, mean live height 0.3187 cm | Copy exact conversation original and record SHA-256 |
+| Left tyre Test 1 | Saved stable/median 1.242/1.312 cm | Preserve event/source bytes |
+| Left tyre Test 2 | Saved stable/median 1.295/1.360 cm | Preserve event/source bytes |
+| Right tyre Test 1 | Saved stable/median 0.467/0.640 cm, side +1 | Preserve event/source bytes |
+| Right tyre Test 2 | Maximum live 0.750 cm, no saved SIDE_EVENT_END in supplied capture | Do not invent saved peak |
+
+
+Rightward drift was operator-observed during the left-tyre tests and is referred
+to Buddy 2 for investigation. The reported identified estimates satisfy +/-1 cm
+for these conditions; no general accuracy claim follows. No raw bytes, filenames,
+existing manifests or hashes were changed, and no new figure was generated.

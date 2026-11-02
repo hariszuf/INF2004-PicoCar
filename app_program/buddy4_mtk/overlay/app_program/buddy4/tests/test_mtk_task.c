@@ -122,6 +122,37 @@ static void test_impact_release_faults(void)
         assert(!impact.output.possible_impact&&impact.output.event_count==1);
     }
 }
+static void task_horizontal(float x)
+{
+    vector(&bus_sensor,x/imu.config.accel_scale[0]+imu.config.accel_bias_g[0],
+        imu.config.accel_bias_g[1],-1/imu.config.accel_scale[2]+imu.config.accel_bias_g[2]);
+}
+static void test_horizontal_impact_task(void)
+{
+    /* Actual owner -> native bridge -> production-calibrated XYZ -> snapshot.
+     * The original magnitude-only observer cannot confirm this disturbance. */
+    assert(buddy4_impact_init(&impact,buddy4_impact_default_config()));
+    task_horizontal(0);tick(10000000);
+    task_horizontal(0.45f);tick(10020000);
+    assert(next.impact_valid&&!next.possible_impact&&next.impact_count==0);
+    tick(10040000);
+    buddy4_task_snapshot_t out;
+    assert(buddy4_task_get(&out)==E_OK&&out.possible_impact&&out.impact_count==1);
+    assert(fabsf(out.impact_deviation_g-0.45f)<0.001f);
+    assert(out.magnitude_g<1.10f&&out.impact_time_us==10040000);
+    assert(buddy4_task_get(&out)==E_OK&&out.impact_count==1);
+    tick(10060000);assert(!next.possible_impact&&next.impact_count==1);
+    raw_vector(&bus_sensor,INT16_MAX,0,0);tick(10080000);
+    assert(!next.impact_valid&&!next.possible_impact&&next.impact_count==1);
+    task_horizontal(0);
+    for(uint64_t t=10100000;t<=10140000;t+=20000)tick(t);
+    task_horizontal(0.45f);tick(10160000);tick(10180000);
+    assert(!next.possible_impact&&next.impact_count==1); /* Cooldown survives. */
+    task_horizontal(0);
+    for(uint64_t t=10200000;t<=10800000;t+=20000)tick(t);
+    task_horizontal(0.45f);tick(10820000);tick(10840000);
+    assert(next.possible_impact&&next.impact_count==2);
+}
 int main(void)
 {
     buddy4_task_snapshot_t out;
@@ -298,6 +329,8 @@ int main(void)
 
     fail_device=1;assert(b.write(b.context,0x1d,(uint8_t[]){0x20,0x6f},2,false)==-1);
     test_impact_release_faults();
+    fail_device=0;
+    test_horizontal_impact_task();
     puts("Native MTK task/device bridge tests passed: lifecycle, combined I/O, invalid/stale/reversed/duplicate input, recovery and snapshots");
     return 0;
 }

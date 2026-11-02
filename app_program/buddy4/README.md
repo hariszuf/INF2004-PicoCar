@@ -1,4 +1,78 @@
 # Buddy 4 — IMU, Motion and Terrain Monitoring
+
+## Current handover, 2 November 2026
+
+**Reusable IMU module: [`buddy4_imu.c`](buddy4_imu.c) and
+[`buddy4_imu.h`](buddy4_imu.h).** Supply bounded I2C callbacks and monotonic
+timestamps; the portable module has no Pico SDK or kernel dependency.
+See [the ownership map, verification results and MTK blockers](HANDOVER.md)
+before copying files. Existing paths are retained; generated build copies are
+not authoritative source.
+
+Controlled SDK tilt/terrain, one-tyre ramp, motion and turning checks are
+operator-reported complete. Both latest hardware logs contain one new
+POSSIBLE_OBSTRUCTION event before SERIAL_STOP; Test 1 physical foam contact is
+explicitly operator-confirmed. Test 2 contact details are not independently
+verified. [Original captures, counts and timing](evidence/2026-11-02/FOAM_SUCCESS.md)
+are preserved, including repeated event-flag rows and malformed-row exclusions.
+Neither log reports a new POSSIBLE_IMPACT event; this is not confirmed collision
+classification or a measured general false-positive/detection rate.
+
+Fresh standalone CTest, complete SDK and MTK regressions, 39/86/17-column schema
+checks and standalone/SDK/isolated-MTK builds pass. Algorithms, calibration,
+height processing, Buddy 2/3 and motor safety were not changed for handover.
+The [terrain report draft](Buddy4_Terrain_Analysis_Report_Draft.md) is updated
+with evidence and limits; final team/course/rubric evidence is still required.
+
+Buddy 4 is ready for **team integration work**, not yet integrated in the live
+MTK application. Native startup/build registration, board/driver/console review,
+fresh Buddy 2 command/encoder context, native obstruction publication, motor
+safety ownership and coexistence testing remain. Buddy 5 is optional proximity
+context, not a prerequisite for the existing obstruction observer. Dated
+checkpoints below retain their historical scope; this section and TODO are current.
+
+### Latest reported 1.00 cm SDK height checkpoint
+
+The operator reports a 10.08 s flat baseline with 505 valid samples, mean live
+height difference 0.319 cm, FLAT/SIDE_LEVEL and zero I2C errors/clipping. Left Test 1's saved stable/median peaks are 1.242/1.312 cm; Left Test 2's
+saved peaks are 1.295/1.360 cm. Right Test 1's saved peaks are
+0.467/0.640 cm, and Right Test 2's live maximum is 0.750 cm. Right Test 2 was operator-confirmed a complete, unassisted
+motor-driven crossing with positive roll reported. Rightward drift during the
+left-tyre tests belongs to a Buddy 2 motor-control investigation; no cause is assumed.
+
+The latest original serial captures have since been identified in conversation
+uploads and reviewed, but they are not yet archived in the tracked repository.
+Left Test 2 confirms saved stable/median peaks 1.295/1.360 cm. Right Test 1
+confirms 0.467/0.640 cm stable/median peaks for a right-side event; Right Test 2
+has a 0.750 cm live maximum but no saved SIDE_EVENT_END in its supplied capture.
+See report Section 5.7 for filenames, evidence status and limitations. The
+[report comparison](Buddy4_Terrain_Analysis_Report_Draft.md#57-rechecked-2-november-1-cm-sdk-height-recordings)
+separates saved results from live candidates and records the evidence limits. The
+reported estimates meet the +/-1 cm target under the tested conditions; this
+does not establish universal accuracy or final MTK qualification.
+
+LSM303D has **no gyroscope**. Yaw is encoder-derived. Height estimates represent
+wheel-height difference from one-wheel elevation and chassis roll; they do not
+measure arbitrary obstacle height or equal elevation of both wheels. The
+nonzero flat baseline is a limitation to document, not an instruction to auto-zero
+or subtract 0.319 cm from other recordings. Earlier measured results are retained.
+
+### Teammate integration entry point (feature branch)
+
+For a teammate or AI assistant continuing Buddy 4, start with
+[HANDOVER.md](HANDOVER.md#teammate-ai-assisted-integration-prompt), then this README,
+[TODO.md](TODO.md), and the [isolated MTK trial README](../buddy4_mtk/README.md).
+The handover contains a **copy-paste integration prompt** and the source/ownership
+map. The AI must also inspect the actual current team source; documentation alone
+cannot establish that native interfaces match.
+
+**Already functionally tested in the SDK:** tilt/terrain, one-wheel 1 cm
+height estimates, turn direction/motion observations and two bounded foam
+`POSSIBLE_OBSTRUCTION` events. **Not yet established:** independent yaw-rate
+accuracy, general collision discrimination, earlier intermittent IMU fault root
+cause, native MTK obstruction/encoder/telemetry wiring and end-to-end team
+qualification. Do not relabel SDK success as native MTK acceptance.
+
 ## Measurement validity correction, 30 October 2026
 
 Current diagnostic firmware: **B4-MEASUREMENT-QUALITY-I USB-only**.
@@ -46,11 +120,11 @@ Expected deliverables include the IMU processing module, hump-detection algorith
 | Standalone and integration firmware builds | Passed at checkpoint |
 | Selected physical checks | Completed; results below |
 | General height accuracy | Not established |
-| Collision discrimination | Unvalidated |
+| Collision observations | Two recorded SDK obstruction events; Test 1 contact operator-confirmed; general discrimination unvalidated |
 | Numerical yaw-rate accuracy | Unvalidated |
 | MTK Buddy 4-only trial | DIAG-E selected hardware capture passed; see trial README |
 | Final µT-Kernel/team integration | Still pending; isolated trial is not final integration |
-| Terrain analysis report | KIV |
+| Terrain analysis report | Evidence-backed draft updated; final integration/rubric evidence pending |
 | Ramp arrangement | Single-side ramp confirmed by operator |
 | Turn-rate acceptance / expected accuracy | Clarification pending |
 | Tribunal 1 minimum-bit representation | Reviewed; implementation deferred until integrated baseline |
@@ -98,11 +172,14 @@ Buddy 2 retains its original **12.2 cm** setting. Team reconciliation is pending
 | `buddy4_motion.c/.h` | Encoder-based motion classification |
 | `buddy4_impact.c/.h` | Observational possible-impact detector |
 | `buddy4_encoder_yaw.c/.h` | Encoder-based yaw-rate estimate |
+| `buddy4_obstruction.c/.h` | Portable possible-obstruction observer; needs fresh speeds and command/terrain context |
 | `main.c` | Standalone IMU monitor and CSV logging |
 | `tests/test_imu.c` | Authoritative IMU/calibration/recovery regression suite |
 | `CMakeLists.txt` | Standalone firmware and native IMU tests |
 | `pico_sdk_import.cmake` | Pico SDK import |
 | [`../integration_test/`](../integration_test/) | Separate driving-test application and broader tests |
+| [`HANDOVER.md`](HANDOVER.md) | Current file ownership, native integration contract, regressions and artifact hashes |
+| [`../buddy4_mtk/`](../buddy4_mtk/) | Isolated native task/device overlay and its tests; not the live team app |
 
 Historical experiments are archived under the repository’s `archive/buddy4/` area. Consult its manifest before deleting anything. Historical UF2 files are not current firmware.
 
@@ -113,7 +190,7 @@ Historical experiments are archived under the repository’s `archive/buddy4/` a
 - Buddy 4 provides observational processing.
 - `integration_test` supplies temporary controls and a cooperative scheduler.
 - Buddy 2/3 source and tuning were preserved.
-- Current test applications use **Pico SDK/CMake**, not final µT-Kernel integration.
+- Standalone/driving tests use **Pico SDK/CMake**; the separate isolated MTK trial is not final team integration.
 - Only one application `main()` belongs in each executable.
 
 ## 4. Calibration
@@ -241,6 +318,8 @@ Single-phase encoder direction follows commanded direction, so classification is
 ## 8. Possible-impact detector
 
 This detector is separate from the existing `bump_event`.
+The 2 November 2026 vector-baseline change, verification and controlled hardware
+test procedure are recorded in [the impact checkpoint](IMPACT_VECTOR_CHECKPOINT.md).
 
 Collision detection remains required work, using this preliminary possible-impact
 detector as the existing implementation to review and validate. Separate shock
@@ -248,7 +327,7 @@ detection and dedicated vibration measurement are outside the current feature pl
 
 | Setting | Provisional value |
 |---|---:|
-| Signal | Absolute magnitude deviation from tracked nonzero baseline |
+| Signal | Norm of corrected XYZ minus tracked XYZ baseline |
 | Trigger | ≥0.30 g |
 | Confirmation | At least two fresh samples spanning 20 ms |
 | Maximum gap | 40 ms |
@@ -257,8 +336,16 @@ detection and dedicated vibration measurement are outside the current feature pl
 | Baseline time constant | 500 ms |
 
 Stationary acceleration includes gravity.
+Subtracting the tracked vector before taking its norm preserves horizontal
+disturbances that a change in total magnitude can hide. The baseline follows
+subthreshold samples with the existing 500 ms time constant and freezes during
+qualifying disturbances. It includes gravity and slow acceleration; it is not
+an independent estimate of gravity. All thresholds and timing above are retained.
 
 Outputs include validity, a one-sample event, cumulative count, timestamps, magnitude, baseline and deviation. Invalid data, missing samples and reversed timestamps reset pending detection appropriately.
+Existing CSV columns are retained: impact magnitude is the corrected vector norm,
+impact baseline is the reference vector norm, and impact deviation is now the
+vector residual norm. Deviation is no longer the difference of those two scalars.
 
 **No motor command or safety stop depends on this detector.**
 
@@ -374,8 +461,9 @@ Current schemas:
 
 | Application | Columns |
 |---|---:|
-| Standalone | 33 |
-| Integration | 69 |
+| Standalone | 39 |
+| Integration | 86 |
+| Isolated MTK optional CSV | 17 |
 
 Older captures have different schemas. Always use the matching header and module-specific validity/timestamps.
 
@@ -630,7 +718,7 @@ Not every internal update was recorded, preventing exact reconstruction of all t
 ### Agreed order
 
 1. Preserve the current working code and evidence; prepare documentation without the robot.
-2. When Buddy 5's ultrasonic module is available, combine and test it with the existing Buddy 2/3/4 test application.
+2. Begin the reviewed native team integration described in HANDOVER.md; add Buddy 5 proximity context only if chosen by the team.
 3. Complete final team/µT-Kernel integration, course testing and remaining collision/turn-rate validation.
 4. Save and measure a working integrated baseline before changing data representation.
 5. Implement Tribunal 1 changes, then repeat correctness/performance and size comparisons.
@@ -671,7 +759,9 @@ Do not deliberately crash the car or strike the sensor. Do not claim every addit
 
 ## 18. Report notes for later
 
-The report has not yet been written. When resumed, include:
+The [terrain report draft](Buddy4_Terrain_Analysis_Report_Draft.md) now includes
+verified height evidence, the current vector/obstruction algorithms and the two
+successful hardware observations. It is not final: before submission, include:
 
 1. **Hardware and scope:** LSM303D identity, no gyroscope, wiring and chassis supports.
 2. **Architecture:** module ownership, validity/timestamps, error recovery and standalone versus RTOS integration.
