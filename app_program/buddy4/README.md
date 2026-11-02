@@ -56,6 +56,22 @@ measure arbitrary obstacle height or equal elevation of both wheels. The
 nonzero flat baseline is a limitation to document, not an instruction to auto-zero
 or subtract 0.319 cm from other recordings. Earlier measured results are retained.
 
+### Teammate integration entry point (feature branch)
+
+For a teammate or AI assistant continuing Buddy 4, start with
+[HANDOVER.md](HANDOVER.md#teammate-ai-assisted-integration-prompt), then this README,
+[TODO.md](TODO.md), and the [isolated MTK trial README](../buddy4_mtk/README.md).
+The handover contains a **copy-paste integration prompt** and the source/ownership
+map. The AI must also inspect the actual current team source; documentation alone
+cannot establish that native interfaces match.
+
+**Already functionally tested in the SDK:** tilt/terrain, one-wheel 1 cm
+height estimates, turn direction/motion observations and two bounded foam
+`POSSIBLE_OBSTRUCTION` events. **Not yet established:** independent yaw-rate
+accuracy, general collision discrimination, earlier intermittent IMU fault root
+cause, native MTK obstruction/encoder/telemetry wiring and end-to-end team
+qualification. Do not relabel SDK success as native MTK acceptance.
+
 ## Measurement validity correction, 30 October 2026
 
 Current diagnostic firmware: **B4-MEASUREMENT-QUALITY-I USB-only**.
