@@ -1,5 +1,21 @@
 # Buddy 4 integration with the professor's micro T Kernel port
 
+## Current scope clarification, 2 November 2026
+
+This document retains the earlier native staging design. The authoritative
+sources here are an **isolated overlay**: live `app_program/app_main.c` and live
+Make application sources still register Buddy 1/5 without Buddy 4. The current
+trial defaults to IMU-only, has no motor/encoder producer connected and does not
+publish POSSIBLE_OBSTRUCTION. Its speed mailbox alone cannot supply obstruction
+command intent, stop/fault/mode or terrain-compensation context.
+
+Current schemas are 39 standalone / 86 SDK / 17 optional MTK CSV fields.
+Current fresh regressions, builds, ownership and concrete integration blockers
+are recorded in the repository's `app_program/buddy4/HANDOVER.md`. Older 33/69
+schema and team-registration statements below are historical staging statements,
+not the live tree's state. No live kernel/driver/application was changed for this
+handover; review the isolated changes with team owners before native integration.
+
 Current correction, 30 October 2026: see [measurement quality](MEASUREMENT_QUALITY_CHECKPOINT.md).
 The isolated USB-only trial now separates acquisition/acceleration/tilt validity;
 optional CSV has 17 fields with six appended quality values, and invalid current

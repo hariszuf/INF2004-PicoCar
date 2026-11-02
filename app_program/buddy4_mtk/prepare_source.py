@@ -32,5 +32,19 @@ for source in (project / 'overlay').rglob('*'):
         dest = target / source.relative_to(project / 'overlay')
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, dest)
+# The SDK obstruction regressions replay these immutable text captures. Keep
+# the general evidence exclusion (images/other recordings) and copy only the
+# required inputs so the disposable trial test tree is self-contained.
+for name in ('left_moving_after.txt', 'right_moving_after.txt',
+             'left_held_after.txt', 'right_held_after.txt'):
+    relative = Path('app_program/buddy4/evidence/2026-10-28/raw') / name
+    dest = target / relative
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(repo / relative, dest)
+for name in ('foam_contact_1510.txt', 'foam_contact_1513.txt', 'normal_driving_1346.txt'):
+    relative = Path('app_program/buddy4/evidence/2026-11-02') / name
+    dest = target / relative
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(repo / relative, dest)
 print(f'Prepared trial build copy: {target}')
 print('The team startup, kernel/device sources and working IMU project were not changed.')

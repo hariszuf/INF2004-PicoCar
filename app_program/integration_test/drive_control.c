@@ -13,6 +13,21 @@ void drive_init(drive_control_t *c) {
     c->selected_left_cm_s = c->selected_right_cm_s = MANUAL_SPEED_CM_S;
     drive_stop(c, "BOOT", MOTION_FAULT_NONE);
 }
+bool drive_imu_usable(const buddy4_imu_t *imu) {
+    const buddy4_output_t *o=&imu->output;
+    return imu->ready&&o->valid&&o->acceleration_valid&&o->tilt_valid&&
+        o->quality==BUDDY4_QUALITY_GRAVITY_LIKE&&!o->clipped_axes&&
+        isfinite(o->magnitude_g)&&isfinite(o->accel_g[0])&&
+        isfinite(o->accel_g[1])&&isfinite(o->accel_g[2])&&
+        isfinite(o->pitch_deg)&&isfinite(o->roll_deg)&&
+        isfinite(o->filtered_pitch_deg)&&isfinite(o->filtered_roll_deg);
+}
+bool drive_imu_poll(drive_control_t *c,const buddy4_imu_t *imu,buddy4_result_t result) {
+    bool usable=result==BUDDY4_FRESH&&drive_imu_usable(imu);
+    if(result==BUDDY4_FRESH&&!usable&&(c->running||c->armed))
+        drive_stop(c,"IMU_QUALITY",MOTION_FAULT_NONE);
+    return usable;
+}
 void drive_safety(drive_control_t *c, bool usb, bool has_fresh,
                   uint64_t now, uint64_t last_fresh) {
     motion_status_t s; motion_get_status(&s);

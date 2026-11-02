@@ -1,0 +1,26 @@
+[
+  {
+    "file": "foam_contact_1510.txt",
+    "source_filename": "Pasted text(20261102-071012).txt",
+    "sha256": "c8b2035427604a26e7cf666fb196a06ce26f9780be1bb0edefbefad5bc29c51f",
+    "complete_rows": 773,
+    "malformed_numeric_rows": 5,
+    "driving_rows": 168
+  },
+  {
+    "file": "foam_contact_1513.txt",
+    "source_filename": "Pasted text(20261102-071330).txt",
+    "sha256": "8c480dc802926566841c2e3c2cffc58a942a8e0bb01887d5291556d6a04d9991",
+    "complete_rows": 669,
+    "malformed_numeric_rows": 0,
+    "driving_rows": 195
+  },
+  {
+    "file": "normal_driving_1346.txt",
+    "source_filename": "Pasted text(20261102-054705).txt",
+    "sha256": "5c9d7af7990b32e1c35c713bc45879dc38cecd4567baee71dc444c889acbc333",
+    "complete_rows": 996,
+    "malformed_numeric_rows": 2,
+    "driving_rows": 230
+  }
+]

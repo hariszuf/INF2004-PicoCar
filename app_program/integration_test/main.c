@@ -11,11 +11,15 @@
 #include "buddy4_motion.h"
 #include "buddy4_encoder_yaw.h"
 #include "buddy4_impact.h"
+#include "buddy4_obstruction_sdk.h"
 #include "scheduler.h"
 #include "drive_control.h"
 #include "terrain_link.h"
 
 static drive_control_t control;
+/* Persistent observer storage avoids increasing the main task's stack frame. */
+static buddy4_obstruction_sdk_t obstruction;
+static buddy4_obstruction_output_t po;
 static int bus_write(void *ctx, uint8_t a, const uint8_t *p, size_t n, bool ns) {
     (void)ctx;
     return i2c_write_timeout_us(i2c0, a, p, n, ns, BUDDY4_I2C_TIMEOUT_US);
@@ -44,14 +48,17 @@ int main(void) {
     buddy4_motion_init(&motion_class, buddy4_motion_default_config());
     buddy4_impact_t impact;
     buddy4_impact_init(&impact, buddy4_impact_default_config());
-    buddy4_imu_t imu;
+    buddy4_obstruction_sdk_init(&obstruction);
+    /* Persistent IMU state also belongs in static storage: the expanded CSV
+     * argument frame must leave room for nested calls on the SDK main stack. */
+    static buddy4_imu_t imu;
     buddy4_bus_t bus = {NULL, bus_write, bus_read};
     buddy4_init(&imu, bus, buddy4_default_config());
     task_t motor = {.period = MOTION_UPDATE_PERIOD_MS * 1000u};
     task_t line = {.period = LINE_UPDATE_PERIOD_MS * 1000u};
     task_t sensor = {.period = BUDDY4_PERIOD_US};
-    uint64_t retry = 0, last_fresh = 0;
-    bool has_fresh = false, was_usb = false, header = false;
+    uint64_t retry = 0, last_usable = 0;
+    bool has_usable = false, was_usb = false, header = false;
     uint32_t seq = 0;
     buddy4_result_t result = BUDDY4_NOT_READY;
     for (;;) {
@@ -60,18 +67,22 @@ int main(void) {
         if (usb && !was_usb) header = true;
         was_usb = usb;
         uint64_t now = time_us_64();
-        drive_safety(&control, usb, has_fresh, now, last_fresh);
+        drive_safety(&control, usb, has_usable, now, last_usable);
         if (due(&motor, now)) {
             uint64_t start = time_us_64();
             motion_update();
             motion_status_t observed; motion_get_status(&observed);
             uint64_t speed_sample_us = time_us_64();
+            /* This bounds a controller update/status observation, not the
+             * underlying encoder acquisition time (Buddy 2 does not expose it). */
+            buddy4_obstruction_sdk_note_update(&obstruction,&observed,&control,
+                start,speed_sample_us,motor.skipped);
             buddy4_encoder_yaw_update(&encoder_yaw, observed.left_speed_cm_s,
                 observed.right_speed_cm_s, true, speed_sample_us, speed_sample_us);
             /* Buddy 2 snapshot has no timestamp: stamp only actual update releases. */
             buddy4_motion_update(&motion_class, observed.left_speed_cm_s,
                 observed.right_speed_cm_s, true, speed_sample_us, speed_sample_us);
-            drive_safety(&control, usb, has_fresh, time_us_64(), last_fresh);
+            drive_safety(&control, usb, has_usable, time_us_64(), last_usable);
             runtime(&motor, start);
         }
         if (due(&line, time_us_64())) {
@@ -94,8 +105,11 @@ int main(void) {
                 const motion_terrain_input_t unavailable = {0};
                 (void)motion_set_terrain(&unavailable);
             } else terrain_link_feed(&imu, result);
-            if (result == BUDDY4_FRESH && imu.output.valid) {
-                last_fresh = imu.output.timestamp_us; has_fresh = true;
+            /* Fresh I2C transfer is not permission to drive on unusable tilt.
+             * A fresh quality failure latches stopped; only usable samples
+             * refresh the watchdog and allow the explicit R/G sequence. */
+            if (drive_imu_poll(&control,&imu,result)) {
+                last_usable = imu.output.timestamp_us; has_usable = true;
             }
             buddy4_impact_update(&impact, imu.output.accel_g[0], imu.output.accel_g[1],
                 imu.output.accel_g[2], result == BUDDY4_FRESH && imu.output.valid && imu.output.acceleration_valid,
@@ -106,15 +120,20 @@ int main(void) {
         /* At most one character per pass, zero timeout. No USB reads in updates.
            Uppercase G starts; S/space stops; R explicitly clears a stopped latch. */
         int c = usb ? getchar_timeout_us(0) : PICO_ERROR_TIMEOUT;
-        drive_command(&control, c, usb, imu.ready && imu.output.valid &&
-            has_fresh && time_us_64() - last_fresh < 100000u, time_us_64());
-        drive_safety(&control, usb, has_fresh, time_us_64(), last_fresh);
+        drive_command(&control, c, usb, drive_imu_usable(&imu) &&
+            has_usable && time_us_64() - last_usable < 100000u, time_us_64());
+        drive_safety(&control, usb, has_usable, time_us_64(), last_usable);
+        /* Consume new observations only AFTER serial/safety decisions, so S or
+         * a same-loop fault cancels pending obstruction before it can confirm. */
+        po=buddy4_obstruction_sdk_poll(&obstruction,
+            &control,&imu,usb,time_us_64());
         /* Bounded best-effort output outside updates. Slow readers may lose data. */
         if (usb && header) {
             printf("# standalone_Pico_SDK,commands=M_manual_L_line_A_left_test_D_right_test_R_then_G_stop_S_or_space,serial_stop_is_not_hardware_estop\n");
             printf("# calibration=buddy4_default_config,mounting_offsets_need_recalibration=%d,geometry_confirmed=%d\n",
                    imu.config.mounting_offsets_need_recalibration, imu.config.centre_spacing_confirmed);
-            printf("seq,time_us,result,valid,tilt_valid,acceleration_valid,measurement_quality,clipped_axes,clipped_samples,unsuitable_samples,sample_us,imu_errors,raw_x,raw_y,raw_z,ax_g,ay_g,az_g,pitch_deg,roll_deg,pitch_filtered,roll_filtered,terrain,side,transient_g,bump,height_cm,event_side,peak_confirmed,peak_roll,peak_height,median_candidate_valid,median_candidate_roll_deg,median_candidate_height_cm,running,mode,line_state,line_mask,left_cmd,right_cmd,left_count,right_count,left_speed,right_speed,distance_cm,motor_state,motor_fault,stop_fault,terrain_mode,terrain_speed_scale,left_terrain_duty,right_terrain_duty,motor_skipped,line_skipped,imu_skipped,motor_late_us,line_late_us,imu_late_us,motor_runtime_us,line_runtime_us,imu_runtime_us,encoder_motion_state,encoder_motion_valid,encoder_motion_sample_us,possible_impact_valid,possible_impact_event,possible_impact_count,possible_impact_sample_us,possible_impact_event_us,possible_impact_magnitude_g,possible_impact_baseline_g,possible_impact_deviation_g,encoder_yaw_rate_estimate_rad_s,encoder_yaw_rate_estimate_deg_s,encoder_yaw_rate_estimate_valid,encoder_yaw_rate_estimate_sample_us,selected_target_left_cm_s,selected_target_right_cm_s,control_reason\n");
+            printf("# possible_obstruction=SDK_update_observation_not_encoder_acquisition,manual_straight_flat_only,not_confirmed_collision,no_motor_action\n");
+            printf("seq,time_us,result,valid,tilt_valid,acceleration_valid,measurement_quality,clipped_axes,clipped_samples,unsuitable_samples,sample_us,imu_errors,raw_x,raw_y,raw_z,ax_g,ay_g,az_g,pitch_deg,roll_deg,pitch_filtered,roll_filtered,terrain,side,transient_g,bump,height_cm,event_side,peak_confirmed,peak_roll,peak_height,median_candidate_valid,median_candidate_roll_deg,median_candidate_height_cm,running,mode,line_state,line_mask,left_cmd,right_cmd,left_count,right_count,left_speed,right_speed,distance_cm,motor_state,motor_fault,stop_fault,terrain_mode,terrain_speed_scale,left_terrain_duty,right_terrain_duty,motor_skipped,line_skipped,imu_skipped,motor_late_us,line_late_us,imu_late_us,motor_runtime_us,line_runtime_us,imu_runtime_us,encoder_motion_state,encoder_motion_valid,encoder_motion_sample_us,possible_impact_valid,possible_impact_event,possible_impact_count,possible_impact_sample_us,possible_impact_event_us,possible_impact_magnitude_g,possible_impact_baseline_g,possible_impact_deviation_g,encoder_yaw_rate_estimate_rad_s,encoder_yaw_rate_estimate_deg_s,encoder_yaw_rate_estimate_valid,encoder_yaw_rate_estimate_sample_us,selected_target_left_cm_s,selected_target_right_cm_s,control_reason,possible_obstruction_valid,possible_obstruction_established,possible_obstruction_event,possible_obstruction_count,possible_obstruction_observation_us,possible_obstruction_event_us,possible_obstruction_slow_ms\n");
             header = false;
         }
         if (usb && control.event_pending) {
@@ -135,7 +154,7 @@ int main(void) {
                 o->ended_event.side, o->ended_event.peak_confirmed,
                 o->ended_event.peak_roll_deg, o->ended_event.peak_height_cm,
                 o->ended_event.median_candidate_valid,o->ended_event.median_candidate_roll_deg,o->ended_event.median_candidate_height_cm);
-            printf("%lu,%llu,%d,%d,%d,%d,%s,%u,%lu,%lu,%llu,%lu,%d,%d,%d,%.4f,%.4f,%.4f,%.3f,%.3f,%.3f,%.3f,%d,%d,%.4f,%d,%.3f,%d,%d,%.3f,%.3f,%d,%.3f,%.3f,%d,%d,%d,%u,%.3f,%.3f,%ld,%ld,%.3f,%.3f,%.3f,%d,%d,%lu,%d,%.3f,%.3f,%.3f,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%s,%d,%llu,%d,%d,%lu,%llu,%llu,%.4f,%.4f,%.4f,%.5f,%.4f,%d,%llu,%.3f,%.3f,%s\n",
+            printf("%lu,%llu,%d,%d,%d,%d,%s,%u,%lu,%lu,%llu,%lu,%d,%d,%d,%.4f,%.4f,%.4f,%.3f,%.3f,%.3f,%.3f,%d,%d,%.4f,%d,%.3f,%d,%d,%.3f,%.3f,%d,%.3f,%.3f,%d,%d,%d,%u,%.3f,%.3f,%ld,%ld,%.3f,%.3f,%.3f,%d,%d,%lu,%d,%.3f,%.3f,%.3f,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%s,%d,%llu,%d,%d,%lu,%llu,%llu,%.4f,%.4f,%.4f,%.5f,%.4f,%d,%llu,%.3f,%.3f,%s,%d,%d,%d,%lu,%llu,%llu,%lu\n",
                 (unsigned long)seq++, (unsigned long long)time_us_64(), result,o->valid,
                 o->tilt_valid,o->acceleration_valid,buddy4_quality_name(o->quality),
                 (unsigned)o->clipped_axes,(unsigned long)o->clipped_samples,(unsigned long)o->unsuitable_samples,
@@ -158,7 +177,10 @@ int main(void) {
                 pi.magnitude_g,pi.baseline_g,pi.deviation_g,
                 ey.encoder_yaw_rate_estimate_rad_s,ey.encoder_yaw_rate_estimate_deg_s,
                 ey.valid,(unsigned long long)ey.sample_us,
-                control.selected_left_cm_s,control.selected_right_cm_s,control.reason);
+                control.selected_left_cm_s,control.selected_right_cm_s,control.reason,
+                po.valid,po.established,po.possible_obstruction,(unsigned long)po.event_count,
+                (unsigned long long)po.observation_us,(unsigned long long)po.event_us,
+                (unsigned long)po.slow_ms);
         }
         tight_loop_contents();
     }

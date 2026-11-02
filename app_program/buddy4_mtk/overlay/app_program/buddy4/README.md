@@ -1,4 +1,11 @@
 # Buddy 4 — IMU, Motion and Terrain Monitoring
+
+> This is a retained historical README in the isolated MTK overlay. It is copied
+> only into the generated trial tree; it is not evidence that the live team
+> application registers Buddy 4. The authoritative source-module handover is
+> `app_program/buddy4/HANDOVER.md` in the repository. Current native limitations
+> are summarised at the top of `README_MTK.md`. Historical schemas and staging
+> statements below do not supersede that handover.
 ## Measurement validity correction, 30 October 2026
 
 Current diagnostic firmware: **B4-MEASUREMENT-QUALITY-I USB-only**.
