@@ -11,11 +11,11 @@
 #define TM_WIFI_MQTT 0
 #endif
 
-#define TELEMETRY_QUEUE_DEPTH    8U
+#define TELEMETRY_QUEUE_DEPTH    24U
 #define TELEMETRY_TASK_PRIORITY  7
 #define TELEMETRY_STACK_SIZE     4096
 
-#define MQTT_OUTBOX_DEPTH        8U
+#define MQTT_OUTBOX_DEPTH        24U
 
 #define TELEMETRY_MESSAGE_WORDS \
     ((sizeof(telemetry_message_t) + sizeof(UW) - 1U) / sizeof(UW))
