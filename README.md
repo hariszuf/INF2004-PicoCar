@@ -22,7 +22,7 @@ PicoCar's checked-in makefiles and application code.
 | Area | Course template (documented behavior) | This PicoCar repository |
 |---|---|---|
 | Bare `make` | `SMP=1 CONSOLE=usb_cdc WIFI=cyw43` | `SMP=0 CONSOLE=uart WIFI=none`; pass the USB/Wi-Fi flags explicitly. |
-| Application | `subsystem1/`–`subsystem5/` examples | `buddy1/`–`buddy5/`; only Buddy 1 is currently started by `app_main.c`. |
+| Application | `subsystem1/`–`subsystem5/` examples | The driving build selects the vehicle controller and all five Buddy subsystems through `picocar_integration.mk`. |
 | Shared definitions | `app_program/app.h` | Shared files belong in `app_program/shared/`; see `TEAM.md` for interfaces. |
 
 Use the commands below when building PicoCar. Build options apply to each invocation;
@@ -152,10 +152,9 @@ copy the UF2 to the board in Explorer, then use a Windows serial monitor.
 For the UART profile, use a 3.3 V USB-serial adapter: Pico GP0 (TX) to adapter
 RX, GP1 (RX) to adapter TX, and common GND, at **115200 baud, 8N1**.
 
-The current `app_program/app_main.c` initialises and starts Buddy 1, then
-prints `[APP] All registered buddies started`. Other buddy startup calls
-have not yet been integrated. The producer/consumer demo described in the
-inherited upstream guide is not the current PicoCar application.
+For the integrated vehicle, use the driving build in
+[Configure and flash the Pico W](#configure-and-flash-the-pico-w). It selects
+the vehicle controller entry point and the Buddy tasks.
 
 ## Working on a subsystem
 
@@ -200,257 +199,98 @@ Upstream treats networking as a development profile. Record PicoCar hardware
 results using the [testing instructions](testing/README.md).
 
 
-## Buddy 1 — MQTT Communication
+## Buddy 1 — Wi-Fi and MQTT
 
-Buddy 1 provides external Wi-Fi/MQTT communication for the
-PicoCar using lwIP and µT-Kernel 3.0.
+Buddy 1 joins Wi-Fi, connects to Mosquitto, and publishes the five-second
+vehicle heartbeat and sensor reports. It also receives START/STOP through
+the command queue. The dashboard reports that a command was queued for
+publication. Controller acknowledgement and physical execution are separate
+from MQTT delivery.
 
-Buddy 1's MQTT development profile has also been built and tested on Windows using Pico SDK 2.3.1 and Arm GNU Toolchain 15.2.1.
-
-### Implemented functionality
-
-- Wi-Fi association, DHCP and DNS
-- MQTT connection to a Mosquitto broker
-- Periodic MQTT status heartbeat (5 seconds)
-- MQTT START/STOP command reception
-- Non-blocking command submission through µT-Kernel IPC
-- Telemetry forwarding from µT-Kernel message buffers to MQTT
-- Separate networking and application telemetry paths
-
-Current integration has been tested using a Raspberry Pi Pico W
-and Mosquitto running on a Windows laptop.
-
-Network reconnection, message loss under load, full-team
-integration and compact binary MQTT payloads require further testing
-or implementation.
-
-### MQTT configuration
-
-Copy the example configuration from the repository root.
-
-Windows PowerShell:
-
-```powershell
-Copy-Item .\config\mqtt_config.example.h .\config\mqtt_config.h
-```
-
-Linux / WSL:
-
-```bash
-cp config/mqtt_config.example.h config/mqtt_config.h
-```
-
-Edit `config/mqtt_config.h` and set `MQTT_BROKER_IP` to the
-IPv4 address of the computer running Mosquitto.
-
-The local `mqtt_config.h` is excluded from Git. Do not commit
-Wi-Fi passwords or other secrets.
-
-### MQTT topics
-
-| Topic | Direction | Purpose |
+| Topic | Direction | Content |
 |---|---|---|
-| `picocar/vehicle1/status` | Pico W → broker | MQTT connection heartbeat |
-| `picocar/vehicle1/telemetry` | Pico W → broker | µT-Kernel telemetry messages |
-| `picocar/vehicle1/command` | Broker → Pico W | Remote commands |
+| `picocar/vehicle1/status` | Pico W → broker | Vehicle heartbeat |
+| `picocar/vehicle1/telemetry` | Pico W → broker | Named sensor fields, sequence and flags |
+| `picocar/vehicle1/command` | Dashboard → broker → Pico W | START or STOP |
 
-### Build
+### First run on Windows
 
-The verified Buddy 1 MQTT development profile uses:
+Install [Python 3.10 or newer](https://www.python.org/downloads/windows/)
+and [Eclipse Mosquitto](https://mosquitto.org/download/). Connect the laptop
+and Pico W to the same trusted Wi-Fi network. Use `ipconfig` to find the
+laptop's Wi-Fi IPv4 address. From the repository root, run the launcher
+with that address.
 
-- `SMP=0`
-- `CONSOLE=usb_cdc`
-- `WIFI=cyw43`
-- `WIFI_JOIN=1`
-- `WIFI_NETIF=1`
-- `WIFI_DHCP=1`
-- `WIFI_DNS=1`
-- `WIFI_MQTT=1`
-- `BUDDY1_ONLY=1`
+```powershell
+.\Start-PicoCarDashboard.ps1 -VehicleBrokerAddress 172.20.10.2
+```
 
-From `build_make/`:
+Replace the example address with your laptop's address. The launcher creates
+`dashboard/.venv`, installs the dashboard dependencies on first run or when
+they change, starts Mosquitto or reuses the existing listener, and starts
+FastAPI. A broker started by the script stops when the script exits. The
+broker allows anonymous access on the supplied address for bench testing.
+For a laptop-only test, omit `-VehicleBrokerAddress`.
+
+Open [the dashboard](http://127.0.0.1:8000/). Keep the terminal open during
+the test. If Windows prompts for firewall access, allow it on the trusted
+test network so the Pico W can reach port `1883`.
+
+### Configure and flash the Pico W
+
+If the car already has the MQTT build for this Wi-Fi network and broker,
+boot it and check the heartbeat. For a new configuration, copy the example
+headers once from the repository root.
+
+```powershell
+Copy-Item config/wifi_credentials.example.h config/wifi_credentials.h
+Copy-Item config/mqtt_config.example.h config/mqtt_config.h
+```
+
+Set the SSID and password in `wifi_credentials.h` and set
+`UTK_WIFI_CREDENTIALS_SET` to `1`. Set `MQTT_BROKER_IP` to the same laptop
+IPv4 address passed to the launcher. Keep `MQTT_BROKER_PORT` at `1883` for
+the default setup. Git ignores the local headers.
+
+Follow [Setup](#setup) for the Arm toolchain, GNU Make and Pico SDK, then
+build from the repository root in the configured Bash environment.
 
 ```bash
-make BUDDY1_ONLY=1 SMP=0 CONSOLE=usb_cdc WIFI=cyw43 WIFI_JOIN=1 WIFI_NETIF=1 WIFI_DHCP=1 WIFI_DNS=1 WIFI_MQTT=1 PICO_SDK_PATH=/path/to/pico-sdk -j8
+cd build_make
+make -f picocar_integration.mk TELEMETRY_MQTT=1 HEADLESS=1 PICO_SDK_PATH="$PICO_SDK_PATH" -j8
 ```
 
-Replace `/path/to/pico-sdk` with the installed SDK path.
+With motor power off, hold BOOTSEL while connecting USB and copy
+`build_make/picocar_integration_headless_mqtt.uf2` to `RPI-RP2`. This build
+starts the driving controller automatically. See the
+[driving firmware guide](app_program/buddy5/vehicle/README.md) for build
+variants and packet fields.
 
-The generated firmware is:
+### Verify telemetry
 
-`mtk3pico_smp0_usb_cdc_wifi_mqtt.uf2`
-
-The isolated Buddy 1 build does not validate compilation or
-runtime integration of all five subsystems.
-
-### Local MQTT broker
-
-For development, Mosquitto can listen on TCP port 1883.
-
-Example development configuration:
-
-```text
-listener 1883 0.0.0.0
-allow_anonymous true
-```
-
-This configuration is intended only for a trusted, isolated
-development network. It does not provide authentication or
-encrypted communication.
-
-The Pico W and the broker computer must have network
-connectivity to one another.
-
-### First run with MQTT telemetry on Windows
-
-Use the `Full-Implemented-wif-microt` branch. The commands below assume
-you are in the repository root.
-
-1. Install [Python 3.10 or newer](https://www.python.org/downloads/windows/)
-   and [Eclipse Mosquitto for Windows](https://mosquitto.org/download/).
-   Check that `python --version` works in a new PowerShell window. For
-   firmware builds, follow [Setup](#setup) for GNU Make, the Arm GNU
-   toolchain, and the Pico SDK with TinyUSB, CYW43, and lwIP.
-2. Connect the laptop and Pico W to the same Wi-Fi network. Use `ipconfig`
-   to find the laptop's Wi-Fi IPv4 address.
-3. In the first PowerShell terminal, create a broker config and start Mosquitto.
-   Use this anonymous listener on a trusted test network.
-
-   ```powershell
-   @'
-   listener 1883 0.0.0.0
-   allow_anonymous true
-   '@ | Set-Content mosquitto-dev.conf
-   & 'C:\Program Files\mosquitto\mosquitto.exe' -c .\mosquitto-dev.conf -v
-   ```
-
-   If port `1883` is already in use, reuse the existing broker if it listens
-   on the laptop's Wi-Fi address. If Windows prompts for firewall access,
-   allow access on the trusted test network so the Pico W can reach the broker.
-
-4. Create the firmware's local configuration files.
-
-   ```powershell
-   Copy-Item config/wifi_credentials.example.h config/wifi_credentials.h
-   Copy-Item config/mqtt_config.example.h config/mqtt_config.h
-   ```
-
-   Set the Wi-Fi SSID and password and change `UTK_WIFI_CREDENTIALS_SET` to
-   `1`. Set `MQTT_BROKER_IP` to the laptop's Wi-Fi IPv4 address and keep
-   `MQTT_BROKER_PORT` at `1883` for this setup. Git ignores both local headers.
-   Build the headless image with MQTT from the repository root in the Bash
-   environment where the toolchain and Pico SDK are configured.
-
-   ```bash
-   cd build_make
-   make -f picocar_integration.mk TELEMETRY_MQTT=1 HEADLESS=1 PICO_SDK_PATH="$PICO_SDK_PATH" -j8
-   ```
-
-   With motor power off, hold BOOTSEL while connecting the Pico W by USB.
-   Copy `build_make/picocar_integration_headless_mqtt.uf2` to the `RPI-RP2`
-   drive. This image starts the driving controller automatically.
-
-#### Run the dashboard
-
-Start Mosquitto first. The PicoCar firmware uses the broker's LAN address
-from `config/mqtt_config.h`. If Mosquitto runs on the same computer as
-the dashboard, the dashboard can use `127.0.0.1` provided the broker is
-also listening there.
-
-In a second PowerShell terminal, create the virtual environment
-and install dependencies once.
-
-```powershell
-python -m venv dashboard/.venv
-./dashboard/.venv/Scripts/python.exe -m pip install -r dashboard/requirements.txt
-```
-
-Run the dashboard in a terminal and leave it running during the test.
-Set `MQTT_BROKER_HOST` to the broker's LAN address if it runs on another
-computer.
-
-```powershell
-$env:MQTT_BROKER_HOST = '127.0.0.1'
-$env:MQTT_BROKER_PORT = '1883'
-./dashboard/.venv/Scripts/python.exe -m uvicorn app:app --app-dir dashboard --host 127.0.0.1 --port 8000
-```
-
-Open [the dashboard](http://127.0.0.1:8000/). **MQTT broker** shows the
-dashboard's connection to Mosquitto. **Vehicle heartbeat** becomes fresh
-when the PicoCar publishes its status. **Diagnostics** shows raw MQTT
-packets and has an **Export log (.txt)** button.
-
-Use the [driving firmware build instructions](app_program/buddy5/vehicle/README.md)
-for other build options and the telemetry field reference.
-
-#### Verify live telemetry
-
-In a third PowerShell terminal, subscribe to the broker. Use its LAN address
-in place of `127.0.0.1` if the broker listens only on its LAN interface.
+The dashboard should show **MQTT broker: Connected** and a fresh vehicle
+heartbeat after boot. Sensor views show the latest readings and their ages.
+In **Diagnostics**, use **Export log (.txt)** to save payloads observed by
+the browser. To watch the MQTT stream directly, run this in another terminal.
 
 ```powershell
 & 'C:\Program Files\mosquitto\mosquitto_sub.exe' -h 127.0.0.1 -p 1883 -v -t 'picocar/vehicle1/status' -t 'picocar/vehicle1/telemetry'
 ```
 
-Look for a status heartbeat about every five seconds and sensor packets with
-advancing `seq` values. The dashboard sensor panels display the latest supported
-readings. The subscriber shows the stream directly from the broker.
+For manual broker and dashboard startup, see the
+[dashboard guide](dashboard/README.md).
 
-### Windows testing
+## Remaining work
 
-Replace `BROKER_IP` with the actual broker IPv4 address.
-
-Subscribe to Pico W status:
-
-```powershell
-mosquitto_sub -h BROKER_IP -p 1883 -t "picocar/vehicle1/status" -v
-```
-
-Subscribe to telemetry:
-
-```powershell
-mosquitto_sub -h BROKER_IP -p 1883 -t "picocar/vehicle1/telemetry" -v
-```
-
-Publish START:
-
-```powershell
-mosquitto_pub -h BROKER_IP -p 1883 -t "picocar/vehicle1/command" -m "START"
-```
-
-Publish STOP:
-
-```powershell
-mosquitto_pub -h BROKER_IP -p 1883 -t "picocar/vehicle1/command" -m "STOP"
-```
-
-If Mosquitto is not available on PATH, use its full executable
-path, such as `C:\Program Files\mosquitto\mosquitto_pub.exe`.
-
-The Pico W serial monitor should display the received command
-and the corresponding µT-Kernel command consumer output.
-
-### Verified development results
-
-- Wi-Fi association, DHCP and DNS successful
-- MQTT broker connection and subscription successful
-- MQTT heartbeat received by the Windows subscriber
-- START and STOP received through µT-Kernel command IPC
-- µT-Kernel heartbeat telemetry received on the MQTT telemetry topic
-
-These results establish communication and IPC functionality only.
-They do not establish successful motor operation, robot navigation,
-automatic recovery or full-system integration.
-
-### Remaining work
-
-- Integrate telemetry from all five subsystems
-- Connect remote commands to the Vehicle Controller
-- Test communication loss and reconnection
-- Measure telemetry queue overflow and message loss
-- Implement the compact binary payload change requirement
-- Complete full-system integration and hardware validation
-```
+- Driving tests covered heartbeat cadence, Wi-Fi recovery, and telemetry
+  delivery. Results were inconsistent across runs. Diagnose the gaps and
+  measure queue drops during bursts and reconnects.
+- Verify the expanded encoder, IMU diagnostic and saved-event packets on
+  hardware and compare them with the dashboard.
+- Agree on controller acknowledgement and safety feedback before wiring
+  remote START/STOP to vehicle execution.
+- Define telemetry with the subsystem owners for decoded barcode results and
+  raw ultrasonic distance. The dashboard marks these as Future implementation.
 
 ## Troubleshooting
 

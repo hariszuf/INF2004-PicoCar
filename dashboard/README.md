@@ -4,7 +4,23 @@ Local FastAPI dashboard for vehicle1 status, telemetry and START/STOP publishing
 Use Python 3.10 or newer and a running Mosquitto broker reachable by both the
 dashboard and PicoCar. The broker is separate from this application.
 
-From the repository root in PowerShell:
+On Windows, the [PowerShell launcher](../README.md#first-run-on-windows)
+can set up the virtual environment and start both Mosquitto and the dashboard.
+For manual startup, start Mosquitto first. On a trusted test network, use a
+broker configuration with these lines.
+
+```text
+listener 1883 0.0.0.0
+allow_anonymous true
+```
+
+Save it as `mosquitto-dev.conf` and start it from the repository root.
+
+```powershell
+& 'C:\Program Files\mosquitto\mosquitto.exe' -c .\mosquitto-dev.conf -v
+```
+
+In a second PowerShell terminal at the repository root, start the dashboard.
 
 ```powershell
 python -m venv dashboard/.venv
