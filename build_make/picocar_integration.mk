@@ -1,10 +1,19 @@
 # PicoCar micro-T-Kernel integration. Run from build_make/.
 # Buddy 2/3 own motion/line, Buddy 4 owns IMU observations, Buddy 5 owns scanning.
-# app_program/buddy5/vehicle coordinates the vehicle without MQTT.
+# Set TELEMETRY_MQTT=1 to add Buddy 1 networking to the driving profile.
 SMP ?= 0
 CONSOLE ?= usb_cdc
 HEADLESS ?= 0
 TIGHT_COURSE ?= 0
+TELEMETRY_MQTT ?= 0
+ifeq ($(TELEMETRY_MQTT),1)
+WIFI ?= cyw43
+WIFI_JOIN ?= 1
+WIFI_NETIF ?= 1
+WIFI_DHCP ?= 1
+WIFI_DNS ?= 1
+WIFI_MQTT ?= 1
+endif
 WIFI ?= none
 ifeq ($(HEADLESS),1)
 override CONSOLE := none
@@ -23,6 +32,9 @@ override PROFILE_ID = picocar-integration-v1-smp0-headless$(HEADLESS)-tight$(TIG
 TIGHT_SUFFIX :=
 ifeq ($(TIGHT_COURSE),1)
 TIGHT_SUFFIX := _tight
+endif
+ifeq ($(WIFI_MQTT),1)
+TIGHT_SUFFIX := $(TIGHT_SUFFIX)_mqtt
 endif
 ifeq ($(HEADLESS),1)
 override EXE_FILE := picocar_integration_headless$(TIGHT_SUFFIX)

@@ -25,7 +25,7 @@ const sections = {
         ["Movement & encoders", [["Left encoder", "encoder-left"], ["Right encoder", "encoder-right"], ["Movement direction", "movement-direction"], ["Distance travelled (cm, signed)", "distance-travelled"]]],
     ],
     line: [
-        ["Line sensing", [["Left IR sensor", "ir-left"], ["Centre IR sensor", "ir-centre"], ["Right IR sensor", "ir-right"]]],
+        ["Line sensing", [["Left IR sensor", "ir-left"], ["Barcode IR sensor (raw)", "ir-centre"], ["Right IR sensor", "ir-right"]]],
         ["Tracking & barcode", [["Line detection", "line-detection"], ["Tracking state", "tracking-state"], ["Barcode result", "barcode-result"]]],
     ],
     imu: [
@@ -52,6 +52,7 @@ let lastPollAt = null;
 const previousPayloads = new Map();
 const sourceObservations = new Map();
 const obstacleObservations = new Map();
+const sensorObservations = new Map();
 const pendingCommands = new Set();
 let commandOrder = 0;
 let logCount = 0;
@@ -69,7 +70,7 @@ function metricPanel(title, fields) {
         term.textContent = label;
         const value = document.createElement("dd");
         value.id = id;
-        value.textContent = "N/A";
+        value.textContent = ["barcode-result", "ultrasonic-range"].includes(id) ? "Future implementation" : "N/A";
         row.append(term, value);
         list.append(row);
     }
@@ -84,8 +85,8 @@ for (const [view, panels] of Object.entries(sections)) {
     note.textContent = view === "obstacle"
         ? "Buddy 5 values are last observations, not a synchronized live snapshot. Width and depth require matching type-56 validity bits. Range status and line reacquisition are not transmitted."
         : view === "imu"
-        ? "Buddy 4 is not connected to MQTT. Current measurements and saved event results remain N/A. A fresh vehicle heartbeat does not establish sensor freshness."
-        : "Sensor measurements are not integrated into the current MQTT interface. N/A does not mean zero or healthy.";
+        ? "Buddy 4 reports measurement validity and sample age separately from the vehicle heartbeat."
+        : "N/A indicates that a measurement is unavailable.";
     const grid = document.createElement("div");
     grid.className = "two-column";
     for (const [title, fields] of panels) grid.append(metricPanel(title, fields));
@@ -93,7 +94,7 @@ for (const [view, panels] of Object.entries(sections)) {
     if (view === "motion") {
         const distanceNote = document.createElement("p");
         distanceNote.className = "panel-note";
-        distanceNote.textContent = "Distance is signed odometry since reset, not cumulative path length. Its MQTT mapping is not integrated, so it remains N/A.";
+        distanceNote.textContent = "Distance is signed odometry since reset, not cumulative path length. Measured from the vehicle's odometry report.";
         root.append(distanceNote);
     }
     if (view === "obstacle") {
@@ -140,7 +141,7 @@ for (const [view, panels] of Object.entries(sections)) {
         events.append(ramp, impact);
         const note = document.createElement("p");
         note.className = "panel-note";
-        note.textContent = "Saved results and counters are not integrated into MQTT. N/A does not mean no event occurred or a count of zero.";
+        note.textContent = "Saved results appear after the firmware reports an event.";
         root.append(heading, events, note);
     }
     const details = document.createElement("details");
@@ -151,16 +152,16 @@ for (const [view, panels] of Object.entries(sections)) {
     explanation.textContent = "No payload observed from this source in this browser session.";
     const protocolNote = document.createElement("p");
     protocolNote.textContent = view === "obstacle"
-        ? "Source 5: type 50 reports state/fault; 51 reports width and the depth upper bound; 52 reports bypass side and signed offset; 53 reports depth bounds; 54 reports front clearance and commanded servo angle. Type 56 value1 carries width/depth validity in bits 0/1, independently of the omitted envelope flags. Estimates require matching packet sequences."
+        ? "Source 5: type 50 reports state/fault; 51 reports width and the depth upper bound; 52 reports bypass side and signed offset; 53 reports depth bounds; 54 reports front clearance and commanded servo angle. Type 56 obstacle_validity_mask carries width/depth validity in bits 0/1, and the envelope flags also report out-of-range status. Estimates require matching packet sequences."
         : view === "imu"
-        ? "Buddy 4 has a native snapshot, but no MQTT publisher submission or agreed payload mapping for its measurements. Source 4 and IMU/hump type identifiers alone do not define units, validity or timestamps. Raw payloads remain available in MQTT diagnostics without populating these fields."
+        ? "Source 4 reports tilt, terrain, motion, acquisition diagnostics and the last saved events. The panel uses each packet’s validity flags and shows event times as device uptime."
         : "Raw source/type fields remain visible in MQTT diagnostics. Measurements need confirmed payload meanings, units and validity before integration.";
     details.append(summary, explanation, protocolNote);
     if (view === "obstacle") {
         for (const text of [
-            "The firmware publishes about once per second. State changes are logged to the console; immediate MQTT state-change updates are not wired. A coherent status snapshot is not available through the latest-payload API. Sequence matching reduces mixing but does not provide an atomic device snapshot or a boot identity.",
-            "The standard and full-test publishers do not send a range-status field. The full-test profile maps no echo to -1, which is also used for unavailable data. The dashboard therefore reports Unknown instead of declaring a valid range, no echo or a clear path. A sensor fault is shown separately; it is not treated as a range-status packet.",
-            "Line reacquisition belongs to shared navigation and is not published as an event. Returning to Monitoring is not proof of a line-reacquired event. Those results remain N/A until integrated.",
+            "The firmware publishes about once per second. State changes are logged to the console; immediate MQTT state-change updates are not wired. The dashboard matches obstacle estimate and validity packets by report sequence.",
+            "The driving profile uses an out-of-range flag for its clearance sentinel. Otherwise range status is unknown. Sensor faults are reported separately.",
+            "Line reacquisitions are counted by the vehicle controller. Raw ultrasonic distance requires a separate measurement.",
         ]) {
             const paragraph = document.createElement("p");
             paragraph.textContent = text;
@@ -293,14 +294,46 @@ function updateConnectionDisplay() {
     updateCommandButtons();
 }
 
+const telemetryValueKeys = {
+    "1/1": ["heartbeat_marker", "reserved"],
+    "2/3": ["left_speed_mm_s", "right_speed_mm_s"],
+    "2/10": ["odometry_mm", "motor_fault"],
+    "3/5": ["ir_mask", "line_state"],
+    "4/7": ["pitch_cdeg", "roll_cdeg"],
+    "5/50": ["obstacle_state", "obstacle_fault"],
+    "5/51": ["width_mm", "depth_high_mm"],
+    "5/52": ["bypass_side", "bypass_offset_mm"],
+    "5/53": ["depth_low_mm", "depth_high_mm"],
+    "5/54": ["front_clearance_mm", "servo_command_deg"],
+    "5/55": ["obstacle_id", "report_uptime_ms"],
+    "5/56": ["obstacle_validity_mask", "telemetry_drops"],
+    "2/4": ["left_encoder_ticks", "right_encoder_ticks"],
+    "4/11": ["sample_age_ms", "imu_errors"],
+    "4/12": ["clipped_samples", "unsuitable_samples"],
+    "4/13": ["terrain_state", "side_state"],
+    "4/14": ["motion_state", "yaw_rate_cdeg_s"],
+    "4/15": ["wheel_height_mm", "measurement_quality"],
+    "4/16": ["stable_peak_mm", "median_peak_mm"],
+    "4/17": ["peak_side", "peak_end_ms"],
+    "4/18": ["impact_count", "last_impact_ms"],
+    "6/57": ["line_reacquired_count", "reserved"],
+};
+
 function parseEnvelope(payload) {
     const fields = {};
-    for (const match of payload.matchAll(/(?:^|\s)(src|type|seq|value1|value2|flags)=(-?\d+)(?=\s|$)/g)) {
+    for (const match of payload.matchAll(/(?:^|\s)([a-z][a-z0-9_]{0,31})=(-?\d+)(?=\s|$)/g)) {
         if (Object.hasOwn(fields, match[1])) return null;
         const number = Number(match[2]);
         if (!Number.isSafeInteger(number)) return null;
         fields[match[1]] = number;
     }
+    const keys = telemetryValueKeys[`${fields.src}/${fields.type}`];
+    if (keys) {
+        fields.value1 ??= fields[keys[0]];
+        const drivingValidity = fields.src === 5 && fields.type === 56 && (fields.value1 & 16);
+        fields.value2 ??= fields[drivingValidity ? "reserved" : keys[1]];
+    }
+    if (!Number.isInteger(fields.value1) || !Number.isInteger(fields.value2)) return null;
     if (!["src", "type", "seq", "value1", "value2"].every((key) => Object.hasOwn(fields, key))) return null;
     if (fields.src < 0 || fields.src > 255 || fields.type < 0 || fields.type > 255 || fields.seq < 0 || fields.seq > 4294967295) return null;
     if ([fields.value1, fields.value2].some((value) => value < -2147483648 || value > 2147483647)) return null;
@@ -310,6 +343,7 @@ function parseEnvelope(payload) {
 function addLog(topic, payload, initial) {
     byId("observation-log").querySelector(".empty-log")?.remove();
     const row = document.createElement("li");
+    row.dataset.topic = topic;
     const meta = document.createElement("div");
     meta.className = "log-meta";
     const time = document.createElement("time");
@@ -326,6 +360,7 @@ function addLog(topic, payload, initial) {
     raw.textContent = payload;
     row.append(meta, raw);
     byId("observation-log").prepend(row);
+    byId("export-log").disabled = false;
     if (++logCount > 100) {
         byId("observation-log").lastElementChild.remove();
         logCount = 100;
@@ -353,6 +388,10 @@ function recordPayload(topic, payload) {
 
 function observationLabel(observation) {
     if (!observation) return "N/A";
+    if (observation.received) {
+        const age = Date.now() - observation.at;
+        return `${age >= 3000 ? "Stale · received" : "Received"} ${ageLabel(age)} ago`;
+    }
     if (observation.initial) return "Initial cache; age unknown";
     return `Observed ${ageLabel(Date.now() - observation.at)} ago`;
 }
@@ -366,6 +405,9 @@ function updateMeasurements() {
         element.dataset.tone = tone;
         const note = document.createElement("small");
         note.textContent = !statusAvailable || !telemetryAvailable ? "Connection unknown; last observation" : !brokerConnected ? "Disconnected; last observation" : !heartbeatFresh || heartbeatAge === null || heartbeatAge + (Date.now() - lastPollAt) / 1000 >= 15 ? "Heartbeat stale; last observation" : observationLabel(observation);
+        if (observation?.received && note.textContent !== observationLabel(observation)) {
+            note.textContent += ` · ${observationLabel(observation)}`;
+        }
         element.append(note);
     }
     for (const subsystem of subsystems) {
@@ -376,6 +418,77 @@ function updateMeasurements() {
             byId(`${subsystem.view}-observation`).textContent = `Source ${observation.fields.src}, type ${observation.fields.type}, sequence ${observation.fields.seq}. ${observationLabel(observation)}. Validity is not established by receiving a payload.`;
         }
     }
+    const speed = sensorObservations.get("2/3");
+    if (speed) {
+        const { value1: left, value2: right } = speed.fields;
+        measured("motor-left", `${left} mm/s`, speed);
+        measured("motor-right", `${right} mm/s`, speed);
+        const direction = left * right < 0 ? "Turning" :
+            left + right > 0 ? "Forward" : left + right < 0 ? "Reverse" : "Stationary";
+        measured("movement-direction", direction, speed);
+    }
+    const encoders = sensorObservations.get("2/4");
+    if (encoders) {
+        measured("encoder-left", `${encoders.fields.value1} ticks`, encoders);
+        measured("encoder-right", `${encoders.fields.value2} ticks`, encoders);
+    }
+    const odometry = sensorObservations.get("2/10");
+    if (odometry) {
+        measured("distance-travelled", `${(odometry.fields.value1 / 10).toFixed(1)} cm`, odometry);
+        const fault = odometry.fields.value2;
+        const faults = ["No fault reported", "Emergency stop", "Motor stall"];
+        measured("motor-status", faults[fault] ?? `Unknown fault (${fault})`, odometry, fault ? "fault" : "neutral");
+    }
+    const line = sensorObservations.get("3/5");
+    if (line) {
+        const { value1: mask, value2: state } = line.fields;
+        measured("ir-left", mask & 1 ? "Black" : "White", line);
+        measured("ir-centre", mask & 4 ? "Black" : "White", line);
+        measured("ir-right", mask & 2 ? "Black" : "White", line);
+        measured("line-detection", mask & 3 ? "Detected" : "Clear", line);
+        const states = ["Idle", "Straight", "Steer left", "Steer right", "Recovering", "Stopped", "Fault"];
+        measured("tracking-state", states[state] ?? "Unknown", line);
+    }
+    const imu = sensorObservations.get("4/7");
+    if (imu) {
+        const valid = (imu.fields.flags & 1) !== 0;
+        measured("imu-status", valid ? "Tilt valid" : "Tilt unavailable", imu);
+        measured("pitch", valid ? `${(imu.fields.value1 / 100).toFixed(2)}°` : "N/A", imu);
+        measured("roll", valid ? `${(imu.fields.value2 / 100).toFixed(2)}°` : "N/A", imu);
+    }
+    const sideNames = { "-1": "Left wheel up", 0: "Level", 1: "Right wheel up" };
+    const imuReports = [
+        [11, "imu-sample-age", "imu-io-errors", f => f.value1 >= 0 ? `${f.value1} ms` : "N/A", f => f.value2],
+        [12, "imu-clipped-samples", "imu-unsuitable-samples", f => f.value1, f => f.value2],
+        [13, "terrain", "side", f => f.flags & 1 ? ({ "-1": "Downhill", 0: "Flat", 1: "Uphill" })[f.value1] ?? "Unknown" : "N/A",
+            f => f.flags & 1 ? sideNames[f.value2] ?? "Unknown" : "N/A"],
+        [14, "estimated-motion", "turn-rate",
+            f => f.flags & 1 ? ["Unknown", "Stopped", "Forward", "Reverse", "Turning left", "Turning right"][f.value1] ?? "Unknown" : "N/A",
+            f => f.flags & 2 ? `${(f.value2 / 100).toFixed(2)}°/s` : "N/A"],
+        [15, "wheel-height", "imu-quality", f => f.flags & 1 ? (f.value1 / 10).toFixed(1) : "N/A",
+            f => ["Unavailable", "Gravity-like", "Clipped", "Nonfinite", "Non-gravity"][f.value2] ?? "Unknown"],
+        [16, "peak-height", "median-peak-height", f => f.flags & 1 ? (f.value1 / 10).toFixed(1) : "N/A",
+            f => f.flags & 2 ? (f.value2 / 10).toFixed(1) : "N/A"],
+        [17, "peak-side", "peak-time", f => f.flags & 1 ? sideNames[f.value1] ?? "Unknown" : "N/A",
+            f => f.flags & 1 ? `${f.value2 >>> 0} ms` : "N/A"],
+        [18, "impact-count", "impact-time", f => f.value1 >>> 0, f => f.value1 ? `${f.value2 >>> 0} ms` : "N/A"],
+    ];
+    for (const [type, firstId, secondId, firstValue, secondValue] of imuReports) {
+        const observation = sensorObservations.get(`4/${type}`);
+        if (!observation) continue;
+        measured(firstId, firstValue(observation.fields), observation);
+        measured(secondId, secondValue(observation.fields), observation);
+    }
+    const acquisition = sensorObservations.get("4/11");
+    if (acquisition) {
+        measured("imu-freshness", acquisition.fields.flags & 1 ? "Fresh at report" : "Unavailable at report", acquisition);
+    }
+    const impact = sensorObservations.get("4/18");
+    if (impact) {
+        measured("impact-result", impact.fields.value1 ? "Possible impact recorded" : "No event recorded", impact);
+    }
+    const reacquired = sensorObservations.get("6/57");
+    if (reacquired) measured("line-reacquired", `${reacquired.fields.value1 >>> 0} this boot`, reacquired);
     const latest = sourceObservations.get(5);
     if (!latest) return;
     const state = obstacleObservations.get(50);
@@ -384,7 +497,7 @@ function updateMeasurements() {
     const range = obstacleObservations.get(54);
     measured("front-clearance", !range || range.fields.value1 === -1 ? "Unknown" : `${range.fields.value1.toLocaleString()} mm`, range || latest);
     measured("servo-angle", range && range.fields.value2 >= -60 && range.fields.value2 <= 60 ? `${range.fields.value2}°` : "N/A", range || latest);
-    measured("range-validity", "Unknown", range || latest);
+    measured("range-validity", range?.fields.flags & 32 ? "Out of range" : "Unknown", range || latest);
     const validity = obstacleObservations.get(56);
     const mask = validity?.fields.value1;
     const knownMask = validity && mask >= 0 && (mask & ~23) === 0;
@@ -409,10 +522,35 @@ function updateMeasurements() {
     measured("bypass-offset", planned ? `${plan.fields.value2.toLocaleString()} mm` : "Unknown", plan || latest);
 }
 
+const telemetryValueLabels = {
+    "1/1": ["Heartbeat marker", "Reserved"],
+    "2/3": ["Left wheel speed (mm/s)", "Right wheel speed (mm/s)"],
+    "2/10": ["Signed odometry (mm)", "Motor fault code"],
+    "3/5": ["IR sensor bitmask", "Line-follow state code"],
+    "4/7": ["Pitch (0.01°)", "Roll (0.01°)"],
+    "5/50": ["Obstacle state code", "Obstacle fault code"],
+    "5/51": ["Obstacle width (mm)", "Upper depth estimate (mm)"],
+    "5/52": ["Bypass side code", "Signed bypass offset (mm)"],
+    "5/53": ["Lower depth estimate (mm)", "Upper depth estimate (mm)"],
+    "5/54": ["Front clearance (mm)", "Commanded servo angle (°)"],
+    "5/55": ["Obstacle ID", "Report uptime (ms)"],
+    "5/56": ["Obstacle validity bitmask", "Telemetry drops"],
+    "2/4": ["Left encoder ticks", "Right encoder ticks"],
+    "4/11": ["Sample age (ms)", "IMU errors"],
+    "4/12": ["Clipped samples", "Unsuitable samples"],
+    "4/13": ["Terrain state", "Side state"],
+    "4/14": ["Motion state", "Encoder yaw rate (0.01°/s)"],
+    "4/15": ["Wheel-height difference (mm)", "Measurement quality"],
+    "4/16": ["Stable peak height (mm)", "Median peak height (mm)"],
+    "4/17": ["Peak side", "Peak end uptime (ms)"],
+    "4/18": ["Impact count", "Last impact uptime (ms)"],
+    "6/57": ["Line reacquisition count", "Reserved"],
+};
+
 function updateTelemetryDisplay() {
     byId("telemetry-age").textContent = !hasTelemetryObservation ? "N/A" : lastTelemetryChange === null ? "Cached; age unknown" : `Changed ${ageLabel(Date.now() - lastTelemetryChange)} ago`;
     const fields = latestEnvelope;
-    const types = { 1: "Heartbeat", 2: "State", 3: "Motor speed", 4: "Encoder", 5: "Line sensor", 6: "Barcode", 7: "IMU", 8: "Hump", 9: "Ultrasonic", 50: "Obstacle state", 51: "Obstacle size", 52: "Bypass plan", 53: "Depth bounds", 54: "Front clearance", 55: "Obstacle correlation", 56: "Obstacle validity" };
+    const types = { 1: "Heartbeat", 2: "State", 3: "Motor speed", 4: "Encoder", 5: "Line sensor", 6: "Barcode", 7: "IMU", 8: "Hump", 9: "Ultrasonic", 10: "Odometry", 11: "IMU acquisition", 12: "IMU sample counters", 13: "Terrain and side", 14: "Estimated motion and yaw", 15: "Wheel height and quality", 16: "Saved peak heights", 17: "Saved ramp event", 18: "Possible impacts", 50: "Obstacle state", 51: "Obstacle size", 52: "Bypass plan", 53: "Depth bounds", 54: "Front clearance", 55: "Obstacle correlation", 56: "Obstacle validity", 57: "Line reacquisition" };
     const rawSequence = previousPayloads.get(telemetryTopic)?.match(/(?:^|\s)seq=(\d+)(?=\s|$)/);
     const sequence = rawSequence && Number(rawSequence[1]) <= 4294967295 ? rawSequence[1] : "N/A";
     byId("sequence").textContent = fields ? String(fields.seq) : sequence;
@@ -420,7 +558,14 @@ function updateTelemetryDisplay() {
     for (const [key, field] of [["source", "src"], ["type", "type"], ["sequence", "seq"], ["value1", "value1"], ["value2", "value2"], ["flags", "flags"]]) {
         byId(`diag-${key}`).textContent = fields && Object.hasOwn(fields, field) ? String(fields[field]) : "N/A";
     }
-    byId("parse-note").textContent = !hasTelemetryObservation ? "No telemetry payload received." : !fields ? "Unrecognised or incomplete envelope. The raw payload is preserved above." : `${((fields.src === 5 || fields.type <= 9) && types[fields.type]) || "Unmapped telemetry type"}. Raw values have no inferred units. Missing flags leave validity unknown.`;
+    const labels = fields && telemetryValueLabels[`${fields.src}/${fields.type}`];
+    for (const index of [1, 2]) {
+        byId(`diag-value${index}`).previousElementSibling.textContent =
+            index === 2 && fields?.src === 5 && fields.type === 56 && (fields.value1 & 16)
+                ? "Reserved"
+                : labels?.[index - 1] ?? `Value ${index} (raw)`;
+    }
+    byId("parse-note").textContent = !hasTelemetryObservation ? "No telemetry payload received." : !fields ? "Unrecognised or incomplete envelope. The raw payload is preserved above." : `${((labels || fields.type <= 10) && types[fields.type]) || "Unmapped telemetry type"}. Values are shown as transmitted. Missing flags leave validity unknown.`;
     updateMeasurements();
 }
 
@@ -462,6 +607,20 @@ async function refreshDashboard() {
     telemetryAvailable = telemetry.status === "fulfilled" && telemetry.value !== null && typeof telemetry.value === "object" && !Array.isArray(telemetry.value);
     if (telemetryAvailable) {
         for (const topic of [statusTopic, telemetryTopic]) recordPayload(topic, telemetry.value[topic]);
+        if (Array.isArray(telemetry.value.sensor_frames)) {
+            sensorObservations.clear();
+            sourceObservations.clear();
+            obstacleObservations.clear();
+            const now = Date.now();
+            for (const { payload, age_seconds } of telemetry.value.sensor_frames) {
+                const fields = parseEnvelope(payload);
+                if (!fields) continue;
+                const observation = { fields, at: now - age_seconds * 1000, received: true };
+                sensorObservations.set(`${fields.src}/${fields.type}`, observation);
+                sourceObservations.set(fields.src, observation);
+                if (fields.src === 5 && fields.type <= 56) obstacleObservations.set(fields.type, observation);
+            }
+        }
         if (typeof telemetry.value[statusTopic] === "string") byId("status").textContent = telemetry.value[statusTopic];
         if (typeof telemetry.value[telemetryTopic] === "string") byId("telemetry").textContent = telemetry.value[telemetryTopic];
     }
@@ -499,6 +658,18 @@ async function sendCommand(command) {
 byId("start-command").addEventListener("click", () => sendCommand("START"));
 byId("stop-command").addEventListener("click", () => sendCommand("STOP"));
 byId("refresh-button").addEventListener("click", refreshDashboard);
+byId("export-log").addEventListener("click", () => {
+    const rows = [...byId("observation-log").querySelectorAll("li[data-topic]")].reverse();
+    const lines = rows.map((row) =>
+        `${row.querySelector("time").dateTime} ${row.dataset.topic} ${row.querySelector(".log-payload").textContent}`);
+    const file = new Blob([lines.join("\r\n"), "\r\n"], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(file);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "picocar-browser-payloads.txt";
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
 byId("clear-log").addEventListener("click", () => {
     byId("observation-log").replaceChildren();
     const empty = document.createElement("li");
@@ -506,6 +677,7 @@ byId("clear-log").addEventListener("click", () => {
     empty.textContent = "Log cleared. New changed payloads will appear here.";
     byId("observation-log").append(empty);
     logCount = 0;
+    byId("export-log").disabled = true;
 });
 refreshDashboard();
 setInterval(() => {

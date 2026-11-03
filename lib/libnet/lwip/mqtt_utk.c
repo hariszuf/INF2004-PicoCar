@@ -314,11 +314,41 @@ static void publish_heartbeat(void)
  * Receives one message from the MQTT outbox
  * and publishes it to the telemetry topic.
  */
+static const struct {
+    uint8_t source;
+    uint8_t type;
+    const char *first;
+    const char *second;
+} telemetry_fields[] = {
+    {1, 1, "heartbeat_marker", "reserved"},
+    {2, 3, "left_speed_mm_s", "right_speed_mm_s"},
+    {2, 10, "odometry_mm", "motor_fault"},
+    {3, 5, "ir_mask", "line_state"},
+    {4, 7, "pitch_cdeg", "roll_cdeg"},
+    {5, 50, "obstacle_state", "obstacle_fault"},
+    {5, 51, "width_mm", "depth_high_mm"},
+    {5, 52, "bypass_side", "bypass_offset_mm"},
+    {5, 53, "depth_low_mm", "depth_high_mm"},
+    {5, 54, "front_clearance_mm", "servo_command_deg"},
+    {5, 55, "obstacle_id", "report_uptime_ms"},
+    {5, 56, "obstacle_validity_mask", "telemetry_drops"},
+    {2, 4, "left_encoder_ticks", "right_encoder_ticks"},
+    {4, 11, "sample_age_ms", "imu_errors"},
+    {4, 12, "clipped_samples", "unsuitable_samples"},
+    {4, 13, "terrain_state", "side_state"},
+    {4, 14, "motion_state", "yaw_rate_cdeg_s"},
+    {4, 15, "wheel_height_mm", "measurement_quality"},
+    {4, 16, "stable_peak_mm", "median_peak_mm"},
+    {4, 17, "peak_side", "peak_end_ms"},
+    {4, 18, "impact_count", "last_impact_ms"},
+    {6, 57, "line_reacquired_count", "reserved"},
+};
+
 static void publish_telemetry(void)
 {
     mqtt_telemetry_data_t message;
 
-    UB payload[128];
+    UB payload[192];
 
     INT length;
     int32_t receive_result;
@@ -335,31 +365,29 @@ static void publish_telemetry(void)
         return;
     }
 
-    /*
-     * Temporary readable payload.
-     *
-     * Later we will replace this with
-     * compact binary encoding.
-     */
+    const char *first = "value1";
+    const char *second = "value2";
+    for (unsigned int i = 0; i < sizeof(telemetry_fields) / sizeof(telemetry_fields[0]); ++i) {
+        if (telemetry_fields[i].source == message.source &&
+            telemetry_fields[i].type == message.type) {
+            first = telemetry_fields[i].first;
+            second = telemetry_fields[i].second;
+            if (message.source == 5 && message.type == 56 && (message.value_1 & 16)) {
+                second = "reserved";
+            }
+            break;
+        }
+    }
+
     length = tm_sprintf(
-        payload,
-        (const UB *)
-            "src=%u type=%u seq=%u "
-            "value1=%d value2=%d",
-        (unsigned int)message.source,
-        (unsigned int)message.type,
+        payload, (const UB *)"src=%u type=%u seq=%u %s=%d %s=%d flags=%u",
+        (unsigned int)message.source, (unsigned int)message.type,
         (unsigned int)message.sequence,
-        (int)message.value_1,
-        (int)message.value_2
+        first, (int)message.value_1, second, (int)message.value_2,
+        (unsigned int)message.flags
     );
-
-    if (length <= 0 ||
-        length >= (INT)sizeof(payload)) {
-
-        tm_printf(
-            (UB *)"[MQTT] Invalid telemetry payload length\n"
-        );
-
+    if (length <= 0 || length >= (INT)sizeof(payload)) {
+        tm_printf((UB *)"[MQTT] Invalid telemetry payload length\n");
         return;
     }
 
