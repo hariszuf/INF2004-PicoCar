@@ -127,12 +127,60 @@ def check(browser, url, output):
     expect(page.locator("#ultrasonic-range")).to_have_text("N/A")
     telemetry["picocar/vehicle1/telemetry"] = "src=5 type=54 seq=9 value1=-1 value2=999"
     refresh()
-    expect(page.locator("#front-clearance")).to_contain_text("N/A")
+    expect(page.locator("#front-clearance")).to_contain_text("Unknown")
     expect(page.locator("#servo-angle")).to_contain_text("N/A")
     telemetry["picocar/vehicle1/telemetry"] = "src=5 type=50 seq=10 value1=6 value2=1"
     refresh()
     expect(page.locator("#obstacle-fault")).to_contain_text("Sensor fault")
     assert page.locator("#obstacle-fault").get_attribute("data-tone") == "fault"
+
+    def buddy5(kind, sequence, first, second):
+        telemetry["picocar/vehicle1/telemetry"] = f"src=5 type={kind} seq={sequence} value1={first} value2={second}"
+        refresh()
+
+    buddy5(56, 11, 3, 0)
+    expect(page.locator("#obstacle-width")).to_contain_text("Unknown")
+    buddy5(51, 11, 170, 600)
+    expect(page.locator("#obstacle-width")).to_contain_text("170 mm")
+    expect(page.locator("#obstacle-width-validity")).to_contain_text("Valid (reported)")
+    expect(page.locator("#depth-low")).to_contain_text("Unknown")
+    buddy5(53, 11, 200, 600)
+    expect(page.locator("#depth-low")).to_contain_text("200 mm")
+    expect(page.locator("#depth-high")).to_contain_text("600 mm")
+    buddy5(52, 11, -1, -190)
+    expect(page.locator("#bypass-side")).to_contain_text("Right")
+    expect(page.locator("#bypass-offset")).to_contain_text("-190 mm")
+    expect(page.locator("#line-reacquired")).to_have_text("N/A")
+    expect(page.locator("#range-validity")).to_contain_text("Unknown")
+
+    # A later validity packet cannot validate older size/depth observations.
+    buddy5(56, 12, 0, 0)
+    for field in ["obstacle-width", "depth-low", "depth-high", "bypass-offset"]:
+        expect(page.locator(f"#{field}")).to_contain_text("Unknown")
+    buddy5(51, 12, -1, -1)
+    expect(page.locator("#obstacle-width-validity")).to_contain_text("Invalid (reported)")
+    expect(page.locator("#obstacle-width")).not_to_contain_text("-1 mm")
+    buddy5(53, 12, -1, -1)
+    expect(page.locator("#depth-validity")).to_contain_text("Invalid (reported)")
+    buddy5(56, 13, 3, 0)
+    buddy5(51, 13, -1, 600)
+    expect(page.locator("#obstacle-width-validity")).to_contain_text("Inconsistent")
+    buddy5(53, 13, 700, 200)
+    expect(page.locator("#depth-low")).to_contain_text("Unknown")
+    expect(page.locator("#depth-validity")).to_contain_text("Inconsistent")
+    buddy5(56, 14, 8, 0)
+    expect(page.locator("#obstacle-width-validity")).to_contain_text("Unknown")
+    buddy5(50, 1, 0, 0)
+    expect(page.locator("#obstacle-profile-sequence")).to_contain_text("N/A")
+    expect(page.locator("#front-clearance")).to_contain_text("Unknown")
+    expect(page.locator("#obstacle-state")).to_contain_text("Monitoring")
+    expect(page.locator("#line-reacquired")).to_have_text("N/A")
+
+    page.goto(url + "#motion")
+    telemetry["picocar/vehicle1/telemetry"] = "src=2 type=4 seq=15 value1=100 value2=200"
+    refresh()
+    expect(page.locator("#distance-travelled")).to_have_text("N/A")
+    expect(page.locator("#view-motion")).to_contain_text("signed odometry since reset")
 
     telemetry["picocar/vehicle1/telemetry"] = '<img src=x onerror="window.injected=true">'
     refresh()
@@ -188,6 +236,8 @@ def check(browser, url, output):
             if view == "imu":
                 for field in imu_fields:
                     expect(page.locator(f"#{field}")).to_have_text("N/A")
+            if view == "motion":
+                expect(page.locator("#distance-travelled")).to_have_text("N/A")
             if width >= 390:
                 page.screenshot(path=str(output / f"{view}-{width}.png"), full_page=True)
         if width <= 768:

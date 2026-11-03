@@ -52,7 +52,9 @@
 /* TEMP TEST: right turns depend on the LEFT motor, so raise its target gently.
    If testing shows actual left wheel speed cannot reach the command, investigate
    hardware / wheel stiction instead of increasing speed again. */
+#ifndef LINE_RIGHT_OUTER_SPEED_CM_S
 #define LINE_RIGHT_OUTER_SPEED_CM_S (5.0f)
+#endif
 #define LINE_TURN_INNER_SPEED_CM_S  (0.0f)   /* TUNE: inside wheel while steering (0 = brake and pivot) */
 
 /** Optional (off by default). Escalating turn: if only one sensor keeps seeing the line for this long, the
@@ -63,7 +65,9 @@
 
 /** Per-wheel speed scale to even out the two motors (1.0 = none). If the car
  *  pulls to one side on a straight, lower the scale of the wheel that is faster. */
-#define LINE_LEFT_WHEEL_SCALE       (1.0f)   /* TUNE */
+#ifndef LINE_LEFT_WHEEL_SCALE
+#define LINE_LEFT_WHEEL_SCALE       (0.97f)  /* TUNE: left traveled ~3% farther than right in straight runs (2 Nov logs) */
+#endif
 #define LINE_RIGHT_WHEEL_SCALE      (1.0f)   /* TUNE */
 
 /**
