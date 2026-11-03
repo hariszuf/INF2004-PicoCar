@@ -98,10 +98,9 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
  if(n->issued) {
   if(!still) n->motion_seen=true;
   if((uint32_t)(now-n->check_since)>20000u) { fail(n); return; }
-  /* The Buddy 2 controller can retain a queued STOP even after both wheels
-   * have settled.  Physical standstill is sufficient to finish this bounded
-   * primitive; the following command replaces/continues the sequence. */
-  if(n->motion_seen && (uint32_t)(now-n->check_since)>=60u && n->settled>=3) {
+  /* A brief zero-speed interval during a turn is not a finished turn. */
+  if(n->motion_seen && (uint32_t)(now-n->check_since)>=60u &&
+     n->settled>=3 && motion_is_idle()) {
    n->issued=false; n->moving=false; n->forward_moving=false; n->motion_seen=false;
    ++n->index; n->check_since=0;
   } else return;

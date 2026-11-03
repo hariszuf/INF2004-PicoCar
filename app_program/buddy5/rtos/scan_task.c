@@ -11,6 +11,7 @@ static b5_core_t core;
 static line_scan_status_t shared;
 static bool reset_pending, abort_pending;
 static uint32_t report_sequence;
+#define B5_RAW_REPORT_MAX_AGE_MS 2000u
 static void publish(uint32_t now,int angle,bool valid,uint32_t timestamp) {
  UW irq;
  line_scan_status_t s={core.state,core.fault,core.profile,core.front_clearance_mm,
@@ -36,6 +37,9 @@ static void scan_task(INT stacd,void *exinf) {
  unsigned close_batches=0;
  int angle=999;
  bool front_valid=false;
+ bool raw_seen=false;
+ ultrasonic_result_t last_raw={0};
+ uint32_t last_raw_time=0;
  (void)stacd; (void)exinf;
  b5_core_init(&core,buddy5_clock_ms());
  for(;;) {
@@ -50,6 +54,7 @@ static void scan_task(INT stacd,void *exinf) {
    uint32_t seq=core.next_request_id,id=core.profile.obstacle_id;
    b5_core_init(&core,now); core.next_request_id=seq; core.profile.obstacle_id=id;
    count=0; angle=999; front_valid=false; close_candidate_mm=-1; close_batches=0;
+   raw_seen=false;
   }
   if(abort && !reset) b5_core_fail(&core,B5_FAULT_CONTROLLER,now);
   b5_core_update(&core,now,&feedback,NULL);
@@ -67,6 +72,7 @@ static void scan_task(INT stacd,void *exinf) {
      (uint32_t)(now-last_ping)>=B5_PING_INTERVAL_MS) {
    ultrasonic_result_t raw=ultrasonic_read();
    now=last_ping=buddy5_clock_ms();
+   last_raw=raw; last_raw_time=now; raw_seen=true;
    b5_range_t reading=b5_range_from_raw(raw);
    bool no_echo=b5_range_no_echo(&reading);
    readings[count++]=reading;
@@ -150,7 +156,13 @@ static void scan_task(INT stacd,void *exinf) {
    emit(52,core.profile.side,core.profile.offset_mm,seq);
    emit(54,core.front_clearance_mm==B5_CLEAR_FRONT_MM?-1:core.front_clearance_mm,angle,seq);
    emit(53,core.profile.depth_valid?core.profile.depth_low_mm:-1,core.profile.depth_valid?core.profile.depth_high_mm:-1,seq);
+   emit(55,(int32_t)core.profile.obstacle_id,(int32_t)now,seq);
    emit(56,(core.profile.width_valid?1:0)|(core.profile.depth_valid?2:0)|16,0,seq);
+   /* Raw echo is separate from filtered front clearance; -1 means no fresh
+    * measurement. Status follows ultrasonic_status_t (0..4). */
+   bool raw_fresh=raw_seen && (uint32_t)(now-last_raw_time)<=B5_RAW_REPORT_MAX_AGE_MS;
+   emit(B5_TELEM_RAW_RANGE,raw_fresh && last_raw.status==US_OK?(int32_t)last_raw.distance_mm:-1,
+        raw_fresh?(int32_t)last_raw.status:-1,seq);
    last_report=now;
   }
   publish(now,angle,front_valid,front_time);

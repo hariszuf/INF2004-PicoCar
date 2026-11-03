@@ -70,7 +70,7 @@ function metricPanel(title, fields) {
         term.textContent = label;
         const value = document.createElement("dd");
         value.id = id;
-        value.textContent = ["barcode-result", "ultrasonic-range"].includes(id) ? "Future implementation" : "N/A";
+        value.textContent = id === "barcode-result" ? "Future implementation" : "N/A";
         row.append(term, value);
         list.append(row);
     }
@@ -83,7 +83,7 @@ for (const [view, panels] of Object.entries(sections)) {
     const note = document.createElement("div");
     note.className = "integration-note";
     note.textContent = view === "obstacle"
-        ? "Buddy 5 values are last observations, not a synchronized live snapshot. Width and depth require matching type-56 validity bits. Range status and line reacquisition are not transmitted."
+        ? "Buddy 5 values are last observations, not a synchronized live snapshot. Width and depth require matching type-56 validity bits. Raw range is the last HC-SR04+ ping; its angle may differ from the current servo command."
         : view === "imu"
         ? "Buddy 4 reports measurement validity and sample age separately from the vehicle heartbeat."
         : "N/A indicates that a measurement is unavailable.";
@@ -152,7 +152,7 @@ for (const [view, panels] of Object.entries(sections)) {
     explanation.textContent = "No payload observed from this source in this browser session.";
     const protocolNote = document.createElement("p");
     protocolNote.textContent = view === "obstacle"
-        ? "Source 5: type 50 reports state/fault; 51 reports width and the depth upper bound; 52 reports bypass side and signed offset; 53 reports depth bounds; 54 reports front clearance and commanded servo angle. Type 56 obstacle_validity_mask carries width/depth validity in bits 0/1, and the envelope flags also report out-of-range status. Estimates require matching packet sequences."
+        ? "Source 5: types 50–56 report state, profile, bypass plan and clearance; type 58 reports the last raw ultrasonic range and HC-SR04+ status (0 valid, 1 stuck high, 2 rise timeout, 3 fall timeout, 4 out of range; -1 stale). Type 56 carries width/depth validity in bits 0/1. Estimates require matching packet sequences."
         : view === "imu"
         ? "Source 4 reports tilt, terrain, motion, acquisition diagnostics and the last saved events. The panel uses each packet’s validity flags and shows event times as device uptime."
         : "Raw source/type fields remain visible in MQTT diagnostics. Measurements need confirmed payload meanings, units and validity before integration.";
@@ -160,8 +160,8 @@ for (const [view, panels] of Object.entries(sections)) {
     if (view === "obstacle") {
         for (const text of [
             "The firmware publishes about once per second. State changes are logged to the console; immediate MQTT state-change updates are not wired. The dashboard matches obstacle estimate and validity packets by report sequence.",
-            "The driving profile uses an out-of-range flag for its clearance sentinel. Otherwise range status is unknown. Sensor faults are reported separately.",
-            "Line reacquisitions are counted by the vehicle controller. Raw ultrasonic distance requires a separate measurement.",
+            "The driving profile reports the last raw echo separately from filtered front clearance. A timeout is not a measured free path; a very short valid echo may be filtered as a self-reflection.",
+            "Line reacquisitions are counted by the vehicle controller (source 6). The servo angle is a command, not measured position.",
         ]) {
             const paragraph = document.createElement("p");
             paragraph.textContent = text;
@@ -307,6 +307,7 @@ const telemetryValueKeys = {
     "5/54": ["front_clearance_mm", "servo_command_deg"],
     "5/55": ["obstacle_id", "report_uptime_ms"],
     "5/56": ["obstacle_validity_mask", "telemetry_drops"],
+    "5/58": ["raw_range_mm", "raw_range_status"],
     "2/4": ["left_encoder_ticks", "right_encoder_ticks"],
     "4/11": ["sample_age_ms", "imu_errors"],
     "4/12": ["clipped_samples", "unsuitable_samples"],
@@ -378,7 +379,7 @@ function recordPayload(topic, payload) {
     latestEnvelope = parseEnvelope(payload);
     if (!latestEnvelope) return;
     const observation = { fields: latestEnvelope, at: Date.now(), initial };
-    if (latestEnvelope.src === 5 && latestEnvelope.type >= 50 && latestEnvelope.type <= 56) {
+    if (latestEnvelope.src === 5 && latestEnvelope.type >= 50 && latestEnvelope.type <= 58) {
         const previous = sourceObservations.get(5);
         if (previous && latestEnvelope.seq < previous.fields.seq) obstacleObservations.clear();
         obstacleObservations.set(latestEnvelope.type, observation);
@@ -497,7 +498,12 @@ function updateMeasurements() {
     const range = obstacleObservations.get(54);
     measured("front-clearance", !range || range.fields.value1 === -1 ? "Unknown" : `${range.fields.value1.toLocaleString()} mm`, range || latest);
     measured("servo-angle", range && range.fields.value2 >= -60 && range.fields.value2 <= 60 ? `${range.fields.value2}°` : "N/A", range || latest);
-    measured("range-validity", range?.fields.flags & 32 ? "Out of range" : "Unknown", range || latest);
+    const rawRange = obstacleObservations.get(58);
+    const rawStatus = rawRange?.fields.value2;
+    const rawStatusNames = ["Valid echo", "Echo stuck high", "No echo (rise timeout)", "Incomplete echo (fall timeout)", "Out of range"];
+    const rawKnown = rawRange && Number.isInteger(rawStatus) && rawStatus >= 0 && rawStatus < rawStatusNames.length;
+    measured("ultrasonic-range", rawKnown && rawStatus === 0 && rawRange.fields.value1 >= 0 ? `${rawRange.fields.value1.toLocaleString()} mm` : "Unknown", rawRange || latest);
+    measured("range-validity", rawKnown ? rawStatusNames[rawStatus] : "Unknown", rawRange || latest);
     const validity = obstacleObservations.get(56);
     const mask = validity?.fields.value1;
     const knownMask = validity && mask >= 0 && (mask & ~23) === 0;
@@ -535,6 +541,7 @@ const telemetryValueLabels = {
     "5/54": ["Front clearance (mm)", "Commanded servo angle (°)"],
     "5/55": ["Obstacle ID", "Report uptime (ms)"],
     "5/56": ["Obstacle validity bitmask", "Telemetry drops"],
+    "5/58": ["Raw ultrasonic range (mm)", "Ultrasonic status code"],
     "2/4": ["Left encoder ticks", "Right encoder ticks"],
     "4/11": ["Sample age (ms)", "IMU errors"],
     "4/12": ["Clipped samples", "Unsuitable samples"],
@@ -550,7 +557,7 @@ const telemetryValueLabels = {
 function updateTelemetryDisplay() {
     byId("telemetry-age").textContent = !hasTelemetryObservation ? "N/A" : lastTelemetryChange === null ? "Cached; age unknown" : `Changed ${ageLabel(Date.now() - lastTelemetryChange)} ago`;
     const fields = latestEnvelope;
-    const types = { 1: "Heartbeat", 2: "State", 3: "Motor speed", 4: "Encoder", 5: "Line sensor", 6: "Barcode", 7: "IMU", 8: "Hump", 9: "Ultrasonic", 10: "Odometry", 11: "IMU acquisition", 12: "IMU sample counters", 13: "Terrain and side", 14: "Estimated motion and yaw", 15: "Wheel height and quality", 16: "Saved peak heights", 17: "Saved ramp event", 18: "Possible impacts", 50: "Obstacle state", 51: "Obstacle size", 52: "Bypass plan", 53: "Depth bounds", 54: "Front clearance", 55: "Obstacle correlation", 56: "Obstacle validity", 57: "Line reacquisition" };
+    const types = { 1: "Heartbeat", 2: "State", 3: "Motor speed", 4: "Encoder", 5: "Line sensor", 6: "Barcode", 7: "IMU", 8: "Hump", 9: "Ultrasonic", 10: "Odometry", 11: "IMU acquisition", 12: "IMU sample counters", 13: "Terrain and side", 14: "Estimated motion and yaw", 15: "Wheel height and quality", 16: "Saved peak heights", 17: "Saved ramp event", 18: "Possible impacts", 50: "Obstacle state", 51: "Obstacle size", 52: "Bypass plan", 53: "Depth bounds", 54: "Front clearance", 55: "Obstacle correlation", 56: "Obstacle validity", 57: "Line reacquisition", 58: "Raw ultrasonic range" };
     const rawSequence = previousPayloads.get(telemetryTopic)?.match(/(?:^|\s)seq=(\d+)(?=\s|$)/);
     const sequence = rawSequence && Number(rawSequence[1]) <= 4294967295 ? rawSequence[1] : "N/A";
     byId("sequence").textContent = fields ? String(fields.seq) : sequence;
@@ -618,7 +625,7 @@ async function refreshDashboard() {
                 const observation = { fields, at: now - age_seconds * 1000, received: true };
                 sensorObservations.set(`${fields.src}/${fields.type}`, observation);
                 sourceObservations.set(fields.src, observation);
-                if (fields.src === 5 && fields.type <= 56) obstacleObservations.set(fields.type, observation);
+                if (fields.src === 5 && fields.type <= 58) obstacleObservations.set(fields.type, observation);
             }
         }
         if (typeof telemetry.value[statusTopic] === "string") byId("status").textContent = telemetry.value[statusTopic];

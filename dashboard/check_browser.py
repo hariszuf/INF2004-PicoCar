@@ -124,7 +124,15 @@ def check(browser, url, output):
     page.goto(url + "#obstacle")
     expect(page.locator("#front-clearance")).to_contain_text("0 mm")
     expect(page.locator("#range-validity")).to_contain_text("Unknown")
-    expect(page.locator("#ultrasonic-range")).to_have_text("Future implementation")
+    expect(page.locator("#ultrasonic-range")).to_have_text("N/A")
+    telemetry["picocar/vehicle1/telemetry"] = "src=5 type=58 seq=8 raw_range_mm=187 raw_range_status=0 flags=16"
+    refresh()
+    expect(page.locator("#ultrasonic-range")).to_contain_text("187 mm")
+    expect(page.locator("#range-validity")).to_contain_text("Valid echo")
+    telemetry["picocar/vehicle1/telemetry"] = "src=5 type=58 seq=9 raw_range_mm=-1 raw_range_status=2 flags=16"
+    refresh()
+    expect(page.locator("#ultrasonic-range")).to_contain_text("Unknown")
+    expect(page.locator("#range-validity")).to_contain_text("No echo (rise timeout)")
     telemetry["picocar/vehicle1/telemetry"] = "src=5 type=54 seq=9 value1=-1 value2=999"
     refresh()
     expect(page.locator("#front-clearance")).to_contain_text("Unknown")
@@ -151,7 +159,7 @@ def check(browser, url, output):
     expect(page.locator("#bypass-side")).to_contain_text("Right")
     expect(page.locator("#bypass-offset")).to_contain_text("-190 mm")
     expect(page.locator("#line-reacquired")).to_have_text("N/A")
-    expect(page.locator("#range-validity")).to_contain_text("Unknown")
+    expect(page.locator("#range-validity")).to_contain_text("No echo (rise timeout)")
 
     # A later validity packet cannot validate older size/depth observations.
     buddy5(56, 12, 0, 0)

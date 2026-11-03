@@ -54,6 +54,7 @@
 #define B5_TELEM_PLAN 52u
 #define B5_TELEM_DEPTH_BOUNDS 53u
 #define B5_TELEM_FRONT 54u
+#define B5_TELEM_RAW_RANGE 58u /* Last HC-SR04+ result: mm and ultrasonic_status_t. */
 /* Automatic powered-on driving profile: continuous forward readings. */
 #define B5_GUARD_FRONT_MM 150
 /* After a full scan has selected a side, allow the initial lateral bypass to

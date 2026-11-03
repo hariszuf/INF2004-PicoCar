@@ -87,7 +87,7 @@
 /** Neither sensor sees black: keep turning toward the side the line was last
  *  seen for this long, then stop. Set to 0 for the original behaviour (stop at once). */
 #define LINE_RECOVER_MS             (500u)   /* tolerate a brief sensor dropout before stopping */
-#define LINE_RECOVER_INNER_CM_S     (-2.0f)  /* inside wheel while recovering (negative = backwards) */
+#define LINE_RECOVER_INNER_CM_S     (0.0f)   /* search without reversing an inner wheel */
 
 /* ------------------------------------------------------------------ */
 /* Sensor geometry (host simulation only)                              */

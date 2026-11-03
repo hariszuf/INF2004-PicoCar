@@ -64,7 +64,9 @@
 #define MOTION_DEFAULT_SPEED_CM_S       (20.0f)   /* TUNE */
 #define MOTION_MAX_SPEED_CM_S           (40.0f)   /* TUNE: measure at full duty */
 #define MOTION_MIN_SPEED_CM_S           (6.0f)    /* creep speed near target */
+#ifndef MOTION_TURN_SPEED_CM_S
 #define MOTION_TURN_SPEED_CM_S          (15.0f)   /* wheel speed during a spin */
+#endif
 #define MOTION_MIN_TURN_SPEED_CM_S      (5.0f)
 #define MOTION_ACCEL_CM_S2              (60.0f)   /* TUNE */
 #define MOTION_DECEL_CM_S2              (80.0f)   /* TUNE */

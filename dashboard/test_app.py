@@ -50,6 +50,14 @@ class DashboardTests(unittest.TestCase):
         client.subscribe.assert_called_once_with([
             (dashboard.TOPIC_STATUS, 0), (dashboard.TOPIC_TELEMETRY, 0)])
 
+    def test_buddy5_raw_range_packet_is_retained_for_dashboard(self):
+        payload = b"src=5 type=58 seq=12 raw_range_mm=187 raw_range_status=0 flags=16"
+        dashboard.on_message(None, None, SimpleNamespace(
+            topic=dashboard.TOPIC_TELEMETRY, payload=payload))
+        frames = dashboard.get_telemetry()["sensor_frames"]
+        self.assertEqual(len(frames), 1)
+        self.assertEqual(frames[0]["payload"], payload.decode())
+
     def test_commands_are_validated_and_publish_is_not_acknowledgement(self):
         with self.assertRaises(HTTPException) as error:
             dashboard.send_command("TURN")
