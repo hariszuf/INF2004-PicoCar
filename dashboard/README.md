@@ -108,8 +108,8 @@ since reset, not a cumulative path-length counter. Buddy 2 does not publish an
 agreed distance field to MQTT, so the dashboard shows N/A rather than estimating
 distance from incomplete speed/encoder messages.
 
-The Buddy 5 view interprets these source-5 messages, as emitted by
-`app_program/buddy5/buddy5.c` and the separate full-test `scan_task.c`:
+The Buddy 5 view interprets these source-5 messages. The integrated car emits
+them from `app_program/buddy5/rtos/scan_task.c`:
 
 | Type | Value 1 | Value 2 |
 | --- | --- | --- |
@@ -118,13 +118,14 @@ The Buddy 5 view interprets these source-5 messages, as emitted by
 | 52 | Bypass side: +1 left, -1 right | Signed sideways offset in mm |
 | 53 | Depth lower bound in mm, or -1 | Depth upper bound in mm, or -1 |
 | 54 | Derived front clearance in mm | Commanded servo angle in degrees |
-| 55 | Obstacle ID | Acquisition uptime (standard publisher only) |
-| 56 | Validity/profile bit mask | Dropped telemetry count (standard publisher) |
+| 55 | Obstacle ID | Report uptime in ms |
+| 56 | Validity/profile bit mask | Reserved (integrated car) |
+| 58 | Last raw HC-SR04+ range in mm, or -1 | Raw status: 0 valid, 1 echo stuck high, 2 rise timeout, 3 fall timeout, 4 out of range; -1 stale/unavailable |
 
-Type 56 carries width/depth validity in value1 bits 0/1. This survives the text
-publisher even though the envelope's internal `flags` field is omitted. Bit 2
-marks the standard stationary bench profile; bit 4 marks the separate full-test
-profile. Unknown mask bits are not used to approve estimates.
+Type 56 carries width/depth validity in value1 bits 0/1. Bit 2 marks the
+stationary bench profile; bit 4 marks the integrated driving profile. The MQTT
+envelope also transmits its `flags` field. Unknown mask bits are not used to
+approve estimates.
 
 Width and depth are displayed only when their packet and type-56 validity packet
 share the latest observed source-5 sequence. Depth bounds must also be ordered.
@@ -139,16 +140,12 @@ to the console, but immediate MQTT updates on state change are not implemented.
 The backend still holds only one payload per topic, so a coherent status snapshot
 requires future publisher/receiver integration rather than a frontend assumption.
 
-Range status remains **Unknown**: `valid`, `no echo` and `invalid` are not sent as
-distinct fields. In `buddy5_full/scan_task.c`, no echo is converted to `-1` in
-type 54, making it indistinguishable from unavailable data in the text envelope.
-The dashboard therefore shows Unknown for this sentinel and never interprets it
-as measured free space. A non-sentinel clearance is only a reported measurement;
-it does not establish sensor validity. Raw ultrasonic range remains N/A.
-
-Line reacquisition comes from navigation feedback but is not published as an
-event; its dashboard field stays N/A. A return to Monitoring does not substitute
-for an event. No firmware, publish schedule, MQTT protocol or API is changed.
+Type 58 reports the most recent raw ping only while it is at most two seconds
+old. The dashboard displays range only for status 0; a timeout does not establish
+free space. Type 54 remains the filtered, derived *front clearance* and servo
+command. Its `-1` sentinel is Unknown. During a scan, the latest raw ping may
+have been taken at a different angle from the current servo command. The
+integrated car also reports line reacquisition count on source 6/type 57.
 
 ### General status semantics
 
@@ -166,12 +163,11 @@ for an event. No firmware, publish schedule, MQTT protocol or API is changed.
   MQTT mapping are labelled as not integrated. A payload observation alone does
   not establish a valid measurement or a healthy subsystem.
 - Buddy 5 source 5/type 50 displays the state and fault enums in
-  `app_program/buddy5/buddy5_core.h`. Source 5/type 54 displays derived front
+  `app_program/buddy5/rtos/buddy5_core.h`. Source 5/type 54 displays derived front
   clearance (mm) and commanded servo angle (degrees), as published in
-  `app_program/buddy5/buddy5.c`. Clearance `-1` is unknown; zero and other
+  `app_program/buddy5/rtos/scan_task.c`. Clearance `-1` is unknown; zero and other
   signed clearance values are preserved. The servo angle is a command, not
-  measured servo position. Raw ultrasonic range and range validity remain N/A
-  or unknown because this envelope does not supply them.
+  measured servo position. Type 58 supplies the last raw range and status.
 - Interpreted values are held only in this browser session, with observation
   labels. They remain last observations when the link fails or the heartbeat
   goes stale. They are not a synchronized vehicle snapshot.

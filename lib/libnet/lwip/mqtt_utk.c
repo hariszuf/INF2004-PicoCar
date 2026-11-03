@@ -332,6 +332,7 @@ static const struct {
     {5, 54, "front_clearance_mm", "servo_command_deg"},
     {5, 55, "obstacle_id", "report_uptime_ms"},
     {5, 56, "obstacle_validity_mask", "telemetry_drops"},
+    {5, 58, "raw_range_mm", "raw_range_status"},
     {2, 4, "left_encoder_ticks", "right_encoder_ticks"},
     {4, 11, "sample_age_ms", "imu_errors"},
     {4, 12, "clipped_samples", "unsuitable_samples"},
