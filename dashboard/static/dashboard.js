@@ -22,7 +22,7 @@ const subsystems = [
 const sections = {
     motion: [
         ["Motor feedback", [["Left motor speed", "motor-left"], ["Right motor speed", "motor-right"], ["Motor status", "motor-status"]]],
-        ["Movement & encoders", [["Left encoder", "encoder-left"], ["Right encoder", "encoder-right"], ["Movement direction", "movement-direction"]]],
+        ["Movement & encoders", [["Left encoder", "encoder-left"], ["Right encoder", "encoder-right"], ["Movement direction", "movement-direction"], ["Distance travelled (cm, signed)", "distance-travelled"]]],
     ],
     line: [
         ["Line sensing", [["Left IR sensor", "ir-left"], ["Centre IR sensor", "ir-centre"], ["Right IR sensor", "ir-right"]]],
@@ -34,7 +34,7 @@ const sections = {
     ],
     obstacle: [
         ["Range observations", [["Ultrasonic range", "ultrasonic-range"], ["Front clearance", "front-clearance"], ["Commanded servo angle", "servo-angle"]]],
-        ["Obstacle monitor", [["Detection state", "obstacle-state"], ["Reported fault", "obstacle-fault"], ["Range validity", "range-validity"]]],
+        ["Obstacle monitor", [["Detection state", "obstacle-state"], ["Reported fault", "obstacle-fault"], ["Range status", "range-validity"], ["Line reacquired event", "line-reacquired"]]],
     ],
 };
 
@@ -82,7 +82,7 @@ for (const [view, panels] of Object.entries(sections)) {
     const note = document.createElement("div");
     note.className = "integration-note";
     note.textContent = view === "obstacle"
-        ? "Only verified Buddy 5 text fields are interpreted. Sensor validity and sample age are not supplied by the current MQTT envelope."
+        ? "Buddy 5 values are last observations, not a synchronized live snapshot. Width and depth require matching type-56 validity bits. Range status and line reacquisition are not transmitted."
         : view === "imu"
         ? "Buddy 4 is not connected to MQTT. Current measurements and saved event results remain N/A. A fresh vehicle heartbeat does not establish sensor freshness."
         : "Sensor measurements are not integrated into the current MQTT interface. N/A does not mean zero or healthy.";
@@ -90,6 +90,27 @@ for (const [view, panels] of Object.entries(sections)) {
     grid.className = "two-column";
     for (const [title, fields] of panels) grid.append(metricPanel(title, fields));
     root.append(note, grid);
+    if (view === "motion") {
+        const distanceNote = document.createElement("p");
+        distanceNote.className = "panel-note";
+        distanceNote.textContent = "Distance is signed odometry since reset, not cumulative path length. Its MQTT mapping is not integrated, so it remains N/A.";
+        root.append(distanceNote);
+    }
+    if (view === "obstacle") {
+        const heading = document.createElement("div");
+        heading.className = "section-heading";
+        heading.innerHTML = "<h2>Obstacle profile &amp; bypass plan</h2><span class='muted'>Reported estimates, not certified clearance</span>";
+        const profile = document.createElement("div");
+        profile.className = "two-column";
+        profile.append(
+            metricPanel("Width & bypass", [["Estimated obstacle width", "obstacle-width"], ["Width validity", "obstacle-width-validity"], ["Chosen bypass side", "bypass-side"], ["Planned sideways offset", "bypass-offset"]]),
+            metricPanel("Depth estimate", [["Depth lower bound", "depth-low"], ["Depth upper bound", "depth-high"], ["Depth validity", "depth-validity"], ["Validity packet sequence", "obstacle-profile-sequence"]]),
+        );
+        const profileNote = document.createElement("p");
+        profileNote.className = "panel-note";
+        profileNote.textContent = "Unknown estimates are never shown as -1 mm. Signed bypass offsets are positive left and negative right. Polling may miss packets in a telemetry burst.";
+        root.append(heading, profile, profileNote);
+    }
     if (view === "imu") {
         const diagnosticsHeading = document.createElement("div");
         diagnosticsHeading.className = "section-heading";
@@ -130,11 +151,22 @@ for (const [view, panels] of Object.entries(sections)) {
     explanation.textContent = "No payload observed from this source in this browser session.";
     const protocolNote = document.createElement("p");
     protocolNote.textContent = view === "obstacle"
-        ? "Source 5, type 50 reports state/fault; type 54 reports derived front clearance in mm and commanded servo angle in degrees. A clearance of -1 is unavailable. These are browser-held last observations, not guaranteed current samples. Raw messages remain in MQTT diagnostics."
+        ? "Source 5: type 50 reports state/fault; 51 reports width and the depth upper bound; 52 reports bypass side and signed offset; 53 reports depth bounds; 54 reports front clearance and commanded servo angle. Type 56 value1 carries width/depth validity in bits 0/1, independently of the omitted envelope flags. Estimates require matching packet sequences."
         : view === "imu"
         ? "Buddy 4 has a native snapshot, but no MQTT publisher submission or agreed payload mapping for its measurements. Source 4 and IMU/hump type identifiers alone do not define units, validity or timestamps. Raw payloads remain available in MQTT diagnostics without populating these fields."
         : "Raw source/type fields remain visible in MQTT diagnostics. Measurements need confirmed payload meanings, units and validity before integration.";
     details.append(summary, explanation, protocolNote);
+    if (view === "obstacle") {
+        for (const text of [
+            "The firmware publishes about once per second. State changes are logged to the console; immediate MQTT state-change updates are not wired. A coherent status snapshot is not available through the latest-payload API. Sequence matching reduces mixing but does not provide an atomic device snapshot or a boot identity.",
+            "The standard and full-test publishers do not send a range-status field. The full-test profile maps no echo to -1, which is also used for unavailable data. The dashboard therefore reports Unknown instead of declaring a valid range, no echo or a clear path. A sensor fault is shown separately; it is not treated as a range-status packet.",
+            "Line reacquisition belongs to shared navigation and is not published as an event. Returning to Monitoring is not proof of a line-reacquired event. Those results remain N/A until integrated.",
+        ]) {
+            const paragraph = document.createElement("p");
+            paragraph.textContent = text;
+            details.append(paragraph);
+        }
+    }
     if (view === "imu") {
         for (const text of [
             "Firmware quality states are GRAVITY_LIKE, NON_GRAVITY, CLIPPED, NONFINITE and UNAVAILABLE. Acquisition validity and gravity-based tilt validity are distinct. Clipped samples also contribute to the unsuitable tilt count; these counts must not be added together.",
@@ -311,8 +343,12 @@ function recordPayload(topic, payload) {
     latestEnvelope = parseEnvelope(payload);
     if (!latestEnvelope) return;
     const observation = { fields: latestEnvelope, at: Date.now(), initial };
+    if (latestEnvelope.src === 5 && latestEnvelope.type >= 50 && latestEnvelope.type <= 56) {
+        const previous = sourceObservations.get(5);
+        if (previous && latestEnvelope.seq < previous.fields.seq) obstacleObservations.clear();
+        obstacleObservations.set(latestEnvelope.type, observation);
+    }
     sourceObservations.set(latestEnvelope.src, observation);
-    if (latestEnvelope.src === 5 && [50, 54].includes(latestEnvelope.type)) obstacleObservations.set(latestEnvelope.type, observation);
 }
 
 function observationLabel(observation) {
@@ -340,23 +376,43 @@ function updateMeasurements() {
             byId(`${subsystem.view}-observation`).textContent = `Source ${observation.fields.src}, type ${observation.fields.type}, sequence ${observation.fields.seq}. ${observationLabel(observation)}. Validity is not established by receiving a payload.`;
         }
     }
+    const latest = sourceObservations.get(5);
+    if (!latest) return;
     const state = obstacleObservations.get(50);
-    if (state) {
-        measured("obstacle-state", stateNames[state.fields.value1] ?? `Unknown state (${state.fields.value1})`, state, state.fields.value1 === 6 ? "fault" : "neutral");
-        measured("obstacle-fault", faultNames[state.fields.value2] ?? `Unknown fault (${state.fields.value2})`, state, state.fields.value2 === 0 ? "neutral" : "fault");
-    }
+    measured("obstacle-state", state ? stateNames[state.fields.value1] ?? `Unknown state (${state.fields.value1})` : "Unknown", state || latest, state?.fields.value1 === 6 ? "fault" : "neutral");
+    measured("obstacle-fault", state ? faultNames[state.fields.value2] ?? `Unknown fault (${state.fields.value2})` : "Unknown", state || latest, state && state.fields.value2 !== 0 ? "fault" : "neutral");
     const range = obstacleObservations.get(54);
-    if (range) {
-        measured("front-clearance", range.fields.value1 === -1 ? "N/A" : `${range.fields.value1.toLocaleString()} mm`, range);
-        measured("servo-angle", range.fields.value2 >= -60 && range.fields.value2 <= 60 ? `${range.fields.value2}°` : "N/A", range);
-        measured("range-validity", "Unknown", range);
+    measured("front-clearance", !range || range.fields.value1 === -1 ? "Unknown" : `${range.fields.value1.toLocaleString()} mm`, range || latest);
+    measured("servo-angle", range && range.fields.value2 >= -60 && range.fields.value2 <= 60 ? `${range.fields.value2}°` : "N/A", range || latest);
+    measured("range-validity", "Unknown", range || latest);
+    const validity = obstacleObservations.get(56);
+    const mask = validity?.fields.value1;
+    const knownMask = validity && mask >= 0 && (mask & ~23) === 0;
+    measured("obstacle-profile-sequence", validity ? String(validity.fields.seq) : "N/A", validity || latest);
+    for (const [type, bit, ids, validityId] of [
+        [51, 1, ["obstacle-width"], "obstacle-width-validity"],
+        [53, 2, ["depth-low", "depth-high"], "depth-validity"],
+    ]) {
+        const estimate = obstacleObservations.get(type);
+        // Validity from another report must never approve an older estimate.
+        const matched = knownMask && estimate && estimate.fields.seq === validity.fields.seq && validity.fields.seq === latest.fields.seq;
+        const values = estimate ? [estimate.fields.value1, estimate.fields.value2] : [];
+        const numericValid = type === 51 ? values[0] > 0 : values[0] >= 0 && values[1] >= values[0];
+        const valid = matched && (mask & bit) !== 0 && numericValid;
+        const label = !matched ? "Unknown" : !(mask & bit) ? "Invalid (reported)" : valid ? "Valid (reported)" : "Inconsistent";
+        measured(validityId, label, validity || estimate || latest);
+        ids.forEach((id, index) => measured(id, valid ? `${values[index].toLocaleString()} mm` : "Unknown", estimate || validity || latest));
     }
+    const plan = obstacleObservations.get(52);
+    const planned = plan && plan.fields.seq === latest.fields.seq && [1, -1].includes(plan.fields.value1);
+    measured("bypass-side", planned ? plan.fields.value1 === 1 ? "Left" : "Right" : "Unknown", plan || latest);
+    measured("bypass-offset", planned ? `${plan.fields.value2.toLocaleString()} mm` : "Unknown", plan || latest);
 }
 
 function updateTelemetryDisplay() {
     byId("telemetry-age").textContent = !hasTelemetryObservation ? "N/A" : lastTelemetryChange === null ? "Cached; age unknown" : `Changed ${ageLabel(Date.now() - lastTelemetryChange)} ago`;
     const fields = latestEnvelope;
-    const types = { 1: "Heartbeat", 2: "State", 3: "Motor speed", 4: "Encoder", 5: "Line sensor", 6: "Barcode", 7: "IMU", 8: "Hump", 9: "Ultrasonic", 50: "Obstacle state", 54: "Front clearance" };
+    const types = { 1: "Heartbeat", 2: "State", 3: "Motor speed", 4: "Encoder", 5: "Line sensor", 6: "Barcode", 7: "IMU", 8: "Hump", 9: "Ultrasonic", 50: "Obstacle state", 51: "Obstacle size", 52: "Bypass plan", 53: "Depth bounds", 54: "Front clearance", 55: "Obstacle correlation", 56: "Obstacle validity" };
     const rawSequence = previousPayloads.get(telemetryTopic)?.match(/(?:^|\s)seq=(\d+)(?=\s|$)/);
     const sequence = rawSequence && Number(rawSequence[1]) <= 4294967295 ? rawSequence[1] : "N/A";
     byId("sequence").textContent = fields ? String(fields.seq) : sequence;
