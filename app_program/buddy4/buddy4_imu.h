@@ -28,6 +28,20 @@ typedef enum {
     BUDDY4_NOT_READY,
 } buddy4_result_t;
 
+/* Acquisition success is independent of suitability for gravity-based tilt. */
+typedef enum {
+    BUDDY4_QUALITY_UNAVAILABLE,
+    BUDDY4_QUALITY_GRAVITY_LIKE,
+    BUDDY4_QUALITY_CLIPPED,
+    BUDDY4_QUALITY_NONFINITE,
+    BUDDY4_QUALITY_NON_GRAVITY,
+} buddy4_quality_t;
+
+typedef struct {
+    bool valid; /* Last verification succeeded; not continuous verification. */
+    uint8_t who_am_i, ctrl[6]; /* CTRL0,1,2,3,4,7, in that order. */
+} buddy4_sensor_config_t;
+
 typedef struct {
     /* Sensor XYZ: corrected = (uncorrected - bias) * scale. Identity: 0, 1. */
     float accel_bias_g[3];
@@ -65,7 +79,13 @@ typedef struct {
 } side_event_t;
 
 typedef struct {
-    bool valid;             /* True only for the latest successful fresh poll. */
+    bool valid;             /* Acquisition only: latest complete, fresh poll. */
+    bool acceleration_valid; /* Finite, non-clipped; usable by impact observer. */
+    bool tilt_valid;        /* Gravity-like input; still not proof of static tilt. */
+    buddy4_quality_t quality;
+    uint8_t clipped_axes;   /* XYZ bit mask: exact signed ADC endpoints. */
+    uint8_t status_a;       /* Last status read; overrun is not clipping. */
+    uint32_t clipped_samples, unsuitable_samples; /* Saturating history. */
     uint64_t timestamp_us;  /* Host acquisition time of last fresh sample. */
     uint32_t error_count;   /* Configuration/transfer failures; excludes stale. */
     int16_t raw[3];         /* X, Y, Z signed sensor counts. */
@@ -94,6 +114,8 @@ typedef struct {
     bool ready;
     bool has_sample;
     bool filter_valid;
+    bool tilt_filter_valid;
+    buddy4_sensor_config_t sensor_config;
     bool bump_armed;
     bool had_bump;
     float baseline;
@@ -113,9 +135,18 @@ void buddy4_init(buddy4_imu_t *imu, buddy4_bus_t bus, buddy4_config_t config);
  * Call after init, using bounded bus callbacks. */
 bool buddy4_configure(buddy4_imu_t *imu);
 
+/* Bounded readback, no register writes. Failure aborts detection, clears ready,
+ * increments configuration/transfer errors. Caller may retry configuration. */
+bool buddy4_verify_config(buddy4_imu_t *imu);
+const char *buddy4_quality_name(int quality);
+
 /* Check data-ready once and process at most one sample; never wait for freshness.
  * Supply monotonic host timestamps, normally at BUDDY4_PERIOD_US intervals.
- * Check output.valid: non-fresh calls retain measurements and their timestamp.
+ * output.valid means acquisition only; tilt_valid gates tilt/height/peaks;
+ * acceleration_valid gates impact input. Questionable fresh samples retain raw
+ * diagnostics, abort the active tilt event without completion, reset its filter,
+ * and preserve ended_event. Clipping does not increment error_count.
+ * Non-fresh calls retain measurements and their timestamp with validity false.
  * Stale samples restart both estimator windows, retaining accepted event peaks.
  * Completed-event snapshots survive errors/reconfiguration until the next event ends.
  * Transfer errors abort the event,

@@ -1,0 +1,16 @@
+[
+  {
+    "file": "imu_non_gravity_1420.txt",
+    "source_filename": "Pasted text(20261102-062027).txt",
+    "sha256": "32b6b6db5c2a10373b2d91e4a26b1aba897fdbb5a60ca653cc44c827a701faba",
+    "complete_rows": 792,
+    "driving_rows": 196
+  },
+  {
+    "file": "foam_contact_1424.txt",
+    "source_filename": "Pasted text(20261102-062402).txt",
+    "sha256": "eb14160076e652b061d88278c632576a8a7ce36979768890a95eb57962d57337",
+    "complete_rows": 754,
+    "driving_rows": 201
+  }
+]

@@ -122,6 +122,37 @@ static void test_impact_release_faults(void)
         assert(!impact.output.possible_impact&&impact.output.event_count==1);
     }
 }
+static void task_horizontal(float x)
+{
+    vector(&bus_sensor,x/imu.config.accel_scale[0]+imu.config.accel_bias_g[0],
+        imu.config.accel_bias_g[1],-1/imu.config.accel_scale[2]+imu.config.accel_bias_g[2]);
+}
+static void test_horizontal_impact_task(void)
+{
+    /* Actual owner -> native bridge -> production-calibrated XYZ -> snapshot.
+     * The original magnitude-only observer cannot confirm this disturbance. */
+    assert(buddy4_impact_init(&impact,buddy4_impact_default_config()));
+    task_horizontal(0);tick(10000000);
+    task_horizontal(0.45f);tick(10020000);
+    assert(next.impact_valid&&!next.possible_impact&&next.impact_count==0);
+    tick(10040000);
+    buddy4_task_snapshot_t out;
+    assert(buddy4_task_get(&out)==E_OK&&out.possible_impact&&out.impact_count==1);
+    assert(fabsf(out.impact_deviation_g-0.45f)<0.001f);
+    assert(out.magnitude_g<1.10f&&out.impact_time_us==10040000);
+    assert(buddy4_task_get(&out)==E_OK&&out.impact_count==1);
+    tick(10060000);assert(!next.possible_impact&&next.impact_count==1);
+    raw_vector(&bus_sensor,INT16_MAX,0,0);tick(10080000);
+    assert(!next.impact_valid&&!next.possible_impact&&next.impact_count==1);
+    task_horizontal(0);
+    for(uint64_t t=10100000;t<=10140000;t+=20000)tick(t);
+    task_horizontal(0.45f);tick(10160000);tick(10180000);
+    assert(!next.possible_impact&&next.impact_count==1); /* Cooldown survives. */
+    task_horizontal(0);
+    for(uint64_t t=10200000;t<=10800000;t+=20000)tick(t);
+    task_horizontal(0.45f);tick(10820000);tick(10840000);
+    assert(next.possible_impact&&next.impact_count==2);
+}
 int main(void)
 {
     buddy4_task_snapshot_t out;
@@ -219,7 +250,7 @@ int main(void)
     assert(elapsed_ms(UINT64_MAX,0)==UINT32_MAX);
     fail_device=E_TMOUT;tick(3500000);
     assert(!next.valid&&next.saved_error_code==E_TMOUT&&next.saved_error_us==3500000);
-    assert(next.saved_error_register==0x27&&next.saved_error_read);
+    assert(next.saved_error_register==0x0f&&next.saved_error_read); /* Periodic identity read. */
     for(unsigned i=0;i<32;i++)assert(next.saved_timeout_trace[i]==100+i);
     fail_device=0;tick(4520000);
     assert(next.valid&&device.last_error==E_OK);
@@ -254,8 +285,52 @@ int main(void)
     fake_clock=4940000;assert(buddy4_task_get(&out)==0&&!out.motion_valid&&!out.yaw_valid);
     assert(out.motion_state==BUDDY4_MOTION_UNKNOWN);
 
+    /* Actual owner task, successful native device requests, clipped input.
+     * Retain completed tilt/impact history, clear pending evidence, recover. */
+    uint32_t completed=next.completed_events;
+    buddy4_task_event_t completed_result=next.last_event;
+    assert(buddy4_impact_init(&impact,buddy4_impact_default_config()));
+    calibrated_roll(6);tick(6000000);
+    for(uint64_t t=6020000;t<=6100000;t+=20000)tick(t);
+    assert(imu.output.event.side && !imu.output.event.peak_confirmed);
+    for(int i=0;i<3;++i) {
+        float mag=i?1.6f:1.0f;
+        vector(&bus_sensor,imu.config.accel_bias_g[0],imu.config.accel_bias_g[1],
+            -mag/imu.config.accel_scale[2]+imu.config.accel_bias_g[2]);
+        tick(6120000+i*20000);
+    }
+    assert(next.impact_count==1);
+    uint64_t impact_time=next.impact_time_us;
+    uint32_t errors=next.io_errors;
+    raw_vector(&bus_sensor,INT16_MIN,INT16_MIN,INT16_MIN);
+    for(uint64_t t=6180000;t<=6500000;t+=20000) {
+        tick(t);assert(buddy4_task_get(&out)==E_OK);
+        assert(out.valid && !out.tilt_valid && !out.acceleration_valid);
+        assert(out.measurement_quality==BUDDY4_QUALITY_CLIPPED && out.clipped_axes==7);
+        assert(!out.impact_valid && !out.possible_impact && !impact.pending_samples);
+        assert(out.impact_count==1 && out.impact_time_us==impact_time);
+        assert(out.io_errors==errors && !out.side_event_ended && !imu.output.event.side);
+        assert(out.completed_events==completed);
+        assert(memcmp(&out.last_event,&completed_result,sizeof(completed_result))==0);
+    }
+    assert(out.clipped_samples==17 && out.unsuitable_samples>=17);
+    assert(out.who_am_i==0x49 && out.sensor_config_valid && out.sensor_ctrl[1]==0x6f);
+    calibrated_roll(6);
+    for(uint64_t t=6520000;t<=6700000;t+=20000)tick(t);
+    assert(next.valid && next.tilt_valid && next.impact_valid && !next.possible_impact);
+    assert(!imu.output.event.peak_confirmed && !imu.output.event.median_candidate_valid);
+    tick(6720000);assert(imu.output.event.peak_confirmed && imu.output.event.median_candidate_valid);
+    assert(next.clipped_samples==17 && next.impact_count==1 && next.completed_events==completed);
+    /* A runtime configuration mismatch is explicitly a verification failure. */
+    bus_sensor.regs[0x21]^=0x08;tick(8000000);
+    assert(!next.valid && !next.sensor_config_valid && next.io_errors==errors+1);
+    assert(next.sensor_ctrl[2]!=0xc0 && next.completed_events==completed && next.impact_count==1);
+    tick(9020000);assert(next.valid && next.sensor_config_valid && next.tilt_valid);
+
     fail_device=1;assert(b.write(b.context,0x1d,(uint8_t[]){0x20,0x6f},2,false)==-1);
     test_impact_release_faults();
+    fail_device=0;
+    test_horizontal_impact_task();
     puts("Native MTK task/device bridge tests passed: lifecycle, combined I/O, invalid/stale/reversed/duplicate input, recovery and snapshots");
     return 0;
 }

@@ -36,13 +36,20 @@ void buddy4_impact_update(buddy4_impact_t *d, float x,float y,float z,
     d->output.sample_us=sample; d->output.magnitude_g=mag;
     d->output.valid=true;
     if (!d->primed) {
-        d->baseline_g=d->output.baseline_g=mag; d->output.deviation_g=0;
+        d->baseline_xyz_g[0]=x; d->baseline_xyz_g[1]=y; d->baseline_xyz_g[2]=z;
+        d->output.baseline_g=mag; d->output.deviation_g=0;
         d->primed=true; /* Startup can arm; recovery must observe calm samples. */
         d->armed = d->output.event_count == 0;
         return;
     }
-    d->output.baseline_g=d->baseline_g; /* Reference used for this sample. */
-    float signal=fabsf(mag-d->baseline_g);
+    /* Subtract before taking the norm: a horizontal change must not disappear
+     * into the ~1 g gravity magnitude. This tracked vector includes gravity,
+     * sensor DC and slow motion; it is not an independent gravity estimate. */
+    d->output.baseline_g=hypotf(hypotf(d->baseline_xyz_g[0],d->baseline_xyz_g[1]),
+                              d->baseline_xyz_g[2]);
+    float signal=hypotf(hypotf(x-d->baseline_xyz_g[0],y-d->baseline_xyz_g[1]),
+                        z-d->baseline_xyz_g[2]);
+    if (!isfinite(signal)) { invalidate(d); return; }
     d->output.deviation_g=signal;
     if (signal <= d->config.release_g) {
         if (d->calm_samples < 2) ++d->calm_samples;
@@ -59,10 +66,13 @@ void buddy4_impact_update(buddy4_impact_t *d, float x,float y,float z,
             d->armed=false; d->pending_samples=0;
         }
     } else d->pending_samples=0;
-    /* Freeze baseline during elevated transients; track gravity/nonzero DC gently. */
+    /* Freeze all axes during elevated transients. Below threshold, follow slow
+     * orientation/driving changes with the existing time-based low-pass. */
     if (signal < d->config.trigger_g) {
         float alpha=(float)dt/((float)d->config.baseline_tau_us+(float)dt);
-        d->baseline_g += alpha*(mag-d->baseline_g);
+        d->baseline_xyz_g[0] += alpha*(x-d->baseline_xyz_g[0]);
+        d->baseline_xyz_g[1] += alpha*(y-d->baseline_xyz_g[1]);
+        d->baseline_xyz_g[2] += alpha*(z-d->baseline_xyz_g[2]);
     }
 }
 buddy4_impact_output_t buddy4_impact_get(buddy4_impact_t *d,uint64_t now) {
