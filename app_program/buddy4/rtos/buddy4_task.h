@@ -48,6 +48,10 @@ typedef struct {
     int terrain, side;
     bool bump_event, side_event_ended;
     buddy4_task_event_t last_event;
+    /* Run-wide maximum of valid completed stable peaks. */
+    uint32_t run_id;
+    bool highest_hump_valid;
+    float highest_hump_cm;
     bool impact_valid, possible_impact;
     uint32_t impact_count;
     uint64_t impact_time_us;
@@ -63,4 +67,5 @@ ER buddy4_task_start(void);
 ER buddy4_task_get(buddy4_task_snapshot_t *out);
 ER buddy4_task_submit_speed(const buddy4_task_speed_t *speed);
 ER buddy4_task_time_us(uint64_t *out);
+ER buddy4_task_begin_run(void);
 #endif

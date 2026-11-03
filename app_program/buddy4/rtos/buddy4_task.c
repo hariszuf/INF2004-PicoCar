@@ -30,6 +30,16 @@ static buddy4_task_snapshot_t published, next;
 static buddy4_task_speed_t mailbox;
 static uint64_t retry_us, last_speed_us;
 static bool has_speed;
+static bool pending_run_reset;
+
+ER buddy4_task_begin_run(void)
+{
+    if (!initialised) return E_OBJ;
+    ER e = tk_loc_mtx(data_mutex, TMO_FEVR);
+    if (e < E_OK) return e;
+    pending_run_reset = true;
+    return tk_unl_mtx(data_mutex);
+}
 
 ER buddy4_task_time_us(uint64_t *out)
 {
@@ -98,14 +108,37 @@ static void publish(void)
     }
 }
 
+static void save_completed_event(const side_event_t *event, uint64_t end_us)
+{
+    if (end_us <= next.last_event.end_us) return;
+    next.completed_events++;
+    next.last_event = (buddy4_task_event_t){event->side, event->start_us,
+        end_us, event->peak_confirmed, event->median_candidate_valid,
+        event->peak_height_cm, event->median_candidate_height_cm};
+    if (event->peak_confirmed &&
+        (!next.highest_hump_valid || event->peak_height_cm > next.highest_hump_cm)) {
+        next.highest_hump_cm = event->peak_height_cm;
+        next.highest_hump_valid = true;
+    }
+}
+
 /* Single task owns all mutable processing. This function is also exercised
  * by host tests with mocked device/kernel calls, never by another task. */
 static void process_once(uint64_t now)
 {
     buddy4_task_speed_t speed = {0};
+    bool reset_run = false;
     if (tk_loc_mtx(data_mutex, TMO_FEVR) >= E_OK) {
         speed = mailbox;
+        reset_run = pending_run_reset;
+        pending_run_reset = false;
         (void)tk_unl_mtx(data_mutex);
+    }
+    if (reset_run) {
+        next.run_id++;
+        next.highest_hump_valid = false;
+        next.highest_hump_cm = 0.0f;
+        next.last_event = (buddy4_task_event_t){0};
     }
     if (!imu.ready && now >= retry_us) {
         (void)buddy4_configure(&imu);
@@ -189,11 +222,7 @@ static void process_once(uint64_t now)
     next.bump_event = o->transient_event && o->valid;
     next.side_event_ended = o->event_ended && o->valid;
     if (next.side_event_ended) {
-        const side_event_t *ev = &o->ended_event;
-        next.completed_events++;
-        next.last_event = (buddy4_task_event_t){ev->side, ev->start_us,
-            o->timestamp_us, ev->peak_confirmed, ev->median_candidate_valid,
-            ev->peak_height_cm, ev->median_candidate_height_cm};
+        save_completed_event(&o->ended_event, o->timestamp_us);
     }
     next.impact_valid = io.valid; next.possible_impact = io.possible_impact;
     next.impact_count = io.event_count; next.impact_time_us = io.event_us;
@@ -272,7 +301,7 @@ ER buddy4_task_init(void)
     memset(&mailbox, 0, sizeof(mailbox));
     next.poll_result = BUDDY4_NOT_READY;
     published = next;
-    retry_us = last_speed_us = 0; has_speed = false;
+    retry_us = last_speed_us = 0; has_speed = pending_run_reset = false;
     initialised = true;
     return E_OK;
 }
