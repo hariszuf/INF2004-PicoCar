@@ -301,6 +301,101 @@ encrypted communication.
 The Pico W and the broker computer must have network
 connectivity to one another.
 
+### First run with MQTT telemetry on Windows
+
+Use the `Full-Implemented-wif-microt` branch. The commands below assume
+you are in the repository root.
+
+1. Install [Python 3.10 or newer](https://www.python.org/downloads/windows/)
+   and [Eclipse Mosquitto for Windows](https://mosquitto.org/download/).
+   Check that `python --version` works in a new PowerShell window. For
+   firmware builds, follow [Setup](#setup) for GNU Make, the Arm GNU
+   toolchain, and the Pico SDK with TinyUSB, CYW43, and lwIP.
+2. Connect the laptop and Pico W to the same Wi-Fi network. Use `ipconfig`
+   to find the laptop's Wi-Fi IPv4 address.
+3. In the first PowerShell terminal, create a broker config and start Mosquitto.
+   Use this anonymous listener on a trusted test network.
+
+   ```powershell
+   @'
+   listener 1883 0.0.0.0
+   allow_anonymous true
+   '@ | Set-Content mosquitto-dev.conf
+   & 'C:\Program Files\mosquitto\mosquitto.exe' -c .\mosquitto-dev.conf -v
+   ```
+
+   If port `1883` is already in use, reuse the existing broker if it listens
+   on the laptop's Wi-Fi address. If Windows prompts for firewall access,
+   allow access on the trusted test network so the Pico W can reach the broker.
+
+4. Create the firmware's local configuration files.
+
+   ```powershell
+   Copy-Item config/wifi_credentials.example.h config/wifi_credentials.h
+   Copy-Item config/mqtt_config.example.h config/mqtt_config.h
+   ```
+
+   Set the Wi-Fi SSID and password and change `UTK_WIFI_CREDENTIALS_SET` to
+   `1`. Set `MQTT_BROKER_IP` to the laptop's Wi-Fi IPv4 address and keep
+   `MQTT_BROKER_PORT` at `1883` for this setup. Git ignores both local headers.
+   Build the headless image with MQTT from the repository root in the Bash
+   environment where the toolchain and Pico SDK are configured.
+
+   ```bash
+   cd build_make
+   make -f picocar_integration.mk TELEMETRY_MQTT=1 HEADLESS=1 PICO_SDK_PATH="$PICO_SDK_PATH" -j8
+   ```
+
+   With motor power off, hold BOOTSEL while connecting the Pico W by USB.
+   Copy `build_make/picocar_integration_headless_mqtt.uf2` to the `RPI-RP2`
+   drive. This image starts the driving controller automatically.
+
+#### Run the dashboard
+
+Start Mosquitto first. The PicoCar firmware uses the broker's LAN address
+from `config/mqtt_config.h`. If Mosquitto runs on the same computer as
+the dashboard, the dashboard can use `127.0.0.1` provided the broker is
+also listening there.
+
+In a second PowerShell terminal, create the virtual environment
+and install dependencies once.
+
+```powershell
+python -m venv dashboard/.venv
+./dashboard/.venv/Scripts/python.exe -m pip install -r dashboard/requirements.txt
+```
+
+Run the dashboard in a terminal and leave it running during the test.
+Set `MQTT_BROKER_HOST` to the broker's LAN address if it runs on another
+computer.
+
+```powershell
+$env:MQTT_BROKER_HOST = '127.0.0.1'
+$env:MQTT_BROKER_PORT = '1883'
+./dashboard/.venv/Scripts/python.exe -m uvicorn app:app --app-dir dashboard --host 127.0.0.1 --port 8000
+```
+
+Open [the dashboard](http://127.0.0.1:8000/). **MQTT broker** shows the
+dashboard's connection to Mosquitto. **Vehicle heartbeat** becomes fresh
+when the PicoCar publishes its status. **Diagnostics** shows raw MQTT
+packets and has an **Export log (.txt)** button.
+
+Use the [driving firmware build instructions](app_program/buddy5/vehicle/README.md)
+for other build options and the telemetry field reference.
+
+#### Verify live telemetry
+
+In a third PowerShell terminal, subscribe to the broker. Use its LAN address
+in place of `127.0.0.1` if the broker listens only on its LAN interface.
+
+```powershell
+& 'C:\Program Files\mosquitto\mosquitto_sub.exe' -h 127.0.0.1 -p 1883 -v -t 'picocar/vehicle1/status' -t 'picocar/vehicle1/telemetry'
+```
+
+Look for a status heartbeat about every five seconds and sensor packets with
+advancing `seq` values. The dashboard sensor panels display the latest supported
+readings. The subscriber shows the stream directly from the broker.
+
 ### Windows testing
 
 Replace `BROKER_IP` with the actual broker IPv4 address.
