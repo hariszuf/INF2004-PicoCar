@@ -91,6 +91,14 @@
 #endif
 #define MOTION_BREAKAWAY_SPEED_CM_S     (0.3f)
 
+/** 1 = keep a wheel's speed-PID integral while that wheel is briefly commanded to 0
+ *  during continuous driving (line following). Without this, every steering flip wipes
+ *  the integral of the idle wheel, so it can never build the extra duty a wheel needs to
+ *  pivot the car, and it stalls. 0 = original behaviour (reset). */
+#ifndef MOTION_PID_HOLD_INTEGRAL_ON_ZERO
+#define MOTION_PID_HOLD_INTEGRAL_ON_ZERO (0u)
+#endif
+
 #ifndef MOTION_MIN_DUTY
 #define MOTION_MIN_DUTY                 (0.15f)   /* TUNE: stiction compensation */
 #endif
