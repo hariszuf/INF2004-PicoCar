@@ -343,7 +343,11 @@ static float wheel_control(motion_side_t side, float setpoint, float dt_s)
 
     if (abs_f(setpoint) <= ZERO_SPEED_CM_S)
     {
-        motion_pid_reset(&s_pid[side]);
+        if ((MOTION_PID_HOLD_INTEGRAL_ON_ZERO == 0u) || (s_active.type != COMMAND_DRIVE))
+        {
+            motion_pid_reset(&s_pid[side]);
+        }
+        /* else: keep the integral (frozen, not accumulating) for the next push */
         return drive_wheel(side, 0.0f);
     }
 
