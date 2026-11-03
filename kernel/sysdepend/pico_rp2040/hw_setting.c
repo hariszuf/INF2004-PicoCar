@@ -93,6 +93,13 @@ LOCAL const T_SETUP_REG pinfnc_tbl[] = {
 	{GPIO_CTRL(28),	GPIO_CTRL_FUNCSEL_NULL},
 	{GPIO(28), GPIO_DRIVE_4MA | GPIO_SHEMITT},	/* Disable input & pull-up & pull-down */
 
+#if B5_FULL_TEST
+	/* Integrated car: I2C0 uses GP16/17; GP8/9 drive the left motor. */
+	{GPIO_CTRL(16), GPIO_CTRL_FUNCSEL_I2C},
+	{GPIO(16), GPIO_IE | GPIO_DRIVE_4MA | GPIO_PUE | GPIO_SHEMITT},
+	{GPIO_CTRL(17), GPIO_CTRL_FUNCSEL_I2C},
+	{GPIO(17), GPIO_IE | GPIO_DRIVE_4MA | GPIO_PUE | GPIO_SHEMITT},
+#else
 	/* P8 : I2C0_SDA */
 	{GPIO_CTRL(8),	GPIO_CTRL_FUNCSEL_I2C},
 	{GPIO(8), GPIO_IE | GPIO_DRIVE_4MA | GPIO_PUE | GPIO_SHEMITT},	/* Pull-up */
@@ -100,6 +107,7 @@ LOCAL const T_SETUP_REG pinfnc_tbl[] = {
 	/* P9 : I2C0_SCL */
 	{GPIO_CTRL(9),	GPIO_CTRL_FUNCSEL_I2C},
 	{GPIO(9), GPIO_IE | GPIO_DRIVE_4MA | GPIO_PUE | GPIO_SHEMITT},	/* Pull-up */
+#endif
 
 #endif /* USE_SDEV_DRV */
 	{0, 0}

@@ -5,5 +5,5 @@
 #undef CNF_TIMER_PERIOD
 #define CNF_TIMER_PERIOD 1
 #undef USE_SDEV_DRV
-#define USE_SDEV_DRV 0
+#define USE_SDEV_DRV 1 /* Buddy 4 needs the native I2C device driver. */
 #endif
