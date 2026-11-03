@@ -124,7 +124,7 @@ def check(browser, url, output):
     page.goto(url + "#obstacle")
     expect(page.locator("#front-clearance")).to_contain_text("0 mm")
     expect(page.locator("#range-validity")).to_contain_text("Unknown")
-    expect(page.locator("#ultrasonic-range")).to_have_text("N/A")
+    expect(page.locator("#ultrasonic-range")).to_have_text("Future implementation")
     telemetry["picocar/vehicle1/telemetry"] = "src=5 type=54 seq=9 value1=-1 value2=999"
     refresh()
     expect(page.locator("#front-clearance")).to_contain_text("Unknown")
@@ -182,6 +182,40 @@ def check(browser, url, output):
     expect(page.locator("#distance-travelled")).to_have_text("N/A")
     expect(page.locator("#view-motion")).to_contain_text("signed odometry since reset")
 
+    telemetry["sensor_frames"] = [
+        {"payload": payload, "age_seconds": 4}
+        for payload in (
+            "src=2 type=3 seq=15 left_speed_mm_s=200 right_speed_mm_s=-150 flags=0",
+            "src=2 type=4 seq=15 left_encoder_ticks=321 right_encoder_ticks=-123 flags=0",
+            "src=2 type=10 seq=15 odometry_mm=123 motor_fault=0 flags=0",
+            "src=3 type=5 seq=15 ir_mask=1 line_state=2 flags=0",
+            "src=4 type=7 seq=15 pitch_cdeg=501 roll_cdeg=-96 flags=1",
+            "src=4 type=11 seq=15 sample_age_ms=20 imu_errors=0 flags=1",
+            "src=4 type=14 seq=15 motion_state=2 yaw_rate_cdeg_s=-125 flags=3",
+            "src=5 type=54 seq=15 front_clearance_mm=974 servo_command_deg=0 flags=16",
+            "src=6 type=57 seq=15 line_reacquired_count=2 reserved=0 flags=0",
+        )
+    ]
+    refresh()
+    expect(page.locator("#motor-left")).to_contain_text("200 mm/s")
+    expect(page.locator("#motor-right")).to_contain_text("-150 mm/s")
+    expect(page.locator("#movement-direction")).to_contain_text("Turning")
+    expect(page.locator("#encoder-left")).to_contain_text("321 ticks")
+    expect(page.locator("#distance-travelled")).to_contain_text("12.3 cm")
+    expect(page.locator("#motor-left")).to_contain_text("Stale")
+    page.goto(url + "#line")
+    expect(page.locator("#ir-left")).to_contain_text("Black")
+    expect(page.locator("#ir-centre")).to_contain_text("White")
+    page.goto(url + "#imu")
+    expect(page.locator("#pitch")).to_contain_text("5.01°")
+    expect(page.locator("#imu-sample-age")).to_contain_text("20 ms")
+    expect(page.locator("#turn-rate")).to_contain_text("-1.25°/s")
+    page.goto(url + "#obstacle")
+    expect(page.locator("#front-clearance")).to_contain_text("974 mm")
+    expect(page.locator("#line-reacquired")).to_contain_text("2 this boot")
+    del telemetry["sensor_frames"]
+    page.reload()
+
     telemetry["picocar/vehicle1/telemetry"] = '<img src=x onerror="window.injected=true">'
     refresh()
     page.goto(url + "#diagnostics")
@@ -192,7 +226,13 @@ def check(browser, url, output):
     telemetry["picocar/vehicle1/telemetry"] = "src=1 type=1 seq=11 value1=1 value2=0"
     refresh()
     expect(page.locator("#diag-flags")).to_have_text("N/A")
+    with page.expect_download() as exported:
+        page.locator("#export-log").click()
+    assert exported.value.suggested_filename == "picocar-browser-payloads.txt"
+    exported_text = exported.value.path().read_text(encoding="utf-8")
+    assert "picocar/vehicle1/telemetry src=1 type=1 seq=11 value1=1 value2=0" in exported_text
     page.locator("#clear-log").click()
+    expect(page.locator("#export-log")).to_be_disabled()
     expect(page.locator("#observation-log")).to_contain_text("Log cleared")
     page.locator("#stop-command").click()
     expect(page.locator("#command-result")).to_contain_text("STOP: publication queued")
