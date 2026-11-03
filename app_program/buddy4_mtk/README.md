@@ -1,6 +1,50 @@
 # Buddy 4 micro T Kernel trial
 
-## Current test output: B4-TILT-PEAK-POSSIBLE-IMPACT-H
+## Handover status, 2 November 2026
+
+The full isolated regression suite and `SMP=0 CONSOLE=usb_cdc` build pass again.
+See [the current ownership/integration guide](../buddy4/HANDOVER.md) for exact
+artifacts, schemas and blockers. The live team app still starts Buddy 1/5;
+this overlay defaults to IMU-only and is not merged into live startup/build files.
+The speed mailbox has no producer wired, and the native snapshot does not yet
+carry possible-obstruction state or the required motor-command context.
+
+The [two successful obstruction hardware recordings](../buddy4/evidence/2026-11-02/FOAM_SUCCESS.md)
+use SDK driving firmware. They do not validate MTK motor operation or native
+obstruction integration. No algorithm, kernel or driver was changed for handover.
+The older display/diagnostic checkpoints below describe their own versions.
+
+### For teammates integrating the final native MTK application
+
+Use the [Buddy 4 handover's copy-paste AI integration prompt](../buddy4/HANDOVER.md#teammate-ai-assisted-integration-prompt)
+together with the [portable API README](../buddy4/README.md) and
+[remaining-work checklist](../buddy4/TODO.md). The overlay and generated
+`build/source/` tree are **not** the authoritative live team application;
+review and selectively adapt native task/device integration without overwriting
+Buddy 1/2/3/5 or existing board/driver/console changes.
+
+The successful 1 cm left/right crossings and foam-obstruction observations
+were recorded using SDK driving firmware, **not** this isolated MTK trial.
+Native integration still requires real Buddy 2 speed and command producers,
+obstruction state publication, team telemetry, reviewed motor safety ownership,
+and concurrent startup/stop/fault/recovery qualification. Do not interpret
+the isolated IMU-only build as evidence that these dependencies are connected.
+
+## Current test output: B4-MEASUREMENT-QUALITY-I USB-only
+
+The endpoint-input validity gap is corrected. Fresh acquisition, usable corrected
+acceleration and usable tilt/height are distinct. The monitor shows raw XYZ,
+corrected acceleration/magnitude, clipping/quality counters and periodic sensor
+identity/configuration readback. Clipped impact assessment is indeterminate.
+Completed history survives; interrupted tilt evidence cannot finish a peak.
+
+See [the focused measurement-quality checkpoint](../buddy4/MEASUREMENT_QUALITY_CHECKPOINT.md)
+for reproduction, semantics, tests/builds, exact UF2 path and the single 25-second
+controlled stationary/tilt capture still needed. No hardware root cause is claimed.
+The G backup remains untouched. Default output is readable; optional MTK CSV now
+has 17 fields with explicit quality flags and masked invalid current tilt values.
+
+## Previous display checkpoint: H
 
 This display-only revision preserves the clean DIAG-E USB-only timing path,
 motor-pin protection, calibration and all detection/estimation algorithms.
@@ -27,7 +71,7 @@ recover intermediate timestamps, event waveforms, peak deviation/direction or a
 one-sample pulse missed between reads. It also cannot establish that contact or a
 collision occurred. Start recording
 before each trial and wait at least 3 seconds after returning to SIDE_LEVEL.
-The original 11-field CSV remains unchanged. This firmware does not drive.
+At that earlier checkpoint the original 11-field CSV was unchanged. This firmware does not drive.
 
 Friend instructions and a plain-text results template:
 [Tilt/peak testing](../buddy4/TILT_PEAK_TEST.md),

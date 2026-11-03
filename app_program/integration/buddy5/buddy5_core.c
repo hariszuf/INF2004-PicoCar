@@ -363,7 +363,10 @@ void b5_core_update(b5_core_t *c,uint32_t now,
             b5_core_fail(c,B5_FAULT_POSE,now); return;
         }
         if (!r) return;
-        if (!good(r) && !b5_range_no_echo(r)) { b5_core_fail(c,B5_FAULT_SENSOR,now); return; }
+        /* The car is stationary while sampling this direction. A noisy
+         * ultrasonic batch gives no evidence about the obstacle edge, so
+         * retry it; the avoidance timeout still bounds repeated failures. */
+        if (!good(r) && !b5_range_no_echo(r)) return;
         if (c->phase==0) {
             c->front_clearance_mm=b5_front_clearance(r);
             if (c->front_clearance_mm<B5_STOP_FRONT_MM+B5_STEP_MM) {
