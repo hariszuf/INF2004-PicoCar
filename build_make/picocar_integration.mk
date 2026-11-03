@@ -1,5 +1,5 @@
 # PicoCar micro-T-Kernel integration. Run from build_make/.
-# Buddy 2/3 own their motion/line sources; Buddy 5 owns scanning.
+# Buddy 2/3 own motion/line, Buddy 4 owns IMU observations, Buddy 5 owns scanning.
 # app_program/integration/shared coordinates the vehicle without MQTT.
 SMP ?= 0
 CONSOLE ?= usb_cdc
@@ -34,21 +34,26 @@ B2_SRCS := ../app_program/buddy2/motion_control.c \
  ../app_program/buddy2/motion_pid.c ../app_program/buddy2/motion_motor.c \
  ../app_program/buddy2/motion_encoder.c
 B3_SRCS := ../app_program/buddy3/line_follow.c ../app_program/buddy3/line_sensors.c
+B4_CORE_SRCS := ../app_program/buddy4/buddy4_imu.c \
+ ../app_program/buddy4/buddy4_impact.c ../app_program/buddy4/buddy4_motion.c \
+ ../app_program/buddy4/buddy4_encoder_yaw.c
+B4_SRCS := $(wildcard ../app_program/integration/buddy4/*.c)
 B5_SRCS := $(wildcard ../app_program/integration/buddy5/*.c)
 SHARED_SRCS := $(wildcard ../app_program/integration/shared/*.c)
 ifeq ($(HEADLESS),1)
 SHARED_SRCS := $(filter-out ../app_program/integration/shared/usb_input.c,$(SHARED_SRCS))
 endif
-INTEGRATION_OBJS := $(patsubst ../%,mtkernel_3/%,$(B5_SRCS:.c=.o) $(SHARED_SRCS:.c=.o))
-override TEMP_SRCS := $(B1_SRCS) $(B2_SRCS) $(B3_SRCS) $(B5_SRCS) $(SHARED_SRCS)
+INTEGRATION_OBJS := $(patsubst ../%,mtkernel_3/%,$(B4_CORE_SRCS:.c=.o) $(B4_SRCS:.c=.o) $(B5_SRCS:.c=.o) $(SHARED_SRCS:.c=.o))
+override TEMP_SRCS := $(B1_SRCS) $(B2_SRCS) $(B3_SRCS) $(B4_CORE_SRCS) $(B4_SRCS) $(B5_SRCS) $(SHARED_SRCS)
 include makefile
 # The generic application pattern rule does not create nested object folders.
 .PHONY: b5_integration_dirs
 b5_integration_dirs:
-	@mkdir -p mtkernel_3/app_program/integration/buddy5 mtkernel_3/app_program/integration/shared
+	@mkdir -p mtkernel_3/app_program/buddy4 mtkernel_3/app_program/integration/buddy4 mtkernel_3/app_program/integration/buddy5 mtkernel_3/app_program/integration/shared
 $(INTEGRATION_OBJS): | b5_integration_dirs
 INCPATH := -I"../app_program/integration/shared/rtos_config" $(INCPATH) \
- -I"../app_program/integration/shared" -I"../app_program/integration/buddy5" \
+ -I"../app_program/integration/shared" -I"../app_program/integration/buddy4" \
+ -I"../app_program/buddy4" -I"../app_program/integration/buddy5" \
  -I"../app_program/buddy2" -I"../app_program/buddy3"
 CFLAGS += -DB5_FULL_TEST=1 -UTM_CONSOLE_UART -DTM_CONSOLE_UART=0 \
  -DMOTION_MIN_DUTY=0.10f -DMOTION_BREAKAWAY_DUTY=0.22f \

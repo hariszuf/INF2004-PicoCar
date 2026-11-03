@@ -12,6 +12,7 @@
 #include "../../buddy3/line_follow.h"
 #include "../../buddy3/line_sensors.h"
 #include "../../buddy3/line_config.h"
+#include "../buddy4/buddy4_task.h"
 #ifndef B5_HEADLESS
 #define B5_HEADLESS 0
 #endif
@@ -34,6 +35,7 @@ static b5_feedback_t feedback_shared;
 static b5_request_t pending_request;
 static bool request_pending;
 static volatile bool run_enabled;
+static bool buddy4_ready;
 static volatile bool user_stop_pending;
 static unsigned char commands[8];
 static unsigned command_head,command_tail;
@@ -148,6 +150,27 @@ static void controller_task(INT stacd,void *exinf) {
   if((uint32_t)(now-last_motor)>=20u) {
    if((uint32_t)(now-last_motor)>60u && run_enabled) halt(&nav,&start,"motor scheduling delay");
    last_motor=now; motion_update(); motion_get_status(&motor);
+   if(buddy4_ready) {
+    uint64_t sample_us;
+    /* motion_update() has just sampled both encoders. Timestamp that fresh
+     * pair in Buddy 4's monotonic clock domain, never a later cached getter. */
+    if(buddy4_task_time_us(&sample_us)>=E_OK) {
+     buddy4_task_speed_t speed={true,sample_us,motor.left_speed_cm_s,motor.right_speed_cm_s};
+     (void)buddy4_task_submit_speed(&speed);
+    }
+    buddy4_task_snapshot_t imu;
+    if(buddy4_task_get(&imu)>=E_OK) {
+     motion_terrain_input_t terrain={0};
+     terrain.valid=imu.valid && imu.tilt_valid;
+     if(terrain.valid) {
+      terrain.pitch_state=(int8_t)imu.terrain;
+      terrain.roll_state=(int8_t)imu.side;
+      terrain.pitch_deg=imu.pitch_deg;
+      terrain.roll_deg=imu.roll_deg;
+     }
+     (void)motion_set_terrain(&terrain);
+    }
+   }
    if(motor.fault==MOTION_FAULT_STALL) fault_latched=true;
    if(run_enabled && motor.fault!=MOTION_FAULT_NONE)
     halt(&nav,&start,"motor fault");
@@ -191,6 +214,14 @@ static void controller_task(INT stacd,void *exinf) {
   full_nav_feedback(&nav,last_motor,&f); f.fault=fault_latched;
   DI(irq); feedback_shared=f; EI(irq);
   if((uint32_t)(now-last_report)>=1000u) {
+   if(buddy4_ready) {
+    buddy4_task_snapshot_t imu;
+    if(buddy4_task_get(&imu)>=E_OK)
+     tm_printf((UB*)"[B4] imu=%d tilt=%d age_ms=%u terrain=%d side=%d impact=%u motion=%d yaw=%d io_errors=%u\n",
+      imu.valid,imu.tilt_valid,(unsigned)imu.sample_age_ms,imu.terrain,imu.side,
+      (unsigned)imu.impact_count,imu.motion_valid?imu.motion_state:-1,imu.yaw_valid,
+      (unsigned)imu.io_errors);
+   }
    line_status_t line; line_follow_get_status(&line);
    tm_printf((UB*)"[LINE] state=%d mask=%u target_mm_s=%d/%d actual_mm_s=%d/%d\n",
     line.state,(unsigned)mask,(int)(line.left_cmd_cm_s*10),(int)(line.right_cmd_cm_s*10),
@@ -210,10 +241,17 @@ EXPORT INT usermain(void) {
  if(b5_platform_init()<E_OK || motion_init()!=MOTION_OK) return 1;
  motion_emergency_stop(); line_follow_init(); ultrasonic_init();
  if(!buddy5_servo_init() || buddy1_init()<E_OK) return 1;
+ ER buddy4_init_result=buddy4_task_init();
+ buddy4_ready=buddy4_init_result>=E_OK;
+ if(!buddy4_ready) tm_printf((UB*)"[B4] IMU task unavailable (%d); driving continues.\n",buddy4_init_result);
  cfg.tskatr=TA_HLNG|TA_RNG3; cfg.task=controller_task; cfg.itskpri=4; cfg.stksz=4096;
  ID id=tk_cre_tsk(&cfg); if(id<0) return 1;
  if(tk_sta_tsk(id,0)<0) { tk_del_tsk(id); return 1; }
  if(buddy1_start()<E_OK || line_scan_start()<E_OK) { motion_emergency_stop(); return 1; }
+ if(buddy4_ready) {
+  ER e=buddy4_task_start();
+  if(e<E_OK) { buddy4_ready=false; tm_printf((UB*)"[B4] IMU task did not start (%d); driving continues.\n",e); }
+ }
  tk_slp_tsk(TMO_FEVR); return 0;
 }
 #endif

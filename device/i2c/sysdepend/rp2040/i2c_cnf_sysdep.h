@@ -1,4 +1,4 @@
-﻿/*
+/*
  *----------------------------------------------------------------------
  *    Device Driver for μT-Kernel 3.0
  *
@@ -12,7 +12,7 @@
  */
 
 /*
- *	i2c_cnf_sysdep.h 
+ *	i2c_cnf_sysdep.h
  *	I2C device configuration file
  *		for RP2040
  */
@@ -23,6 +23,13 @@
 #define	DEVCNF_I2C_RESET	TRUE	// Reset I2C module
 #define	DEVCNF_I2C_SETPINFUNC	TRUE	// Set I/O pin function
 
+/* PicoCar wiring: I2C0 GP16/17; GP8/9 belong to motor control. */
+#define DEVCNF_I2C0_SDA_PIN 16
+#define DEVCNF_I2C0_SCL_PIN 17
+/* 125 MHz peripheral clock, nominal 100 kHz standard mode. */
+#define DEVCNF_I2C0_SS_HCNT 500
+#define DEVCNF_I2C0_SS_LCNT 750
+
 /* Register initial value */
 
 // Interrupt priority
@@ -30,7 +37,7 @@
 #define	DEVCNF_I2C1_INTPRI	2
 
 /* Communication timeout time */
-#define	DEVCNF_I2C0_TMO		1000
+#define	DEVCNF_I2C0_TMO		10 /* ms per request; rounded by kernel tick */
 #define	DEVCNF_I2C1_TMO		1000
 
 #endif		/* __DEV_I2C_CNF_RP2040_H__ */
