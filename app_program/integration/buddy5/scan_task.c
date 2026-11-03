@@ -71,14 +71,16 @@ static void scan_task(INT stacd,void *exinf) {
    bool no_echo=b5_range_no_echo(&reading);
    readings[count++]=reading;
    bool forward=angle==0;
-   /* While normally driving, a single HC-SR04 echo must not stop the car:
-    * require the existing three-sample filter.  Guarding a movement remains
-    * immediate, because that happens after an obstacle has been confirmed. */
-   bool urgent=forward && !no_echo && guard_mode && (!reading.valid ||
+   /* Keep normal line-follow detection filtered. During the bypass and other
+    * commanded moves, publish each measured forward echo at its current pose:
+    * alternating echo/no-echo batches must not make the guard go stale.
+    * A no-echo result still needs the full three-reading confirmation. */
+   bool motion_guard_mode=positioning_mode || guard_mode;
+   bool urgent=forward && !no_echo && motion_guard_mode && (!reading.valid ||
        reading.distance_mm<=B5_GUARD_FRONT_MM+B5_FRONT_OVERHANG_MM);
-   if(count==B5_SAMPLE_COUNT || urgent || (!no_echo && guard_mode)) {
-    /* Motion changes acquisition pose: guard each new echo directly. */
-    b5_range_t filtered=(urgent || (!no_echo && guard_mode))?reading:b5_filter(readings);
+   if(count==B5_SAMPLE_COUNT || urgent || (forward && !no_echo && motion_guard_mode)) {
+    b5_range_t filtered=(urgent || (forward && !no_echo && motion_guard_mode))
+                        ?reading:b5_filter(readings);
     (void)line_controller_feedback(&feedback);
     if(forward) { front_valid=filtered.valid; front_time=now; }
     if(core.state==B5_SCANNING)
