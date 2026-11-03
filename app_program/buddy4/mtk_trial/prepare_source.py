@@ -5,9 +5,9 @@ import json
 import shutil
 
 project = Path(__file__).resolve().parent
-repo = project.parent.parent
+repo = project.parents[2]
 target = project / 'build' / 'source'
-assert (repo / 'include' / 'tk' / 'tkernel.h').is_file(), 'Place this folder in app_program/buddy4_mtk'
+assert (repo / 'include' / 'tk' / 'tkernel.h').is_file(), 'Place this folder in app_program/buddy4/mtk_trial'
 expected = json.loads((project / 'base_hashes.json').read_text())
 for name, digest in expected.items():
     live = repo / name
@@ -21,7 +21,7 @@ if target.exists():
     assert not target.is_symlink(), 'Unexpected link at disposable build directory'
     shutil.rmtree(target)
 target.mkdir(parents=True)
-ignore = shutil.ignore_patterns('.git', 'buddy4_mtk', 'build', 'build-host',
+ignore = shutil.ignore_patterns('.git', 'mtk_trial', 'build', 'build-host',
     'build-buddy4', 'build-buddy4-host', 'evidence', '*.o', '*.d', '*.elf',
     '*.uf2', '*.map', '*.exe', '.build_profile')
 for name in ['app_program', 'build_make', 'config', 'device', 'etc', 'include',

@@ -307,7 +307,7 @@ static void recorded_ramp(const char *name,unsigned expected_rows,bool held) {
      * suitability, leaving motor terrain FLAT to exercise the IMU guard alone. */
     char path[1024];size_t prefix=0;
     for(size_t i=0;__FILE__[i];i++)if(__FILE__[i]=='/'||__FILE__[i]=='\\')prefix=i+1;
-    snprintf(path,sizeof(path),"%.*s../buddy4/evidence/2026-10-28/raw/%s",(int)prefix,__FILE__,name);
+    snprintf(path,sizeof(path),"%.*s../evidence/2026-10-28/raw/%s",(int)prefix,__FILE__,name);
     FILE *file=fopen(path,"r");assert(file);
     reset();establish(); /* Stress the ramp against an already armed observer. */
     char line[8192];unsigned rows=0,guarded=0;uint64_t first=0,base=t+20000;
@@ -430,7 +430,7 @@ static void new_recorded_contact(const char *name,unsigned expected_rows,bool sh
      * as hardware evidence. Original files remain byte-identical. */
     char path[1024];size_t prefix=0;
     for(size_t i=0;__FILE__[i];i++)if(__FILE__[i]=='/'||__FILE__[i]=='\\')prefix=i+1;
-    snprintf(path,sizeof(path),"%.*s../buddy4/evidence/2026-11-02/%s",(int)prefix,__FILE__,name);
+    snprintf(path,sizeof(path),"%.*s../evidence/2026-11-02/%s",(int)prefix,__FILE__,name);
     FILE *file=fopen(path,"r");assert(file);
     reset();char line[8192];unsigned rows=0;uint64_t event=0;
     while(fgets(line,sizeof(line),file)) {

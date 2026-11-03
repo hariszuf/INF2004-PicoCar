@@ -1,9 +1,9 @@
 /* Reuse calibrated fixtures and run their complete regression suite as well. */
 #define main legacy_regression_main
-#include "../buddy4/tests/test_imu.c"
+#include "../tests/test_imu.c"
 #undef main
 /* Include implementation to exercise exact filtered-roll window boundaries. */
-#include "../buddy4/buddy4_imu.c"
+#include "../buddy4_imu.c"
 static void feed(side_event_t *e, uint64_t t, float roll) {
  update_median(e,t,fabsf(roll),11.3f);
 }

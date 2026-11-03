@@ -7,7 +7,7 @@
 #include <string.h>
 /* Reuse the authoritative fake-I2C fixtures, including transfer injection. */
 #define main original_imu_test_main
-#include "../buddy4/tests/test_imu.c"
+#include "../tests/test_imu.c"
 #undef main
 static buddy4_impact_t d;
 static uint64_t t;
@@ -377,7 +377,7 @@ static void reported_peak_confirmation_limits(void) {
 static void recorded_short_impulses(const char *name,unsigned expected_rows,float expected_peak) {
     char path[1024];size_t prefix=0;
     for(size_t i=0;__FILE__[i];i++)if(__FILE__[i]=='/'||__FILE__[i]=='\\')prefix=i+1;
-    snprintf(path,sizeof(path),"%.*s../buddy4/evidence/2026-11-02/%s",(int)prefix,__FILE__,name);
+    snprintf(path,sizeof(path),"%.*s../evidence/2026-11-02/%s",(int)prefix,__FILE__,name);
     FILE *file=fopen(path,"r");assert(file);
     reset();char line[8192];unsigned rows=0,recorded_above=0,replayed_above=0;
     float peak=0,recorded_peak=0;

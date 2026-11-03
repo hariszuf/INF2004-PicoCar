@@ -3,11 +3,11 @@
 30 October measurement-quality update: six quality fields now follow `valid`;
 acquisition validity alone does not authorize tilt/height. Impact uses finite,
 non-clipped acceleration; dynamic non-clipped inputs retain the existing detector
-behaviour. See [the Buddy 4 fault checkpoint](../buddy4/MEASUREMENT_QUALITY_CHECKPOINT.md).
+behaviour. See [the Buddy 4 fault checkpoint](../MEASUREMENT_QUALITY_CHECKPOINT.md).
 Earlier schema/checkpoint results below are historical.
 
 **Update 28 Oct 2026 (Buddy 2): slope / hump speed control is now connected.**
-After every IMU poll, `terrain_link_feed()` (`../shared/terrain_link.h`) passes
+After every IMU poll, `terrain_link_feed()` (`../terrain_link.h`) passes
 Buddy 4's pitch/roll state to Buddy 2 `motion_set_terrain()`. Buddy 2 scales the
 speed targets (also Buddy 3's line-following commands) and adds a rate-limited
 gravity / raised-wheel power assist; see the Buddy 2 README. Buddy 4 and Buddy 3
@@ -36,22 +36,22 @@ $checkpointCmake = Join-Path $checkpointTools 'cmake/v4.3.4/bin/cmake.exe'
 $checkpointHostGcc = (Get-Command gcc).Source
 $env:PATH = "$(Join-Path $checkpointTools 'ninja/v1.13.2');$(Join-Path $checkpointTools 'toolchain/15_2_Rel1/bin');" + $env:PATH
 
-powershell -NoProfile -ExecutionPolicy Bypass -File app_program/integration_test/test.ps1
-python app_program/integration_test/test_csv_schema.py
+powershell -NoProfile -ExecutionPolicy Bypass -File app_program/buddy4/sdk_integration_test/test.ps1
+python app_program/buddy4/sdk_integration_test/test_csv_schema.py
 
-& $checkpointCmake -S app_program/buddy4 -B app_program/integration_test/build-buddy4-host -G Ninja -DBUDDY4_HOST_TESTS=ON "-DCMAKE_C_COMPILER=$checkpointHostGcc"
-& $checkpointCmake --build app_program/integration_test/build-buddy4-host
-& (Join-Path $checkpointTools 'cmake/v4.3.4/bin/ctest.exe') --test-dir app_program/integration_test/build-buddy4-host --output-on-failure
+& $checkpointCmake -S app_program/buddy4 -B app_program/buddy4/sdk_integration_test/build-buddy4-host -G Ninja -DBUDDY4_HOST_TESTS=ON "-DCMAKE_C_COMPILER=$checkpointHostGcc"
+& $checkpointCmake --build app_program/buddy4/sdk_integration_test/build-buddy4-host
+& (Join-Path $checkpointTools 'cmake/v4.3.4/bin/ctest.exe') --test-dir app_program/buddy4/sdk_integration_test/build-buddy4-host --output-on-failure
 
-& $checkpointCmake -S app_program/buddy4 -B app_program/integration_test/build-buddy4 -G Ninja "-DPICO_SDK_PATH=$checkpointTools/sdk/2.3.1" -DPICO_BOARD=pico_w -DPICO_NO_PICOTOOL=0 "-Dpicotool_DIR=$checkpointTools/picotool/2.3.1/picotool"
-& $checkpointCmake --build app_program/integration_test/build-buddy4 --target buddy4
+& $checkpointCmake -S app_program/buddy4 -B app_program/buddy4/sdk_integration_test/build-buddy4 -G Ninja "-DPICO_SDK_PATH=$checkpointTools/sdk/2.3.1" -DPICO_BOARD=pico_w -DPICO_NO_PICOTOOL=0 "-Dpicotool_DIR=$checkpointTools/picotool/2.3.1/picotool"
+& $checkpointCmake --build app_program/buddy4/sdk_integration_test/build-buddy4 --target buddy4
 
-& $checkpointCmake -S app_program/integration_test -B app_program/integration_test/build -G Ninja "-DPICO_SDK_PATH=$checkpointTools/sdk/2.3.1" -DPICO_BOARD=pico_w -DPICO_NO_PICOTOOL=0 "-Dpicotool_DIR=$checkpointTools/picotool/2.3.1/picotool"
-& $checkpointCmake --build app_program/integration_test/build --target buddy234_driving_test
+& $checkpointCmake -S app_program/buddy4/sdk_integration_test -B app_program/buddy4/sdk_integration_test/build -G Ninja "-DPICO_SDK_PATH=$checkpointTools/sdk/2.3.1" -DPICO_BOARD=pico_w -DPICO_NO_PICOTOOL=0 "-Dpicotool_DIR=$checkpointTools/picotool/2.3.1/picotool"
+& $checkpointCmake --build app_program/buddy4/sdk_integration_test/build --target buddy234_driving_test
 ```
 
-Firmware: `app_program/integration_test/build/buddy234_driving_test.uf2` and .elf.
-Standalone firmware: `app_program/integration_test/build-buddy4/buddy4.uf2`.
+Firmware: `app_program/buddy4/sdk_integration_test/build/buddy234_driving_test.uf2` and .elf.
+Standalone firmware: `app_program/buddy4/sdk_integration_test/build-buddy4/buddy4.uf2`.
 No flashing command is part of the checkpoint.
 
 Verification checkpoint: 2026-10-22 (Asia/Singapore). Native GCC 15.2.0,

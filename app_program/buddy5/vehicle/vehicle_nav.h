@@ -2,7 +2,7 @@
 #define VEHICLE_NAV_H
 #include <stdint.h>
 #include <stdbool.h>
-#include "../buddy5/buddy5_core.h"
+#include "../rtos/buddy5_core.h"
 #include "../../buddy2/motion_control.h"
 typedef struct { unsigned kind; float value; } full_action_t;
 typedef struct {

@@ -32,8 +32,8 @@ def calls(text):
         fmt=''.join(re.findall(r'"((?:\\.|[^"\\])*)"',parts[0]))
         yield fmt,parts[1:]
 
-for filename,expected in [('buddy4/main.c',39),('integration_test/main.c',86)]:
-    text=(Path(__file__).parent.parent/filename).read_text()
+for filename,expected in [('../main.c',39),('main.c',86)]:
+    text=(Path(__file__).parent/filename).read_text()
     header=None; row=None; summary=None
     for fmt,args in calls(text):
         conversions=re.findall(r'%(?!%)[-+ #0]*\d*(?:\.\d+)?(?:hh|ll|[hljztL])?[diuoxXfFeEgGaAcsp]',fmt)
@@ -47,7 +47,7 @@ for filename,expected in [('buddy4/main.c',39),('integration_test/main.c',86)]:
     assert header[4:10]==['tilt_valid','acceleration_valid','measurement_quality',
         'clipped_axes','clipped_samples','unsuitable_samples']
     assert row[4:10]==['%d','%d','%s','%u','%lu','%lu']
-    if filename.startswith('integration_test'):
+    if filename == 'main.c':
         assert header[-7:]==['possible_obstruction_valid','possible_obstruction_established',
             'possible_obstruction_event','possible_obstruction_count',
             'possible_obstruction_observation_us','possible_obstruction_event_us',

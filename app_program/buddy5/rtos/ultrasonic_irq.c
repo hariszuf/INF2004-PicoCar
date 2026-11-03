@@ -2,7 +2,7 @@
 #include <tk/tkernel.h>
 #include <stdint.h>
 #include "platform.h"
-#include "../shared/compat/hardware/gpio.h"
+#include "../vehicle/compat/hardware/gpio.h"
 #include "../../buddy5/ultrasonic.h"
 #define REG(a) (*(volatile uint32_t *)(uintptr_t)(a))
 enum { OFF, WAIT_RISE, WAIT_FALL, DONE, BAD };
