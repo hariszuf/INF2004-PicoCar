@@ -1,5 +1,7 @@
 
 import os
+import re
+from threading import Lock
 from pathlib import Path
 from contextlib import asynccontextmanager
 
@@ -19,6 +21,14 @@ TOPIC_COMMAND = "picocar/vehicle1/command"
 
 latest_messages = {}
 last_message_times = {}
+sensor_frames = {}
+sensor_lock = Lock()
+sensor_types = {2: {3, 4, 10}, 3: {5}, 4: {7, *range(11, 19)}, 5: set(range(50, 57)), 6: {57}}
+sensor_header = re.compile(
+    r"src=([2-6]) type=([0-9]{1,2}) seq=([0-9]{1,10}) "
+    r"[a-z][a-z0-9_]{0,31}=(-?[0-9]{1,10}) [a-z][a-z0-9_]{0,31}=(-?[0-9]{1,10})(?: flags=([0-9]{1,5}))?"
+    r"(?: [a-z][a-z0-9_]{0,31}=-?[0-9]{1,10}){0,2}"
+)
 
 
 def on_connect(client, userdata, flags, reason_code, properties):
@@ -35,8 +45,20 @@ def on_connect(client, userdata, flags, reason_code, properties):
 def on_message(client, userdata, message):
     payload = message.payload.decode("utf-8", errors="replace")
 
-    latest_messages[message.topic] = payload
-    last_message_times[message.topic] = time.monotonic()
+    with sensor_lock:
+        received_at = time.monotonic()
+        latest_messages[message.topic] = payload
+        last_message_times[message.topic] = received_at
+        match = sensor_header.fullmatch(payload) if message.topic == TOPIC_TELEMETRY else None
+        if match:
+            source, kind, sequence, first, second = map(int, match.groups()[:5])
+            if (kind in sensor_types[source] and sequence <= 0xFFFFFFFF
+                    and all(-2**31 <= value < 2**31 for value in (first, second))
+                    and (match[6] is None or int(match[6]) <= 0xFFFF)):
+                frames = sensor_frames.setdefault(source, {})
+                if any(sequence < frame[0] for frame in frames.values()):
+                    frames.clear()
+                frames[kind] = (sequence, payload, received_at)
 
     print(f"[MQTT] {message.topic}: {payload}")
 
@@ -77,7 +99,16 @@ def home():
 
 @app.get("/api/telemetry")
 def get_telemetry():
-    return latest_messages
+    with sensor_lock:
+        now = time.monotonic()
+        frames = [frame for source in sensor_frames.values() for frame in source.values()]
+        return {
+            **latest_messages,
+            "sensor_frames": [
+                {"payload": payload, "age_seconds": now - received_at}
+                for _, payload, received_at in sorted(frames, key=lambda frame: frame[2])
+            ],
+        }
 
 @app.get("/api/status")
 def get_status():

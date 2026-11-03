@@ -6,6 +6,8 @@
 #include "vehicle_nav.h"
 #include "auto_start.h"
 #include "../../buddy1/buddy1.h"
+#include "../../buddy1/telemetry.h"
+#include "../../buddy2/motion_encoder.h"
 #include "buddy5_servo.h"
 #include "../../buddy5/ultrasonic.h"
 #include "../../buddy2/motion_control.h"
@@ -36,6 +38,15 @@ static b5_request_t pending_request;
 static bool request_pending;
 static volatile bool run_enabled;
 static bool buddy4_ready;
+
+#if TM_WIFI_MQTT
+static void report_measurement(uint8_t source, uint8_t type, uint16_t flags,
+                               int32_t first, int32_t second, uint32_t sequence)
+{
+ telemetry_message_t message={source,type,flags,first,second,sequence};
+ (void)buddy1_telemetry_submit(&message);
+}
+#endif
 static volatile bool user_stop_pending;
 static unsigned char commands[8];
 static unsigned command_head,command_tail;
@@ -95,6 +106,10 @@ static void controller_task(INT stacd,void *exinf) {
  full_nav_t nav; auto_start_t start;
  motion_update(); motion_get_status(&motor); full_nav_init(&nav,&motor);
  uint32_t now=buddy5_clock_ms(),last_motor=now,last_line=now,last_report=now;
+#if TM_WIFI_MQTT
+ uint32_t report_sequence=0;
+ uint32_t line_reacquired_count=0;
+#endif
  uint32_t run_since=0,lost_since=0,last_guard_clear=0;
  uint8_t mask=0; bool fault_latched=false;
  (void)stacd; (void)exinf;
@@ -178,6 +193,9 @@ static void controller_task(INT stacd,void *exinf) {
     halt(&nav,&start,"forward range unavailable while moving");
    full_nav_update(&nav,now,&motor,mask,guard);
    if(run_enabled && nav.failed) halt(&nav,&start,"navigation failed/pose mismatch");
+#if TM_WIFI_MQTT
+   if(nav.resumed) ++line_reacquired_count;
+#endif
    if(nav.resumed) { tm_printf((UB*)"[AUTO] LINE REACQUIRED: line following resumed.\n"); nav.resumed=false; }
   }
   /* Start the proven Buddy 3 line follower after the power-on delay.
@@ -214,15 +232,57 @@ static void controller_task(INT stacd,void *exinf) {
   full_nav_feedback(&nav,last_motor,&f); f.fault=fault_latched;
   DI(irq); feedback_shared=f; EI(irq);
   if((uint32_t)(now-last_report)>=1000u) {
+#if TM_WIFI_MQTT
+   ++report_sequence;
+   bool tilt_valid=false;
+   int32_t pitch=0,roll=0;
+#endif
    if(buddy4_ready) {
     buddy4_task_snapshot_t imu;
-    if(buddy4_task_get(&imu)>=E_OK)
+    if(buddy4_task_get(&imu)>=E_OK) {
+#if TM_WIFI_MQTT
+     report_measurement(4,11,imu.valid?1:0,
+         imu.sample_age_ms==UINT32_MAX?-1:(int32_t)imu.sample_age_ms,imu.io_errors,report_sequence);
+     report_measurement(4,12,0,imu.clipped_samples,imu.unsuitable_samples,report_sequence);
+     report_measurement(4,13,imu.valid && imu.tilt_valid?1:0,
+         imu.terrain,imu.side,report_sequence);
+     report_measurement(4,14,(imu.motion_valid?1:0)|(imu.yaw_valid?2:0),
+         imu.motion_state,imu.yaw_valid?(int32_t)(imu.encoder_yaw_deg_s*100):0,report_sequence);
+     report_measurement(4,15,imu.valid && imu.tilt_valid?1:0,
+         imu.valid && imu.tilt_valid?(int32_t)(imu.height_cm*10):0,imu.measurement_quality,report_sequence);
+     report_measurement(4,16,(imu.last_event.stable_valid?1:0)|(imu.last_event.median_valid?2:0),
+         imu.last_event.stable_valid?(int32_t)(imu.last_event.stable_cm*10):0,
+         imu.last_event.median_valid?(int32_t)(imu.last_event.median_cm*10):0,report_sequence);
+     report_measurement(4,17,imu.completed_events?1:0,imu.last_event.side,
+         (int32_t)(imu.last_event.end_us/1000u),report_sequence);
+     report_measurement(4,18,imu.impact_valid?1:0,imu.impact_count,
+         (int32_t)(imu.impact_time_us/1000u),report_sequence);
+     tilt_valid=imu.valid && imu.tilt_valid;
+     if(tilt_valid) {
+      pitch=(int32_t)(imu.pitch_deg*100);
+      roll=(int32_t)(imu.roll_deg*100);
+     }
+#endif
      tm_printf((UB*)"[B4] imu=%d tilt=%d age_ms=%u terrain=%d side=%d impact=%u motion=%d yaw=%d io_errors=%u\n",
       imu.valid,imu.tilt_valid,(unsigned)imu.sample_age_ms,imu.terrain,imu.side,
       (unsigned)imu.impact_count,imu.motion_valid?imu.motion_state:-1,imu.yaw_valid,
       (unsigned)imu.io_errors);
+    }
    }
    line_status_t line; line_follow_get_status(&line);
+#if TM_WIFI_MQTT
+   report_measurement(TELEMETRY_SOURCE_BUDDY2,TELEMETRY_TYPE_MOTOR_SPEED,0,
+       (int32_t)(motor.left_speed_cm_s*10),(int32_t)(motor.right_speed_cm_s*10),report_sequence);
+   report_measurement(2,TELEMETRY_TYPE_ENCODER,0,
+       motion_encoder_get_count(MOTION_SIDE_LEFT),motion_encoder_get_count(MOTION_SIDE_RIGHT),report_sequence);
+   report_measurement(6,57,0,line_reacquired_count,0,report_sequence);
+   report_measurement(TELEMETRY_SOURCE_BUDDY2,TELEMETRY_TYPE_ODOMETRY,0,
+       (int32_t)(motor.distance_cm*10),motor.fault,report_sequence);
+   report_measurement(TELEMETRY_SOURCE_BUDDY3,TELEMETRY_TYPE_LINE_SENSOR,0,
+       mask,line.state,report_sequence);
+   report_measurement(TELEMETRY_SOURCE_BUDDY4,TELEMETRY_TYPE_IMU,
+       tilt_valid?TELEMETRY_IMU_TILT_VALID:0,pitch,roll,report_sequence);
+#endif
    tm_printf((UB*)"[LINE] state=%d mask=%u target_mm_s=%d/%d actual_mm_s=%d/%d\n",
     line.state,(unsigned)mask,(int)(line.left_cmd_cm_s*10),(int)(line.right_cmd_cm_s*10),
     (int)(motor.left_speed_cm_s*10),(int)(motor.right_speed_cm_s*10));

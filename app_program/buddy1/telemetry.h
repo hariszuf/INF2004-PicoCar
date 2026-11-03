@@ -22,6 +22,10 @@
 #define TELEMETRY_TYPE_IMU         ((uint8_t)7U)
 #define TELEMETRY_TYPE_HUMP        ((uint8_t)8U)
 #define TELEMETRY_TYPE_ULTRASONIC  ((uint8_t)9U)
+#define TELEMETRY_TYPE_ODOMETRY    ((uint8_t)10U)
+
+/* For TELEMETRY_TYPE_IMU only: pitch and roll are usable. */
+#define TELEMETRY_IMU_TILT_VALID   ((uint16_t)1U)
 
 /*
  * Shared telemetry message.
