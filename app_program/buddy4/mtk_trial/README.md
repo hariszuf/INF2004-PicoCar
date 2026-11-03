@@ -214,7 +214,7 @@ CDC with the existing four newlib file-I/O stub warnings. ELF sections: text
 Exact new UF2, relative to repository root:
 
 ```text
-app_program/buddy4_mtk/build/mtk3pico_smp0_usb_cdc.uf2
+app_program/buddy4/mtk_trial/build/mtk3pico_smp0_usb_cdc.uf2
 ```
 
 Hardware confirmation remains pending. After manually flashing, use one
@@ -324,7 +324,7 @@ unsigned-comparison warnings. No flashing or motor operation was performed.
 Exact manually flashable file (repository root):
 
 ```text
-app_program/buddy4_mtk/build/mtk3pico_smp0_usb_cdc.uf2
+app_program/buddy4/mtk_trial/build/mtk3pico_smp0_usb_cdc.uf2
 ```
 
 Please make **one 15-second stationary serial capture** after manually flashing
@@ -360,14 +360,14 @@ Edit proposed integration files inside `overlay/`, then run tests/build. Do not 
 Requires the existing Python, GNU Make, native host GCC/g++ and Arm toolchain installation. Paths match the documented Windows layout; adjust on another computer.
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File app_program/buddy4_mtk/test.ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File app_program/buddy4_mtk/build.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File app_program/buddy4/mtk_trial/test.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File app_program/buddy4/mtk_trial/build.ps1
 ```
 
 Output:
 
 ```text
-app_program/buddy4_mtk/build/mtk3pico_smp0_usb_cdc.uf2
+app_program/buddy4/mtk_trial/build/mtk3pico_smp0_usb_cdc.uf2
 ```
 
 Build/test scripts never flash or commit. Each preparation discards only `build/source/`, so do not run them concurrently. Build outputs are ignored; only overlay, scripts, manifest and documentation should be committed.

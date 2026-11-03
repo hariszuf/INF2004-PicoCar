@@ -12,7 +12,7 @@
 #include "../../buddy3/line_follow.h"
 #include "../../buddy3/line_sensors.h"
 #include "../../buddy3/line_config.h"
-#include "../buddy4/buddy4_task.h"
+#include "../../buddy4/rtos/buddy4_task.h"
 #ifndef B5_HEADLESS
 #define B5_HEADLESS 0
 #endif

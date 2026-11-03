@@ -12,5 +12,5 @@ if ($LASTEXITCODE) { throw 'Measurement-quality CSV checks failed' }
 $source = Join-Path $PSScriptRoot 'build/source'
 & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $source 'app_program/buddy4/tests/test_mtk.ps1')
 if ($LASTEXITCODE) { throw 'Native task/device regressions failed' }
-& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $source 'app_program/integration_test/test.ps1')
+& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $source 'app_program/buddy4/sdk_integration_test/test.ps1')
 if ($LASTEXITCODE) { throw 'Existing regression suites failed' }

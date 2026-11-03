@@ -4,7 +4,7 @@
 #include "drive_control.h"
 #include "line_follow.h"
 #define main original_imu_quality_fixture_main
-#include "../buddy4/tests/test_imu.c"
+#include "../tests/test_imu.c"
 #undef main
 static motion_status_t motor;
 static line_status_t line;

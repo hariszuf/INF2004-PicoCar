@@ -1,7 +1,7 @@
 # Buddy 2 micro T Kernel trial
 
 Status: separate trial, not merged into the live team application. Same approach
-as `app_program/buddy4_mtk` (Ignatius): the live team files (`app_main.c`, the
+as `app_program/buddy4/mtk_trial` (Ignatius): the live team files (`app_main.c`, the
 build files, the kernel) are **not** edited. `prepare_source.py` copies the
 repository into `build/source/` and applies `overlay/` there; only that copy is
 built. Built and host-tested 28 Oct 2026; **not yet run on the car**.
@@ -108,14 +108,14 @@ do not just refresh the fingerprints.
 ## Commands (from the repository root)
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File app_program/buddy2_mtk/test.ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File app_program/buddy2_mtk/build.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File app_program/buddy2/mtk_trial/test.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File app_program/buddy2/mtk_trial/build.ps1
 ```
 
 (`test.sh` does the same as `test.ps1` from Git Bash / Linux.) Output:
 
 ```text
-app_program/buddy2_mtk/build/mtk3pico_smp0_usb_cdc.uf2
+app_program/buddy2/mtk_trial/build/mtk3pico_smp0_usb_cdc.uf2
 ```
 
 Flash it like the other micro T-Kernel images and open the Pico's USB serial port.

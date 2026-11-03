@@ -73,7 +73,6 @@ target_include_directories(EmbeddedProject PRIVATE
         "${CMAKE_CURRENT_LIST_DIR}/buddy2"
         "${CMAKE_CURRENT_LIST_DIR}/buddy3"
         "${CMAKE_CURRENT_LIST_DIR}/buddy4"
-        "${CMAKE_CURRENT_LIST_DIR}/shared"
 )
 
 # Line following runs much slower than the Buddy 2 demo: lower the minimum motor duty.
