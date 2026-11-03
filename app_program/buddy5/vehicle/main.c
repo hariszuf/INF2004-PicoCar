@@ -300,14 +300,22 @@ EXPORT INT usermain(void) {
  T_CTSK cfg={0};
  if(b5_platform_init()<E_OK || motion_init()!=MOTION_OK) return 1;
  motion_emergency_stop(); line_follow_init(); ultrasonic_init();
- if(!buddy5_servo_init() || buddy1_init()<E_OK) return 1;
+ if(!buddy5_servo_init()) return 1;
+ ER buddy1_init_result=buddy1_init();
+ if(buddy1_init_result<E_OK)
+  tm_printf((UB*)"[B1] Telemetry unavailable (%d); driving continues.\n",buddy1_init_result);
  ER buddy4_init_result=buddy4_task_init();
  buddy4_ready=buddy4_init_result>=E_OK;
  if(!buddy4_ready) tm_printf((UB*)"[B4] IMU task unavailable (%d); driving continues.\n",buddy4_init_result);
- cfg.tskatr=TA_HLNG|TA_RNG3; cfg.task=controller_task; cfg.itskpri=4; cfg.stksz=4096;
+ /* Motor timing must outrank the 2 ms Wi-Fi poll task (priority 4). */
+ cfg.tskatr=TA_HLNG|TA_RNG3; cfg.task=controller_task; cfg.itskpri=2; cfg.stksz=4096;
  ID id=tk_cre_tsk(&cfg); if(id<0) return 1;
  if(tk_sta_tsk(id,0)<0) { tk_del_tsk(id); return 1; }
- if(buddy1_start()<E_OK || line_scan_start()<E_OK) { motion_emergency_stop(); return 1; }
+ if(line_scan_start()<E_OK) { motion_emergency_stop(); return 1; }
+ if(buddy1_init_result>=E_OK) {
+  ER e=buddy1_start();
+  if(e<E_OK) tm_printf((UB*)"[B1] Telemetry start failed (%d); driving continues.\n",e);
+ }
  if(buddy4_ready) {
   ER e=buddy4_task_start();
   if(e<E_OK) { buddy4_ready=false; tm_printf((UB*)"[B4] IMU task did not start (%d); driving continues.\n",e); }

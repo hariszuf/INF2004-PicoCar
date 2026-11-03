@@ -47,8 +47,8 @@
 /* Speeds (cm/s). Much slower than the Buddy 2 demo.                   */
 /* Team test used 300 counts/s straight, 120 inner (about 5 and 2 cm/s). */
 /* ------------------------------------------------------------------ */
-#define LINE_STRAIGHT_SPEED_CM_S    (3.0f)   /* TUNE: both sensors on the line */
-#define LINE_TURN_OUTER_SPEED_CM_S  (3.5f)   /* left-turn outside wheel (right motor) */
+#define LINE_STRAIGHT_SPEED_CM_S    (3.5f)   /* TUNE: both sensors on the line */
+#define LINE_TURN_OUTER_SPEED_CM_S  (4.0f)   /* left-turn outside wheel (right motor) */
 /* TEMP TEST: right turns depend on the LEFT motor, so raise its target gently.
    If testing shows actual left wheel speed cannot reach the command, investigate
    hardware / wheel stiction instead of increasing speed again. */
