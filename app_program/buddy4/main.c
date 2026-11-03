@@ -1,4 +1,7 @@
 #include "buddy4_imu.h"
+#if BUDDY4_DEMO_MODE
+#include "buddy4_demo_display.h"
+#endif
 #include "hardware/i2c.h"
 #include "pico/stdio_usb.h"
 #include "pico/stdlib.h"
@@ -10,6 +13,7 @@
 #define IMU_SCL_PIN 17
 #define IMU_I2C_BAUD_HZ 100000
 #define CONFIG_RETRY_US 1000000
+#define DEMO_DISPLAY_PERIOD_US 500000
 
 static int bus_write(void *context, uint8_t address, const uint8_t *data,
                      size_t count, bool no_stop)
@@ -28,6 +32,7 @@ static int bus_read(void *context, uint8_t address, uint8_t *data,
 }
 
 /* Reprint on each observed USB connection so a new recording has a schema. */
+#if !BUDDY4_DEMO_MODE
 static void log_csv_header(const buddy4_config_t *config)
 {
     printf("# preliminary_six_position,imperfect_orientation_alignment,"
@@ -102,6 +107,7 @@ static void log_csv_sample(uint32_t sequence, uint64_t poll_time_us,
            output->event.peak_height_cm, output->event.median_candidate_valid,
            output->event.median_candidate_roll_deg,output->event.median_candidate_height_cm);
 }
+#endif
 
 /* Standalone sensor monitor: sampling never depends on a USB connection. */
 int main(void)
@@ -123,7 +129,12 @@ int main(void)
 
     uint64_t next_sample_us = time_us_64();
     uint64_t next_config_retry_us = 0;
+#if BUDDY4_DEMO_MODE
+    uint64_t next_display_us = 0;
+    buddy4_demo_state_t demo_state = {0};
+#else
     uint32_t sequence = 0;
+#endif
     bool usb_was_connected = false;
 
     while (true) {
@@ -134,10 +145,28 @@ int main(void)
             next_config_retry_us = now_us + CONFIG_RETRY_US;
         }
         buddy4_result_t result = buddy4_poll(&imu, now_us);
+#if BUDDY4_DEMO_MODE
+        bool new_hump = buddy4_demo_record_event(&demo_state, result, &imu.output);
+#endif
 
         /* USB writes have a bounded SDK timeout; logging is best effort. */
         bool usb_connected = stdio_usb_connected();
         if (usb_connected) {
+#if BUDDY4_DEMO_MODE
+            if (new_hump) {
+                char event_display[192];
+                buddy4_demo_format_event(event_display, sizeof(event_display),
+                                         &demo_state);
+                printf("%s", event_display);
+            }
+            if (!usb_was_connected || now_us >= next_display_us) {
+                char display[512];
+                buddy4_demo_format_full(display, sizeof(display), result,
+                                        &imu.output, &demo_state);
+                printf("%s", display);
+                next_display_us = now_us + DEMO_DISPLAY_PERIOD_US;
+            }
+#else
             if (!usb_was_connected) {
                 log_csv_header(&imu.config);
             }
@@ -145,6 +174,7 @@ int main(void)
                 log_side_event_summary(&imu.output);
             }
             log_csv_sample(sequence++, now_us, result, &imu.output);
+#endif
         }
         usb_was_connected = usb_connected;
 

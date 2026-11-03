@@ -254,6 +254,20 @@ Mounting convention:
 
 These labels describe chassis orientation. The sensor cannot independently distinguish one wheel rising from the opposite wheel dropping.
 
+The optional standalone USB display is enabled with CMake's
+`-DBUDDY4_DEMO_MODE=ON`. It prints the signed filtered pitch and roll every
+500 ms with `FRONT UP`/`FRONT DOWN` and `LEFT WHEEL UP`/`RIGHT WHEEL UP`
+labels. A display-only inclusive tolerance of 1.00 degree on each axis shows
+`NEAR LEVEL` while retaining the numerical reading; the classifier's 6/3
+degree pitch and 4/2 degree roll thresholds are unchanged. This mapping follows
+the current IMU signs, the host classifier tests, and the recorded left/right
+one-wheel captures in `evidence/2026-10-28/`. With the option off, the original
+per-sample CSV diagnostics remain available. The demo block also shows live
+wheel-height difference and the last completed event's independently valid
+stable/median peaks. The highest hump uses confirmed completed stable peaks
+only. An event announcement is printed once when a valid event ends; live
+height alone is never saved as an event.
+
 A single-wheel obstacle can produce both pitch and roll. Ball-caster contact also affects chassis orientation.
 
 ## 6. Preliminary height estimation
