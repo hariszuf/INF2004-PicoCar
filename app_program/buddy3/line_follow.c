@@ -14,6 +14,11 @@
 #include "line_sensors.h"
 #include "motion_control.h"
 
+#ifdef LINE_BARCODE_DECODE
+#include "barcode_scan.h"   /* also compile barcode_scan.c and barcode39.c */
+static uint32_t s_clock_us;  /* line_follow_update() runs every LINE_UPDATE_PERIOD_MS */
+#endif
+
 static line_state_t s_state = LINE_STATE_IDLE;
 static uint8_t s_mask;
 static float s_left_cmd;
@@ -45,6 +50,9 @@ static void steer(int32_t side, float inner)
 void line_follow_init(void)
 {
     line_sensors_init();
+#ifdef LINE_BARCODE_DECODE
+    barcode_scan_init();
+#endif
     s_state = LINE_STATE_IDLE;
     s_active = false;
     s_last_side = 0;
@@ -100,6 +108,12 @@ void line_follow_update(void)
     }
 
     s_mask = line_sensors_read();
+#ifdef LINE_BARCODE_DECODE
+    /* Barcode sensor: measure bars while following the line. Only the ratio of bar
+       widths matters, so the 5 ms update tick is accurate enough as a clock. */
+    s_clock_us += (LINE_UPDATE_PERIOD_MS * 1000u);
+    barcode_scan_update((s_mask & LINE_SENSOR_BARCODE) != 0u, s_clock_us);
+#endif
     left = ((s_mask & LINE_SENSOR_LEFT) != 0u);
     right = ((s_mask & LINE_SENSOR_RIGHT) != 0u);
 
