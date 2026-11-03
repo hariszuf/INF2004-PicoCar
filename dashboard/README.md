@@ -85,6 +85,57 @@ optional feature is omitted. No firmware or telemetry protocol is changed here.
 
 ## Meaning of the indicators
 
+### Buddy 2 distance and Buddy 5 profile
+
+Distance travelled is the signed `motion_status_t.distance_cm` odometry value
+since reset, not a cumulative path-length counter. Buddy 2 does not publish an
+agreed distance field to MQTT, so the dashboard shows N/A rather than estimating
+distance from incomplete speed/encoder messages.
+
+The Buddy 5 view interprets these source-5 messages, as emitted by
+`app_program/buddy5/buddy5.c` and the separate full-test `scan_task.c`:
+
+| Type | Value 1 | Value 2 |
+| --- | --- | --- |
+| 50 | State enum | Fault enum |
+| 51 | Width in mm, or -1 | Depth upper bound in mm, or -1 |
+| 52 | Bypass side: +1 left, -1 right | Signed sideways offset in mm |
+| 53 | Depth lower bound in mm, or -1 | Depth upper bound in mm, or -1 |
+| 54 | Derived front clearance in mm | Commanded servo angle in degrees |
+| 55 | Obstacle ID | Acquisition uptime (standard publisher only) |
+| 56 | Validity/profile bit mask | Dropped telemetry count (standard publisher) |
+
+Type 56 carries width/depth validity in value1 bits 0/1. This survives the text
+publisher even though the envelope's internal `flags` field is omitted. Bit 2
+marks the standard stationary bench profile; bit 4 marks the separate full-test
+profile. Unknown mask bits are not used to approve estimates.
+
+Width and depth are displayed only when their packet and type-56 validity packet
+share the latest observed source-5 sequence. Depth bounds must also be ordered.
+Missing or invalid estimates show **Unknown**, never `-1 mm`; conflicting fields
+show an inconsistent-validity label. A sequence decrease clears held Buddy 5
+packets. Matching sequences cannot establish device boot identity or an atomic
+snapshot, and browser polling can miss whole bursts. All values retain explicit
+last-observation labels, including after stale heartbeat or connection loss.
+
+The current publishers send about once per second. State transitions are printed
+to the console, but immediate MQTT updates on state change are not implemented.
+The backend still holds only one payload per topic, so a coherent status snapshot
+requires future publisher/receiver integration rather than a frontend assumption.
+
+Range status remains **Unknown**: `valid`, `no echo` and `invalid` are not sent as
+distinct fields. In `buddy5_full/scan_task.c`, no echo is converted to `-1` in
+type 54, making it indistinguishable from unavailable data in the text envelope.
+The dashboard therefore shows Unknown for this sentinel and never interprets it
+as measured free space. A non-sentinel clearance is only a reported measurement;
+it does not establish sensor validity. Raw ultrasonic range remains N/A.
+
+Line reacquisition comes from navigation feedback but is not published as an
+event; its dashboard field stays N/A. A return to Monitoring does not substitute
+for an event. No firmware, publish schedule, MQTT protocol or API is changed.
+
+### General status semantics
+
 - MQTT Broker reports this dashboard's broker connection.
 - PicoCar Heartbeat is fresh for less than 15 seconds after receiving any message
   on `picocar/vehicle1/status`. It does not validate the payload or reject retained
@@ -101,7 +152,7 @@ optional feature is omitted. No firmware or telemetry protocol is changed here.
 - Buddy 5 source 5/type 50 displays the state and fault enums in
   `app_program/buddy5/buddy5_core.h`. Source 5/type 54 displays derived front
   clearance (mm) and commanded servo angle (degrees), as published in
-  `app_program/buddy5/buddy5.c`. Clearance `-1` is unavailable; zero and other
+  `app_program/buddy5/buddy5.c`. Clearance `-1` is unknown; zero and other
   signed clearance values are preserved. The servo angle is a command, not
   measured servo position. Raw ultrasonic range and range validity remain N/A
   or unknown because this envelope does not supply them.
