@@ -29,12 +29,13 @@
  *      sees black means the line is drifting toward that side, so steer that way.
  *  0 = BOTH ON THE LINE: the sensors are close together (under 18 mm apart) and
  *      both start on the line. Both white = line lost.
- * Which one applies depends on how the sensors are mounted on the car. Default is 0
- * (the team code's assumption); set 1 only if the sensors are wider apart than the line.
+ * Use straddle mode when the sensing spots are wider apart than the line.
+ * Place one sensor on each side, with both seeing white when centred.
  */
-#define LINE_SENSORS_STRADDLE       (0u)     /* MEASURE: unconfirmed, see README */
-/** In STRADDLE mode, stop if neither sensor has seen the line for this long (end of track). */
+#define LINE_SENSORS_STRADDLE       (1u)     /* centred with both sensors over white */
+/** In STRADDLE mode, cap continuous both-white driving at this duration. */
 #define LINE_STRADDLE_STOP_MS       (12000u) /* TUNE */
+#define LINE_BOTH_BLACK_STOP_MS    (5000u)
 
 /* ------------------------------------------------------------------ */
 /* Timing                                                              */
@@ -47,13 +48,13 @@
 /* Speeds (cm/s). Much slower than the Buddy 2 demo.                   */
 /* Team test used 300 counts/s straight, 120 inner (about 5 and 2 cm/s). */
 /* ------------------------------------------------------------------ */
-#define LINE_STRAIGHT_SPEED_CM_S    (3.5f)   /* TUNE: both sensors on the line */
-#define LINE_TURN_OUTER_SPEED_CM_S  (4.0f)   /* left-turn outside wheel (right motor) */
+#define LINE_STRAIGHT_SPEED_CM_S    (3.0f)   /* TUNE: both sensors on the line */
+#define LINE_TURN_OUTER_SPEED_CM_S  (3.5f)   /* left-turn outside wheel (right motor) */
 /* TEMP TEST: right turns depend on the LEFT motor, so raise its target gently.
    If testing shows actual left wheel speed cannot reach the command, investigate
    hardware / wheel stiction instead of increasing speed again. */
 #ifndef LINE_RIGHT_OUTER_SPEED_CM_S
-#define LINE_RIGHT_OUTER_SPEED_CM_S (5.0f)
+#define LINE_RIGHT_OUTER_SPEED_CM_S (4.5f)
 #endif
 #define LINE_TURN_INNER_SPEED_CM_S  (0.0f)   /* TUNE: inside wheel while steering (0 = brake and pivot) */
 
