@@ -20,7 +20,7 @@
 #if defined(MOTION_HOST_TEST)
 #include "host_platform.h"
 #elif defined(MOTION_USE_UTKERNEL)
-#include "motion_mtk_hw.h"    /* micro T-Kernel trial: app_program/buddy2_mtk */
+#include "motion_mtk_hw.h"    /* micro T-Kernel trial: app_program/buddy2/mtk_trial */
 #else
 #include "hardware/sync.h"
 #include "pico/time.h"

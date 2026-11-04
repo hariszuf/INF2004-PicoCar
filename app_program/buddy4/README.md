@@ -61,7 +61,7 @@ or subtract 0.319 cm from other recordings. Earlier measured results are retaine
 
 For a teammate or AI assistant continuing Buddy 4, start with
 [HANDOVER.md](HANDOVER.md#teammate-ai-assisted-integration-prompt), then this README,
-[TODO.md](TODO.md), and the [isolated MTK trial README](../buddy4_mtk/README.md).
+[TODO.md](TODO.md), and the [isolated MTK trial README](mtk_trial/README.md).
 The handover contains a **copy-paste integration prompt** and the source/ownership
 map. The AI must also inspect the actual current team source; documentation alone
 cannot establish that native interfaces match.
@@ -89,7 +89,7 @@ Historical checkpoint sections below predate this correction.
 
 
 **Main task list:** [Buddy 4 checklist — completed work, remaining tasks and dependencies](TODO.md).
-The latest isolated MTK checkpoint is in [the trial README](../buddy4_mtk/README.md).
+The latest isolated MTK checkpoint is in [the trial README](mtk_trial/README.md).
 Earlier session-specific remaining-work notes below are historical; use TODO.md
 for the current consolidated plan.
 
@@ -177,9 +177,9 @@ Buddy 2 retains its original **12.2 cm** setting. Team reconciliation is pending
 | `tests/test_imu.c` | Authoritative IMU/calibration/recovery regression suite |
 | `CMakeLists.txt` | Standalone firmware and native IMU tests |
 | `pico_sdk_import.cmake` | Pico SDK import |
-| [`../integration_test/`](../integration_test/) | Separate driving-test application and broader tests |
+| [`sdk_integration_test/`](sdk_integration_test/) | Separate driving-test application and broader tests |
 | [`HANDOVER.md`](HANDOVER.md) | Current file ownership, native integration contract, regressions and artifact hashes |
-| [`../buddy4_mtk/`](../buddy4_mtk/) | Isolated native task/device overlay and its tests; not the live team app |
+| [`mtk_trial/`](mtk_trial/) | Isolated native task/device overlay and its tests; not the live team app |
 
 Historical experiments are archived under the repository’s `archive/buddy4/` area. Consult its manifest before deleting anything. Historical UF2 files are not current firmware.
 
@@ -412,19 +412,19 @@ app_program/buddy4/build/buddy4.uf2
 From the repository root, with the same tools configured:
 
 ```powershell
-& $cm -S app_program/integration_test -B app_program/integration_test/build -G Ninja "-DPICO_SDK_PATH=$env:USERPROFILE/.pico-sdk/sdk/2.3.1" -DPICO_BOARD=pico_w -DPICO_NO_PICOTOOL=0 "-Dpicotool_DIR=$env:USERPROFILE/.pico-sdk/picotool/2.3.1/picotool"
+& $cm -S app_program/buddy4/sdk_integration_test -B app_program/buddy4/sdk_integration_test/build -G Ninja "-DPICO_SDK_PATH=$env:USERPROFILE/.pico-sdk/sdk/2.3.1" -DPICO_BOARD=pico_w -DPICO_NO_PICOTOOL=0 "-Dpicotool_DIR=$env:USERPROFILE/.pico-sdk/picotool/2.3.1/picotool"
 ```
 
 Only if configuration succeeds:
 
 ```powershell
-& $cm --build app_program/integration_test/build --target buddy234_driving_test
+& $cm --build app_program/buddy4/sdk_integration_test/build --target buddy234_driving_test
 ```
 
 Output:
 
 ```text
-app_program/integration_test/build/buddy234_driving_test.uf2
+app_program/buddy4/sdk_integration_test/build/buddy234_driving_test.uf2
 ```
 
 ### Regression runner
@@ -432,9 +432,9 @@ app_program/integration_test/build/buddy234_driving_test.uf2
 From the repository root:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File app_program/integration_test/test.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File app_program/buddy4/sdk_integration_test/test.ps1
 
-python app_program/integration_test/test_csv_schema.py
+python app_program/buddy4/sdk_integration_test/test_csv_schema.py
 ```
 
 The host runner requires its documented native compiler/Python environment. Consult the integration README for prerequisites.
