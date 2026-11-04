@@ -33,13 +33,19 @@ static uint32_t last_heartbeat_ms = 0U;
 static uint32_t heartbeat_sequence = 0U;
 #if B5_FULL_TEST
 static volatile bool dashboard_ready;
-static uint32_t startup_token, last_probe_ms;
+static volatile uint32_t startup_token; /* MQTT connection time in milliseconds. */
+static uint32_t last_probe_ms;
 static UB startup_ack[32];
 static INT startup_ack_length;
 
 bool mqtt_dashboard_ready(void)
 {
     return dashboard_ready;
+}
+
+bool mqtt_dashboard_ready_after_connect(uint32_t delay_ms)
+{
+    return dashboard_ready && (uint32_t)(sys_now() - startup_token) >= delay_ms;
 }
 #endif
 

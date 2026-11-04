@@ -51,9 +51,19 @@ bool full_nav_accept(full_nav_t *n,const b5_request_t *r,uint32_t now) {
   break;
  case B5_REQ_RECOVER_LINE: trip(n,0,true); break;
  case B5_REQ_RESUME_LINE: break;
+ case B5_REQ_BARCODE_LEFT:
+ case B5_REQ_BARCODE_RIGHT:
+  line_follow_stop();
+  n->settled=0;
+  n->count=1;
+  n->actions[0]=(full_action_t){TURN,r->kind==B5_REQ_BARCODE_LEFT?90.0f:-90.0f};
+  break;
  default: n->active=false; return false;
  }
  return true;
+}
+bool full_nav_barcode_turn_active(const full_nav_t *n) {
+ return n->active && (n->request.kind==B5_REQ_BARCODE_LEFT || n->request.kind==B5_REQ_BARCODE_RIGHT);
 }
 void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t mask,bool guard) {
  float heading=corrected_heading(m);
@@ -106,6 +116,13 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
   } else return;
  }
  if(n->index>=n->count) {
+  if(full_nav_barcode_turn_active(n)) {
+   if(!guard) return;
+   if(!line_follow_start()) { fail(n); return; }
+   n->x=n->y=n->heading=0; n->heading_origin=heading;
+   n->active=false;
+   return;
+  }
   bool pose=absolute(n->heading)<=NAV_HEADING_ALIGNED_DEG;
   if(n->request.kind==B5_REQ_BYPASS)
    pose=pose && absolute(n->x)<=20 && absolute(n->y-n->request.lateral_mm)<=20;
@@ -127,7 +144,9 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
  }
  motion_result_t result=MOTION_OK;
  if(a.kind==TURN) {
-  float error=a.value-n->heading;
+  bool barcode_turn=full_nav_barcode_turn_active(n);
+  if(barcode_turn && !guard) return;
+  float error=barcode_turn?a.value:a.value-n->heading;
   if(absolute(error)<=NAV_TURN_DEADBAND_DEG) { ++n->index; return; }
   /* Convert desired physical rotation back into the under-reporting motion
    * controller's angle domain. */

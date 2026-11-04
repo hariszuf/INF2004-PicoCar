@@ -15,7 +15,7 @@ typedef enum {
 } b5_fault_t;
 typedef enum {
  B5_REQ_NONE, B5_REQ_STOP, B5_REQ_BYPASS, B5_REQ_ADVANCE,
- B5_REQ_RECOVER_LINE, B5_REQ_RESUME_LINE
+ B5_REQ_RECOVER_LINE, B5_REQ_RESUME_LINE, B5_REQ_BARCODE_LEFT, B5_REQ_BARCODE_RIGHT
 } b5_request_kind_t;
 typedef struct {
  b5_request_kind_t kind;
