@@ -118,6 +118,10 @@ static void controller_task(INT stacd,void *exinf) {
  uint32_t line_reacquired_count=0;
 #endif
  uint32_t lost_since=0,last_guard_clear=0;
+#if TM_CONSOLE_USB_CDC || TM_WIFI_MQTT
+ uint32_t last_barcode_action_ms=0;
+ bool barcode_seen=false;
+#endif
  uint8_t mask=0; bool fault_latched=false;
  (void)stacd; (void)exinf;
  auto_start_init(&start,now);
@@ -172,6 +176,23 @@ static void controller_task(INT stacd,void *exinf) {
    * the servo to face forward and acquire a new reading before ADVANCE. */
   if(nav.active && nav.request.kind==B5_REQ_ADVANCE && !nav.forward_moving &&
      !guard_fresh) guard=false;
+#if TM_CONSOLE_USB_CDC || TM_WIFI_MQTT
+  bool barcode_clear=guard_fresh && scan.front_clearance_mm>B5_STOP_FRONT_MM;
+  char barcode_letter;
+  uint32_t barcode_read_ms;
+  if(buddy3_barcode_latest(&barcode_letter,&barcode_read_ms) &&
+     (!barcode_seen || barcode_read_ms!=last_barcode_action_ms)) {
+   barcode_seen=true;
+   last_barcode_action_ms=barcode_read_ms;
+   /* A scan read while stopped, turning, or avoiding an obstacle is display-only. */
+   if(run_enabled && !got && !nav.active && scan.state==B5_MONITORING && barcode_clear &&
+      (barcode_letter=='A' || barcode_letter=='B')) {
+    b5_request_t turn={.kind=barcode_letter=='A'?B5_REQ_BARCODE_LEFT:B5_REQ_BARCODE_RIGHT};
+    if(!full_nav_accept(&nav,&turn,now)) halt(&nav,&start,"barcode turn rejected");
+   }
+  }
+  if(full_nav_barcode_turn_active(&nav)) guard=barcode_clear;
+#endif
   if((uint32_t)(now-last_motor)>=20u) {
    if((uint32_t)(now-last_motor)>60u && run_enabled) halt(&nav,&start,"motor scheduling delay");
    last_motor=now; motion_update(); motion_get_status(&motor);
@@ -214,7 +235,7 @@ static void controller_task(INT stacd,void *exinf) {
    * first sample otherwise leaves the car permanently stationary. */
   bool ready=motor.fault==MOTION_FAULT_NONE && !fault_latched;
 #if TM_WIFI_MQTT
-  ready=ready && mqtt_dashboard_ready() && report_sequence!=0;
+  ready=ready && mqtt_dashboard_ready_after_connect(10000u) && report_sequence!=0;
 #endif
 #if B5_HEADLESS
   /* A fast power-bank boot can otherwise reach AUTO_START before the first

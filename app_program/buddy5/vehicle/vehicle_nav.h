@@ -16,6 +16,7 @@ typedef struct {
 } full_nav_t;
 void full_nav_init(full_nav_t *n,const motion_status_t *m);
 bool full_nav_accept(full_nav_t *n,const b5_request_t *r,uint32_t now);
+bool full_nav_barcode_turn_active(const full_nav_t *n);
 void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t mask,bool guard);
 void full_nav_feedback(const full_nav_t *n,uint32_t timestamp,b5_feedback_t *f);
 #endif
