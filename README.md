@@ -173,7 +173,7 @@ an explicit build change.
 - Define cases and record actual test results in [testing/](testing/README.md).
   Kernel resource limits are configured in `config/config.h`.
 
-## Optional: Wi-Fi, DHCP and DNS
+## Wi-Fi, DHCP and DNS
 
 From the repository root, create your local Wi-Fi configuration:
 
