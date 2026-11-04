@@ -14,6 +14,7 @@ class DashboardTests(unittest.TestCase):
     def setUp(self):
         dashboard.latest_messages.clear()
         dashboard.last_message_times.clear()
+        dashboard.sensor_frames.clear()
         self.client_patch = patch.object(dashboard, "mqtt_client")
         self.client = self.client_patch.start()
         self.addCleanup(self.client_patch.stop)
@@ -57,6 +58,30 @@ class DashboardTests(unittest.TestCase):
         frames = dashboard.get_telemetry()["sensor_frames"]
         self.assertEqual(len(frames), 1)
         self.assertEqual(frames[0]["payload"], payload.decode())
+
+    def test_buddy4_frames_survive_refresh_and_reconnect_with_real_ages(self):
+        def receive(payload, clock):
+            with patch.object(dashboard.time, "monotonic", return_value=clock):
+                dashboard.on_message(None, None, SimpleNamespace(
+                    topic=dashboard.TOPIC_TELEMETRY, payload=payload.encode()))
+
+        receive("src=4 type=7 seq=20 pitch_cdeg=-123 roll_cdeg=0 flags=1", 100)
+        receive("src=4 type=16 seq=20 stable_peak_mm=14 median_peak_mm=9 flags=3", 100)
+        receive("src=4 type=19 seq=20 highest_hump_mm=14 run_id=1 flags=1", 100)
+        with patch.object(dashboard.time, "monotonic", return_value=105):
+            first = dashboard.get_telemetry()["sensor_frames"]
+            second = dashboard.get_telemetry()["sensor_frames"]
+        self.assertEqual(first, second)
+        self.assertEqual(len(first), 3)
+        self.assertTrue(all(frame["age_seconds"] == 5 for frame in first))
+        self.assertIn("highest_hump_mm=14", first[-1]["payload"])
+        dashboard.on_connect(Mock(), None, None, 0, None)
+        with patch.object(dashboard.time, "monotonic", return_value=110):
+            self.assertEqual(dashboard.get_telemetry()["sensor_frames"][-1]["age_seconds"], 10)
+        receive("src=4 type=19 seq=21 highest_hump_mm=0 run_id=2 flags=0", 111)
+        with patch.object(dashboard.time, "monotonic", return_value=112):
+            self.assertIn("run_id=2 flags=0", dashboard.get_telemetry()["sensor_frames"][-1]["payload"])
+
 
     def test_commands_are_validated_and_publish_is_not_acknowledgement(self):
         with self.assertRaises(HTTPException) as error:

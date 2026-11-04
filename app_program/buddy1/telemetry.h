@@ -23,6 +23,8 @@
 #define TELEMETRY_TYPE_HUMP        ((uint8_t)8U)
 #define TELEMETRY_TYPE_ULTRASONIC  ((uint8_t)9U)
 #define TELEMETRY_TYPE_ODOMETRY    ((uint8_t)10U)
+/* Buddy 4 run maximum: value_1=millimetres, value_2=run ID, flags bit 0=valid. */
+#define TELEMETRY_TYPE_HIGHEST_HUMP ((uint8_t)19U)
 
 /* For TELEMETRY_TYPE_IMU only: pitch and roll are usable. */
 #define TELEMETRY_IMU_TILT_VALID   ((uint16_t)1U)
