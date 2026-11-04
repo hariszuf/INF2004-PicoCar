@@ -25,8 +25,8 @@ const sections = {
         ["Movement & encoders", [["Left encoder", "encoder-left"], ["Right encoder", "encoder-right"], ["Movement direction", "movement-direction"], ["Distance travelled (cm, signed)", "distance-travelled"]]],
     ],
     line: [
-        ["Line sensing", [["Left IR sensor", "ir-left"], ["Barcode IR sensor (raw)", "ir-centre"], ["Right IR sensor", "ir-right"]]],
-        ["Tracking & barcode", [["Line detection", "line-detection"], ["Tracking state", "tracking-state"], ["Barcode result", "barcode-result"]]],
+        ["Line sensing", [["Left IR sensor", "ir-left"], ["Barcode IR (GP26)", "ir-centre"], ["Right IR sensor", "ir-right"]]],
+        ["Tracking & barcode", [["Sensor pattern", "line-detection"], ["Tracking state", "tracking-state"], ["Barcode result", "barcode-result"]]],
     ],
     imu: [
         ["Current orientation", [["IMU status", "imu-status"], ["Pitch", "pitch"], ["Roll", "roll"], ["Wheel-height difference (cm, preliminary)", "wheel-height"]]],
@@ -70,7 +70,7 @@ function metricPanel(title, fields) {
         term.textContent = label;
         const value = document.createElement("dd");
         value.id = id;
-        value.textContent = id === "barcode-result" ? "Future implementation" : "N/A";
+        value.textContent = id === "barcode-result" ? "No scan yet" : "N/A";
         row.append(term, value);
         list.append(row);
     }
@@ -299,6 +299,7 @@ const telemetryValueKeys = {
     "2/3": ["left_speed_mm_s", "right_speed_mm_s"],
     "2/10": ["odometry_mm", "motor_fault"],
     "3/5": ["ir_mask", "line_state"],
+    "3/6": ["barcode_ascii", "barcode_age_ms"],
     "4/7": ["pitch_cdeg", "roll_cdeg"],
     "5/50": ["obstacle_state", "obstacle_fault"],
     "5/51": ["width_mm", "depth_high_mm"],
@@ -449,9 +450,19 @@ function updateMeasurements() {
         measured("ir-left", mask & 1 ? "Black" : "White", line);
         measured("ir-centre", mask & 4 ? "Black" : "White", line);
         measured("ir-right", mask & 2 ? "Black" : "White", line);
-        measured("line-detection", mask & 3 ? "Detected" : "Clear", line);
+        measured("line-detection", ["Both white", "Left black", "Right black", "Both black"][mask & 3], line);
         const states = ["Idle", "Straight", "Steer left", "Steer right", "Recovering", "Stopped", "Fault"];
         measured("tracking-state", states[state] ?? "Unknown", line);
+    }
+    const barcode = sensorObservations.get("3/6");
+    byId("diag-buddy3-line").textContent = line?.payload ?? "Waiting for line telemetry.";
+    byId("diag-buddy3-barcode").textContent = barcode?.payload ?? "Waiting for a decoded barcode.";
+    if (barcode && barcode.fields.value1 >= 65 && barcode.fields.value1 <= 90 && barcode.fields.value2 >= 0) {
+        const elapsedMs = barcode.fields.value2 + Math.max(0, Date.now() - barcode.at);
+        const letter = String.fromCharCode(barcode.fields.value1);
+        measured("barcode-result", `${letter} · read ${ageLabel(elapsedMs)} ago`, barcode);
+    } else {
+        byId("barcode-result").textContent = "No scan yet";
     }
     const imuLive = observation => observation && statusAvailable && telemetryAvailable && brokerConnected && Date.now() - observation.at < 3000;
     const imu = sensorObservations.get("4/7");
@@ -543,6 +554,7 @@ const telemetryValueLabels = {
     "2/3": ["Left wheel speed (mm/s)", "Right wheel speed (mm/s)"],
     "2/10": ["Signed odometry (mm)", "Motor fault code"],
     "3/5": ["IR sensor bitmask", "Line-follow state code"],
+    "3/6": ["Decoded letter (ASCII)", "Age at publication (ms)"],
     "4/7": ["Pitch (0.01°)", "Roll (0.01°)"],
     "5/50": ["Obstacle state code", "Obstacle fault code"],
     "5/51": ["Obstacle width (mm)", "Upper depth estimate (mm)"],
@@ -633,7 +645,7 @@ async function refreshDashboard() {
             for (const { payload, age_seconds } of telemetry.value.sensor_frames) {
                 const fields = parseEnvelope(payload);
                 if (!fields) continue;
-                const observation = { fields, at: now - age_seconds * 1000, received: true };
+                const observation = { fields, payload, at: now - age_seconds * 1000, received: true };
                 sensorObservations.set(`${fields.src}/${fields.type}`, observation);
                 sourceObservations.set(fields.src, observation);
                 if (fields.src === 5 && fields.type <= 58) obstacleObservations.set(fields.type, observation);

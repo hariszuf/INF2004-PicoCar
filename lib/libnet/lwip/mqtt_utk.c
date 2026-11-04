@@ -25,6 +25,8 @@ static ip_addr_t broker_address;
 static uint8_t connecting = 0U;
 static uint8_t connected = 0U;
 static uint8_t initialized = 0U;
+static mqtt_telemetry_data_t pending_telemetry;
+static uint8_t telemetry_pending;
 
 static uint32_t last_attempt_ms = 0U;
 static uint32_t last_heartbeat_ms = 0U;
@@ -230,6 +232,7 @@ static void connection_callback(
     (void)arg;
 
     connecting = 0U;
+    telemetry_pending = 0U;
 #if B5_FULL_TEST
     dashboard_ready = false;
     startup_ack_length = 0;
@@ -354,6 +357,7 @@ static const struct {
     {2, 3, "left_speed_mm_s", "right_speed_mm_s"},
     {2, 10, "odometry_mm", "motor_fault"},
     {3, 5, "ir_mask", "line_state"},
+    {3, 6, "barcode_ascii", "barcode_age_ms"},
     {4, 7, "pitch_cdeg", "roll_cdeg"},
     {5, 50, "obstacle_state", "obstacle_fault"},
     {5, 51, "width_mm", "depth_high_mm"},
@@ -378,24 +382,21 @@ static const struct {
 
 static void publish_telemetry(void)
 {
-    mqtt_telemetry_data_t message;
-
     UB payload[192];
 
     INT length;
-    int32_t receive_result;
     err_t publish_result;
 
     /*
      * Non-blocking message-buffer receive.
      */
-    receive_result = buddy1_mqtt_telemetry_fetch(
-        &message
-    );
-
-    if (receive_result != 0) {
-        return;
+    if (!telemetry_pending) {
+        if (buddy1_mqtt_telemetry_fetch(&pending_telemetry) != 0) {
+            return;
+        }
+        telemetry_pending = 1U;
     }
+    const mqtt_telemetry_data_t message = pending_telemetry;
 
     const char *first = "value1";
     const char *second = "value2";
@@ -419,6 +420,7 @@ static void publish_telemetry(void)
         (unsigned int)message.flags
     );
     if (length <= 0 || length >= (INT)sizeof(payload)) {
+        telemetry_pending = 0U;
         tm_printf((UB *)"[MQTT] Invalid telemetry payload length\n");
         return;
     }
@@ -439,6 +441,10 @@ static void publish_telemetry(void)
         NULL
     );
 
+    if (publish_result == ERR_MEM) {
+        return;
+    }
+    telemetry_pending = 0U;
     if (publish_result != ERR_OK) {
 
         tm_printf(

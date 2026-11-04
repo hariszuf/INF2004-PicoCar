@@ -354,7 +354,11 @@ static float wheel_control(motion_side_t side, float setpoint, float dt_s)
     duty = (MOTION_FEEDFORWARD_DUTY_PER_CM_S * setpoint) +
            motion_pid_update(&s_pid[side], setpoint, s_speed_cm_s[side], dt_s);
 
-    if (abs_f(duty) < MOTION_MIN_DUTY)
+    /* Continuous drive must be able to back off below the duty floor
+       when a wheel has reached its requested speed. */
+    bool needs_min_duty = s_active.type != COMMAND_DRIVE ||
+                          sign_f(setpoint) * s_speed_cm_s[side] < abs_f(setpoint);
+    if (needs_min_duty && abs_f(duty) < MOTION_MIN_DUTY)
     {
         duty = sign_f(setpoint) * MOTION_MIN_DUTY;
     }
@@ -438,6 +442,14 @@ static void start_command(const command_t *p_command)
     if ((p_command->type == COMMAND_DRIVE) && (s_state == MOTION_STATE_EXECUTING) &&
         (s_active.type == COMMAND_DRIVE))
     {
+        /* Start measuring straight travel from the end of a steering correction. */
+        if ((p_command->left_cm_s == p_command->right_cm_s) &&
+            ((s_active.left_cm_s != s_active.right_cm_s) ||
+             (p_command->left_cm_s * s_active.left_cm_s < 0.0f)))
+        {
+            s_start_position_cm[MOTION_SIDE_LEFT] = s_position_cm[MOTION_SIDE_LEFT];
+            s_start_position_cm[MOTION_SIDE_RIGHT] = s_position_cm[MOTION_SIDE_RIGHT];
+        }
         s_active = *p_command;
         return;
     }
@@ -468,6 +480,11 @@ static float stop_lead_cm(void)
     return mean_speed * MOTION_STOP_LEAD_S;
 }
 
+static float straight_trim(float distance_difference, float limit)
+{
+    return clamp_f(MOTION_STRAIGHT_KP * distance_difference, -limit, limit);
+}
+
 static bool profile_move(float target[MOTION_SIDE_COUNT])
 {
     float direction = sign_f(s_active.value);
@@ -491,8 +508,7 @@ static bool profile_move(float target[MOTION_SIDE_COUNT])
     speed = clamp_f(speed, minimum, s_cruise_cm_s);
 
     /* left - right mismatch: positive means the left wheel is ahead */
-    trim = clamp_f(MOTION_STRAIGHT_KP * (left - right),
-                   -MOTION_STRAIGHT_TRIM_MAX_CM_S, MOTION_STRAIGHT_TRIM_MAX_CM_S);
+    trim = straight_trim(left - right, MOTION_STRAIGHT_TRIM_MAX_CM_S);
 
     target[MOTION_SIDE_LEFT] = (direction * speed) - trim;
     target[MOTION_SIDE_RIGHT] = (direction * speed) + trim;
@@ -530,6 +546,19 @@ static void profile_drive(float target[MOTION_SIDE_COUNT])
 {
     target[MOTION_SIDE_LEFT] = s_active.left_cm_s;
     target[MOTION_SIDE_RIGHT] = s_active.right_cm_s;
+
+    if (s_active.left_cm_s == s_active.right_cm_s)
+    {
+        float left = s_position_cm[MOTION_SIDE_LEFT] - s_start_position_cm[MOTION_SIDE_LEFT];
+        float right = s_position_cm[MOTION_SIDE_RIGHT] - s_start_position_cm[MOTION_SIDE_RIGHT];
+        float speed = abs_f(s_active.left_cm_s);
+        /* At crawl speed, keep the correction small enough for both wheels to drive. */
+        float limit = clamp_f((speed - ZERO_SPEED_CM_S) * 0.5f,
+                              0.0f, MOTION_STRAIGHT_TRIM_MAX_CM_S);
+        float trim = straight_trim(left - right, limit);
+        target[MOTION_SIDE_LEFT] -= trim;
+        target[MOTION_SIDE_RIGHT] += trim;
+    }
 }
 
 /* ------------------------------------------------------------------ */
