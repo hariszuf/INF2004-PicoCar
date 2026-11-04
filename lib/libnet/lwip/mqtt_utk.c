@@ -10,6 +10,7 @@
 
 #include "mqtt_config.h"
 #include "mqtt_utk.h"
+#include "mqtt_dashboard_ready.h"
 
 #include "../../../app_program/buddy1/mqtt_command_bridge.h"
 #include "../../../app_program/buddy1/mqtt_telemetry_bridge.h"
@@ -28,6 +29,17 @@ static uint8_t initialized = 0U;
 static uint32_t last_attempt_ms = 0U;
 static uint32_t last_heartbeat_ms = 0U;
 static uint32_t heartbeat_sequence = 0U;
+#if B5_FULL_TEST
+static volatile bool dashboard_ready;
+static uint32_t startup_token, last_probe_ms;
+static UB startup_ack[32];
+static INT startup_ack_length;
+
+bool mqtt_dashboard_ready(void)
+{
+    return dashboard_ready;
+}
+#endif
 
 static char rx_topic[64];
 static char rx_payload[MQTT_RX_MAX];
@@ -138,6 +150,14 @@ static void incoming_data(
             if (mqtt_topic_matches(
                     rx_topic,
                     MQTT_COMMAND_TOPIC) != 0U) {
+#if B5_FULL_TEST
+                if (connected && startup_ack_length > 0 &&
+                    rx_length == startup_ack_length &&
+                    mqtt_topic_matches(rx_payload, (const char *)startup_ack)) {
+                    dashboard_ready = true;
+                    return;
+                }
+#endif
 
                 int32_t result;
 
@@ -210,6 +230,10 @@ static void connection_callback(
     (void)arg;
 
     connecting = 0U;
+#if B5_FULL_TEST
+    dashboard_ready = false;
+    startup_ack_length = 0;
+#endif
 
     if (status != MQTT_CONNECT_ACCEPTED) {
 
@@ -226,6 +250,12 @@ static void connection_callback(
 
     connected = 1U;
     last_heartbeat_ms = sys_now();
+#if B5_FULL_TEST
+    startup_token = last_heartbeat_ms;
+    last_probe_ms = last_heartbeat_ms - 1000U;
+    startup_ack_length = tm_sprintf(startup_ack, (const UB *)"dashboard_ready=%u",
+                                  (unsigned int)startup_token);
+#endif
 
     tm_printf(
         (UB *)"[MQTT] Connected to %s:%u\n",
@@ -473,7 +503,9 @@ void mqtt_utk_poll(struct netif *netif)
         ip4_addr_isany_val(
             *netif_ip4_addr(netif)
         )) {
-
+#if B5_FULL_TEST
+        dashboard_ready = false;
+#endif
         return;
     }
 
@@ -518,6 +550,16 @@ void mqtt_utk_poll(struct netif *netif)
      */
     if (connected != 0U &&
         mqtt_client_is_connected(mqtt_client)) {
+#if B5_FULL_TEST
+        if (!dashboard_ready && (uint32_t)(now - last_probe_ms) >= 1000U) {
+            UB probe[32];
+            INT length = tm_sprintf(probe, (const UB *)"startup_probe=%u",
+                                    (unsigned int)startup_token);
+            last_probe_ms = now;
+            (void)mqtt_publish(mqtt_client, MQTT_TELEMETRY_TOPIC, probe, (u16_t)length,
+                               0, 0, publish_callback, NULL);
+        }
+#endif
 
         /*
          * Publish the existing heartbeat
@@ -547,6 +589,9 @@ void mqtt_utk_poll(struct netif *netif)
     if (connected != 0U) {
 
         connected = 0U;
+#if B5_FULL_TEST
+        dashboard_ready = false;
+#endif
         last_attempt_ms = now;
     }
 

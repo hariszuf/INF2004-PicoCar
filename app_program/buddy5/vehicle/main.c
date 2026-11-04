@@ -16,6 +16,9 @@
 #include "../../buddy3/line_sensors.h"
 #include "../../buddy3/line_config.h"
 #include "../../buddy4/rtos/buddy4_task.h"
+#if TM_WIFI_MQTT
+#include "../../../lib/libnet/lwip/mqtt_dashboard_ready.h"
+#endif
 #ifndef B5_HEADLESS
 #define B5_HEADLESS 0
 #endif
@@ -208,6 +211,9 @@ static void controller_task(INT stacd,void *exinf) {
    * Do not make motor start depend on a first ultrasonic/IR sample: a missed
    * first sample otherwise leaves the car permanently stationary. */
   bool ready=motor.fault==MOTION_FAULT_NONE && !fault_latched;
+#if TM_WIFI_MQTT
+  ready=ready && mqtt_dashboard_ready() && report_sequence!=0;
+#endif
 #if B5_HEADLESS
   /* A fast power-bank boot can otherwise reach AUTO_START before the first
    * filtered centre ping, skip line_follow_start(), and never retry it. */
@@ -239,7 +245,11 @@ static void controller_task(INT stacd,void *exinf) {
   b5_feedback_t f;
   full_nav_feedback(&nav,last_motor,&f); f.fault=fault_latched;
   DI(irq); feedback_shared=f; EI(irq);
-  if((uint32_t)(now-last_report)>=1000u) {
+  if((uint32_t)(now-last_report)>=1000u
+#if TM_WIFI_MQTT
+     && mqtt_dashboard_ready()
+#endif
+  ) {
 #if TM_WIFI_MQTT
    ++report_sequence;
    bool tilt_valid=false;

@@ -18,6 +18,7 @@ BROKER_PORT = int(os.getenv("MQTT_BROKER_PORT", "1883"))
 TOPIC_STATUS = "picocar/vehicle1/status"
 TOPIC_TELEMETRY = "picocar/vehicle1/telemetry"
 TOPIC_COMMAND = "picocar/vehicle1/command"
+startup_probe = re.compile(r"startup_probe=([0-9]{1,10})")
 
 latest_messages = {}
 last_message_times = {}
@@ -44,6 +45,11 @@ def on_connect(client, userdata, flags, reason_code, properties):
 
 def on_message(client, userdata, message):
     payload = message.payload.decode("utf-8", errors="replace")
+    if message.topic == TOPIC_TELEMETRY and not getattr(message, "retain", False):
+        probe = startup_probe.fullmatch(payload)
+        if probe and int(probe[1]) <= 0xFFFFFFFF:
+            client.publish(TOPIC_COMMAND, f"dashboard_ready={probe[1]}", qos=0, retain=False)
+            return
 
     with sensor_lock:
         received_at = time.monotonic()

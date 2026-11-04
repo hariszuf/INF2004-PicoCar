@@ -7,6 +7,9 @@
 #include "buddy5_servo.h"
 #include "../../buddy5/ultrasonic.h"
 #include "../../buddy1/telemetry.h"
+#if TM_WIFI_MQTT
+#include "../../../lib/libnet/lwip/mqtt_dashboard_ready.h"
+#endif
 static b5_core_t core;
 static line_scan_status_t shared;
 static bool reset_pending, abort_pending;
@@ -149,7 +152,11 @@ static void scan_task(INT stacd,void *exinf) {
       core.profile.width_valid?core.profile.width_mm:-1,core.profile.side,core.profile.offset_mm);
    previous=core.state;
   }
-  if((uint32_t)(now-last_report)>=1000u) {
+  if((uint32_t)(now-last_report)>=1000u
+#if TM_WIFI_MQTT
+     && mqtt_dashboard_ready()
+#endif
+  ) {
    uint32_t seq=++report_sequence;
    emit(50,core.state,core.fault,seq);
    emit(51,core.profile.width_valid?core.profile.width_mm:-1,core.profile.depth_valid?core.profile.depth_high_mm:-1,seq);
