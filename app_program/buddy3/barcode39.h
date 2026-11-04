@@ -15,7 +15,6 @@
 #define BARCODE39_H
 
 #include <stdbool.h>
-#include <stddef.h>
 #include <stdint.h>
 
 #define B39_MAX_CHARS    8                          /* data characters, excluding the two '*' */

@@ -28,7 +28,7 @@ endif
 endif
 # Optional existing Buddy 1 radio profile uses the original makefile gates.
 override BUDDY1_ONLY := 1
-override PROFILE_ID = picocar-integration-v1-smp0-headless$(HEADLESS)-tight$(TIGHT_COURSE)-tick1-wifi$(WIFI)-join$(WIFI_JOIN)-netif$(WIFI_NETIF)-static$(WIFI_STATIC)-dhcp$(WIFI_DHCP)-dns$(WIFI_DNS)-udp$(WIFI_UDP)-tcp$(WIFI_TCP)-bulk$(WIFI_TCPBULK)-mqtt$(WIFI_MQTT)
+override PROFILE_ID = picocar-integration-v2-smp0-headless$(HEADLESS)-tight$(TIGHT_COURSE)-tick1-wifi$(WIFI)-join$(WIFI_JOIN)-netif$(WIFI_NETIF)-static$(WIFI_STATIC)-dhcp$(WIFI_DHCP)-dns$(WIFI_DNS)-udp$(WIFI_UDP)-tcp$(WIFI_TCP)-bulk$(WIFI_TCPBULK)-mqtt$(WIFI_MQTT)
 TIGHT_SUFFIX :=
 ifeq ($(TIGHT_COURSE),1)
 TIGHT_SUFFIX := _tight
@@ -46,6 +46,9 @@ B2_SRCS := ../app_program/buddy2/motion_control.c \
  ../app_program/buddy2/motion_pid.c ../app_program/buddy2/motion_motor.c \
  ../app_program/buddy2/motion_encoder.c
 B3_SRCS := ../app_program/buddy3/line_follow.c ../app_program/buddy3/line_sensors.c
+ifeq ($(CONSOLE),usb_cdc)
+B3_SRCS += ../app_program/buddy3/barcode_scan.c ../app_program/buddy3/barcode39.c
+endif
 B4_CORE_SRCS := ../app_program/buddy4/buddy4_imu.c \
  ../app_program/buddy4/buddy4_impact.c ../app_program/buddy4/buddy4_motion.c \
  ../app_program/buddy4/buddy4_encoder_yaw.c
