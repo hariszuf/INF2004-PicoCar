@@ -48,11 +48,11 @@ sources; install the Arm compiler separately. The inherited RTOS port records
 GCC **13.2.1** as its qualification baseline, rather than a required exact
 version. This project's documented SDK version is **2.2.0**.
 
-The makefiles also use Unix utilities such as `sh`, `find`, `xargs`, `rm`,
-and `mkdir`. On Windows, follow the course template's **WSL (Ubuntu)** setup
-and run the build commands inside its Ubuntu terminal. PowerShell alone does
-not supply the required build environment. The commands below use Bash;
-keep the SDK and compilers in the same environment as the build.
+The makefiles also use utilities such as `sh`, `find`, `xargs`, `rm`,
+and `mkdir`. On Windows, use the native PowerShell setup in the
+[hotspot walkthrough](#test-the-dashboard-and-car-on-a-windows-hotspot).
+It uses w64devkit for those tools and the host C++ compiler. The general
+Ubuntu and macOS examples below use Bash.
 
 For Ubuntu/Debian, including Ubuntu under WSL:
 
@@ -230,15 +230,19 @@ once its other readiness checks pass.
   with `python` on `PATH`, and [Eclipse Mosquitto](https://mosquitto.org/download/)
   with the broker and command-line clients. The launcher installs the Python
   packages from [dashboard/requirements.txt](dashboard/requirements.txt).
-- Git and the build tools in [Setup](#setup) if you need to build a UF2. The
-  startup-gated MQTT build was verified with
-  [Pico SDK 2.3.1](https://github.com/raspberrypi/pico-sdk/tree/2.3.1).
+- To build a UF2 on Windows, install [Git for Windows](https://git-scm.com/download/win),
+  extract [w64devkit](https://github.com/skeeto/w64devkit/releases), and
+  install the [Arm GNU Toolchain](https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads)
+  for Windows with the `arm-none-eabi` target. The build uses w64devkit's
+  GNU Make, shell utilities, and host `g++` to build the UF2 converter.
+  Arm GCC compiles the Pico W firmware. This MQTT profile was built with
+  Arm GCC 15.2.1 and [Pico SDK 2.3.1](https://github.com/raspberrypi/pico-sdk/tree/2.3.1).
 
 **Terminals**
 
 | Terminal | Shell | When to use it |
 |---|---|---|
-| Build | Bash in WSL Ubuntu | Build or rebuild the UF2. Close it after the build. |
+| Build | Windows PowerShell | Build or rebuild the UF2. Close it after the build. |
 | Dashboard | Windows PowerShell | Start Mosquitto and the dashboard with one launcher. Keep it open during testing. |
 | MQTT monitor | A second Windows PowerShell | Optional. Watch the probe, acknowledgement, heartbeat and sensor packets. |
 
@@ -261,16 +265,38 @@ new address to the launcher.
 
 #### 2. Configure and build the firmware
 
-In the build terminal, clone the branch or switch your existing checkout to
-it and pull the latest changes. A checkout in a Windows folder is accessible
-from both shells. For example, `/mnt/c/Projects` in WSL is `C:\Projects`
-in Windows. Create the folder first if needed and run the clone from there.
+In Windows PowerShell, add the tool folders to the current session's
+`PATH`. Replace the example paths with your installed `bin` folders.
+Repeat this in each new PowerShell session used for building.
 
-```bash
+```powershell
+$armBin = 'C:\Tools\arm-gnu-toolchain\bin'
+$w64Bin = 'C:\Tools\w64devkit\bin'
+$env:Path = "$armBin;$w64Bin;$env:Path"
+git --version
+make --version
+arm-none-eabi-gcc --version
+g++ --version
+```
+
+Clone the integration branch from a Windows folder where you want the
+checkout. If you already have the repo, switch to
+`Full-Implemented-wif-microt` and pull the latest changes instead.
+
+```powershell
 git clone --branch Full-Implemented-wif-microt https://github.com/hariszuf/INF2004-PicoCar.git
-cd INF2004-PicoCar
-cp -n config/wifi_credentials.example.h config/wifi_credentials.h
-cp -n config/mqtt_config.example.h config/mqtt_config.h
+Set-Location INF2004-PicoCar
+```
+
+From the repo root, create any missing local config files.
+
+```powershell
+if (!(Test-Path config/wifi_credentials.h)) {
+    Copy-Item config/wifi_credentials.example.h config/wifi_credentials.h
+}
+if (!(Test-Path config/mqtt_config.h)) {
+    Copy-Item config/mqtt_config.example.h config/mqtt_config.h
+}
 ```
 
 | Local file | Set these values |
@@ -281,22 +307,22 @@ cp -n config/mqtt_config.example.h config/mqtt_config.h
 Git ignores both local headers. Keep your credentials local. Rebuild and
 reflash after changing either header.
 
-Install the build tools from [Setup](#setup). If you already have SDK 2.3.1,
-set `PICO_SDK_PATH` to its root and initialise its submodules. For a fresh SDK
-checkout, run this in WSL:
+Use a Pico SDK folder with no spaces in its path. If you already have SDK
+2.3.1, set `$sdkPath` to its root and skip the clone. Use forward slashes in
+the SDK path so GNU Make can use it in build dependencies.
 
-```bash
-mkdir -p "$HOME/pico"
-git clone --branch 2.3.1 https://github.com/raspberrypi/pico-sdk.git "$HOME/pico/pico-sdk-2.3.1"
-export PICO_SDK_PATH="$HOME/pico/pico-sdk-2.3.1"
-git -C "$PICO_SDK_PATH" submodule update --init lib/tinyusb lib/cyw43-driver lib/lwip
+```powershell
+$sdkPath = 'C:/Tools/pico-sdk-2.3.1'
+New-Item -ItemType Directory -Force (Split-Path $sdkPath) | Out-Null
+git clone --branch 2.3.1 https://github.com/raspberrypi/pico-sdk.git $sdkPath
+git -C $sdkPath submodule update --init lib/tinyusb lib/cyw43-driver lib/lwip
+$env:PICO_SDK_PATH = $sdkPath
 ```
 
 From the repository root in the same build terminal:
 
-```bash
-cd build_make
-make -f picocar_integration.mk TELEMETRY_MQTT=1 HEADLESS=1 PICO_SDK_PATH="$PICO_SDK_PATH" -j8
+```powershell
+make -C build_make -f picocar_integration.mk TELEMETRY_MQTT=1 HEADLESS=1 "PICO_SDK_PATH=$env:PICO_SDK_PATH" -j8
 ```
 
 With motor power off, hold BOOTSEL while connecting USB and copy the
