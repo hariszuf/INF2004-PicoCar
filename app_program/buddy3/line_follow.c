@@ -27,6 +27,8 @@ static int32_t s_last_side;      /* +1 line last seen on the left, -1 on the rig
 static uint32_t s_lost_ms;
 static uint32_t s_side_ms;       /* how long only one sensor has seen the line */
 static bool s_active;
+static bool s_both_black_latched;
+static uint32_t s_both_black_remaining_ms;
 
 static void drive(float left, float right)
 {
@@ -58,6 +60,8 @@ void line_follow_init(void)
     s_last_side = 0;
     s_lost_ms = 0u;
     s_side_ms = 0u;
+    s_both_black_latched = false;
+    s_both_black_remaining_ms = 0u;
 }
 
 bool line_follow_start(void)
@@ -74,6 +78,8 @@ bool line_follow_start(void)
     s_last_side = 0;
     s_lost_ms = 0u;
     s_side_ms = 0u;
+    s_both_black_latched = false;
+    s_both_black_remaining_ms = 0u;
     s_state = LINE_STATE_STOPPED;
     return true;
 }
@@ -117,15 +123,37 @@ void line_follow_update(void)
     left = ((s_mask & LINE_SENSOR_LEFT) != 0u);
     right = ((s_mask & LINE_SENSOR_RIGHT) != 0u);
 
-    if (left && right && (LINE_SENSORS_STRADDLE != 0u))
+    if (LINE_SENSORS_STRADDLE != 0u)
     {
-        /* both sensors on black while straddling: junction or barcode area, keep going */
-        s_lost_ms = 0u;
-        s_side_ms = 0u;
-        s_state = LINE_STATE_STRAIGHT;
-        drive(LINE_STRAIGHT_SPEED_CM_S, LINE_STRAIGHT_SPEED_CM_S);
+        if (s_both_black_remaining_ms == 0u)
+        {
+            if (!(left && right))
+            {
+                s_both_black_latched = false;
+            }
+            else if (!s_both_black_latched)
+            {
+                s_both_black_latched = true;
+                s_both_black_remaining_ms = LINE_BOTH_BLACK_STOP_MS;
+                s_state = LINE_STATE_STOPPED;
+                s_left_cmd = 0.0f;
+                s_right_cmd = 0.0f;
+                s_lost_ms = 0u;
+                s_side_ms = 0u;
+                motion_stop();
+            }
+        }
+        if (s_both_black_remaining_ms > 0u)
+        {
+            /* Keep the controller loop running while the wheels are stopped. */
+            s_both_black_remaining_ms =
+                s_both_black_remaining_ms > LINE_UPDATE_PERIOD_MS
+                    ? s_both_black_remaining_ms - LINE_UPDATE_PERIOD_MS : 0u;
+            return;
+        }
     }
-    else if (left && right)
+
+    if (left && right)
     {
         s_lost_ms = 0u;
         s_side_ms = 0u;

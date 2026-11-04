@@ -132,7 +132,11 @@ static void controller_task(INT stacd,void *exinf) {
    if(run_enabled && scan.state==B5_MONITORING && !nav.active) {
     if(!(mask&(LINE_SENSOR_LEFT|LINE_SENSOR_RIGHT))) {
      if(!lost_since) lost_since=now;
-     if((uint32_t)(now-lost_since)>700u) halt(&nav,&start,"line lost outside recovery");
+     /* Both-white is normal when the sensors straddle the line. Keep
+      * the longer straddle timeout because white alone cannot confirm it. */
+     uint32_t timeout_ms=LINE_SENSORS_STRADDLE ? LINE_STRADDLE_STOP_MS : 700u;
+     if((uint32_t)(now-lost_since)>=timeout_ms)
+      halt(&nav,&start,"line lost outside recovery");
     } else lost_since=0;
     if(run_enabled) line_follow_update();
    } else lost_since=0;
