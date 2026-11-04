@@ -2,6 +2,7 @@
 #include <tk/tkernel.h>
 #include <tm/tmonitor.h>
 #include "platform.h"
+#include "barcode_task.h"
 #include "scan_link.h"
 #include "vehicle_nav.h"
 #include "auto_start.h"
@@ -326,6 +327,11 @@ EXPORT INT usermain(void) {
   ER e=buddy4_task_start();
   if(e<E_OK) { buddy4_ready=false; tm_printf((UB*)"[B4] IMU task did not start (%d); driving continues.\n",e); }
  }
+#if TM_CONSOLE_USB_CDC
+ ER barcode_error=buddy3_barcode_start();
+ if(barcode_error<E_OK)
+  tm_printf((UB*)"[B3 BARCODE] Task start failed (%d); driving continues.\n",barcode_error);
+#endif
  tk_slp_tsk(TMO_FEVR); return 0;
 }
 #endif
