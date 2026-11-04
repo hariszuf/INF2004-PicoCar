@@ -26,7 +26,7 @@ function Test-Listener([string]$Address, [int]$Port) {
 }
 
 if (Test-Listener '127.0.0.1' $DashboardPort) {
-    throw "Port $DashboardPort already has a listener. Open http://127.0.0.1:$DashboardPort/ if the dashboard is already running."
+    throw "Port $DashboardPort is already in use. The existing server may be serving a different checkout. Stop it or rerun with -DashboardPort 8001."
 }
 
 $dashboard = Join-Path $PSScriptRoot 'dashboard'
@@ -88,6 +88,7 @@ try {
     $env:MQTT_BROKER_HOST = '127.0.0.1'
     $env:MQTT_BROKER_PORT = [string]$MqttPort
     Write-Host "Dashboard  http://127.0.0.1:$DashboardPort/"
+    Write-Host "Dashboard files  $dashboard"
     Write-Host "PicoCar MQTT address  ${vehicleAddress}:$MqttPort"
     & $python -m uvicorn app:app --app-dir $dashboard --host 127.0.0.1 --port $DashboardPort
     if ($LASTEXITCODE) { throw 'The dashboard server exited with an error.' }

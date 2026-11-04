@@ -13,11 +13,11 @@ const views = {
     diagnostics: ["MQTT diagnostics", "Raw payloads, envelope fields and browser-observed messages."],
 };
 const subsystems = [
-    { view: "motion", source: 2, name: "Motion control", owner: "Buddy 2", coverage: "Not integrated" },
-    { view: "line", source: 3, name: "Line & barcode", owner: "Buddy 3", coverage: "Not integrated" },
-    { view: "imu", source: 4, name: "IMU & terrain", owner: "Buddy 4", coverage: "Not integrated" },
+    { view: "motion", source: 2, name: "Motion control", owner: "Buddy 2", coverage: "Awaiting payload" },
+    { view: "line", source: 3, name: "Line & barcode", owner: "Buddy 3", coverage: "Awaiting payload" },
+    { view: "imu", source: 4, name: "IMU & terrain", owner: "Buddy 4", coverage: "Awaiting payload" },
     { view: "obstacle", source: 5, name: "Obstacle detection", owner: "Buddy 5", coverage: "Awaiting payload" },
-    { view: "safety", source: null, name: "Controller & safety", owner: "Vehicle controller", coverage: "Not integrated" },
+    { view: "safety", source: null, name: "Controller & safety", owner: "Vehicle controller", coverage: "Awaiting payload" },
 ];
 const sections = {
     motion: [
