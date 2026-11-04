@@ -51,6 +51,20 @@ class DashboardTests(unittest.TestCase):
         client.subscribe.assert_called_once_with([
             (dashboard.TOPIC_STATUS, 0), (dashboard.TOPIC_TELEMETRY, 0)])
 
+    def test_startup_probe_acknowledges_only_live_valid_telemetry(self):
+        packet = SimpleNamespace(topic=dashboard.TOPIC_TELEMETRY,
+                                 payload=b"startup_probe=123", retain=True)
+        dashboard.on_message(self.client, None, packet)
+        packet.retain = False
+        packet.payload = b"startup_probe=4294967296"
+        dashboard.on_message(self.client, None, packet)
+        self.client.publish.assert_not_called()
+        packet.payload = b"startup_probe=123"
+        dashboard.on_message(self.client, None, packet)
+        self.client.publish.assert_called_once_with(
+            dashboard.TOPIC_COMMAND, "dashboard_ready=123", qos=0, retain=False)
+        self.assertEqual(dashboard.get_telemetry()["sensor_frames"], [])
+
     def test_buddy5_raw_range_packet_is_retained_for_dashboard(self):
         payload = b"src=5 type=58 seq=12 raw_range_mm=187 raw_range_status=0 flags=16"
         dashboard.on_message(None, None, SimpleNamespace(
