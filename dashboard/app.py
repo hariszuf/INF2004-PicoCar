@@ -24,7 +24,7 @@ latest_messages = {}
 last_message_times = {}
 sensor_frames = {}
 sensor_lock = Lock()
-sensor_types = {2: {3, 4, 10}, 3: {5}, 4: {7, *range(11, 20)}, 5: {*range(50, 57), 58}, 6: {57}}
+sensor_types = {2: {3, 4, 10}, 3: {5, 6}, 4: {7, *range(11, 20)}, 5: {*range(50, 57), 58}, 6: {57}}
 sensor_header = re.compile(
     r"src=([2-6]) type=([0-9]{1,2}) seq=([0-9]{1,10}) "
     r"[a-z][a-z0-9_]{0,31}=(-?[0-9]{1,10}) [a-z][a-z0-9_]{0,31}=(-?[0-9]{1,10})(?: flags=([0-9]{1,5}))?"
@@ -60,6 +60,7 @@ def on_message(client, userdata, message):
             source, kind, sequence, first, second = map(int, match.groups()[:5])
             if (kind in sensor_types[source] and sequence <= 0xFFFFFFFF
                     and all(-2**31 <= value < 2**31 for value in (first, second))
+                    and ((source, kind) != (3, 6) or (65 <= first <= 90 and second >= 0))
                     and (match[6] is None or int(match[6]) <= 0xFFFF)):
                 frames = sensor_frames.setdefault(source, {})
                 if any(sequence < frame[0] for frame in frames.values()):

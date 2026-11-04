@@ -46,7 +46,7 @@ B2_SRCS := ../app_program/buddy2/motion_control.c \
  ../app_program/buddy2/motion_pid.c ../app_program/buddy2/motion_motor.c \
  ../app_program/buddy2/motion_encoder.c
 B3_SRCS := ../app_program/buddy3/line_follow.c ../app_program/buddy3/line_sensors.c
-ifeq ($(CONSOLE),usb_cdc)
+ifneq ($(filter usb_cdc,$(CONSOLE))$(filter 1,$(WIFI_MQTT)),)
 B3_SRCS += ../app_program/buddy3/barcode_scan.c ../app_program/buddy3/barcode39.c
 endif
 B4_CORE_SRCS := ../app_program/buddy4/buddy4_imu.c \

@@ -23,17 +23,16 @@ static line_state_t s_state = LINE_STATE_IDLE;
 static uint8_t s_mask;
 static float s_left_cmd;
 static float s_right_cmd;
-static int32_t s_last_side;      /* +1 line last seen on the left, -1 on the right */
+static int32_t s_last_side;      /* +1 steer left, -1 steer right */
 static uint32_t s_lost_ms;
-static uint32_t s_side_ms;       /* how long only one sensor has seen the line */
+static uint32_t s_side_ms;       /* time steering in the same direction */
 static bool s_active;
-static bool s_both_black_latched;
-static uint32_t s_both_black_remaining_ms;
 
 static void drive(float left, float right)
 {
-    s_left_cmd = left * LINE_LEFT_WHEEL_SCALE;
-    s_right_cmd = right * LINE_RIGHT_WHEEL_SCALE;
+    /* Give Buddy 2 equal targets on straight segments so it can balance them. */
+    s_left_cmd = left == right ? left : left * LINE_LEFT_WHEEL_SCALE;
+    s_right_cmd = left == right ? right : right * LINE_RIGHT_WHEEL_SCALE;
     (void)motion_drive(s_left_cmd, s_right_cmd);
 }
 
@@ -60,8 +59,6 @@ void line_follow_init(void)
     s_last_side = 0;
     s_lost_ms = 0u;
     s_side_ms = 0u;
-    s_both_black_latched = false;
-    s_both_black_remaining_ms = 0u;
 }
 
 bool line_follow_start(void)
@@ -78,8 +75,6 @@ bool line_follow_start(void)
     s_last_side = 0;
     s_lost_ms = 0u;
     s_side_ms = 0u;
-    s_both_black_latched = false;
-    s_both_black_remaining_ms = 0u;
     s_state = LINE_STATE_STOPPED;
     return true;
 }
@@ -123,36 +118,6 @@ void line_follow_update(void)
     left = ((s_mask & LINE_SENSOR_LEFT) != 0u);
     right = ((s_mask & LINE_SENSOR_RIGHT) != 0u);
 
-    if (LINE_SENSORS_STRADDLE != 0u)
-    {
-        if (s_both_black_remaining_ms == 0u)
-        {
-            if (!(left && right))
-            {
-                s_both_black_latched = false;
-            }
-            else if (!s_both_black_latched)
-            {
-                s_both_black_latched = true;
-                s_both_black_remaining_ms = LINE_BOTH_BLACK_STOP_MS;
-                s_state = LINE_STATE_STOPPED;
-                s_left_cmd = 0.0f;
-                s_right_cmd = 0.0f;
-                s_lost_ms = 0u;
-                s_side_ms = 0u;
-                motion_stop();
-            }
-        }
-        if (s_both_black_remaining_ms > 0u)
-        {
-            /* Keep the controller loop running while the wheels are stopped. */
-            s_both_black_remaining_ms =
-                s_both_black_remaining_ms > LINE_UPDATE_PERIOD_MS
-                    ? s_both_black_remaining_ms - LINE_UPDATE_PERIOD_MS : 0u;
-            return;
-        }
-    }
-
     if (left && right)
     {
         s_lost_ms = 0u;
@@ -160,45 +125,27 @@ void line_follow_update(void)
         s_state = LINE_STATE_STRAIGHT;
         drive(LINE_STRAIGHT_SPEED_CM_S, LINE_STRAIGHT_SPEED_CM_S);
     }
-    else if (left)
+    else if (left || right)
     {
+        int32_t side = left ? 1 : -1;
+        line_state_t next_state = side > 0 ? LINE_STATE_STEER_LEFT : LINE_STATE_STEER_RIGHT;
         s_lost_ms = 0u;
-        s_last_side = 1;
-        s_side_ms = (s_state == LINE_STATE_STEER_LEFT) ? (s_side_ms + LINE_UPDATE_PERIOD_MS) : 0u;
-        s_state = LINE_STATE_STEER_LEFT;
-        steer(1, ((LINE_ESCALATE_AFTER_MS != 0u) && (s_side_ms >= LINE_ESCALATE_AFTER_MS)) ? LINE_ESCALATE_INNER_CM_S
-                                                      : LINE_TURN_INNER_SPEED_CM_S);
-    }
-    else if (right)
-    {
-        s_lost_ms = 0u;
-        s_last_side = -1;
-        s_side_ms = (s_state == LINE_STATE_STEER_RIGHT) ? (s_side_ms + LINE_UPDATE_PERIOD_MS) : 0u;
-        s_state = LINE_STATE_STEER_RIGHT;
-        steer(-1, ((LINE_ESCALATE_AFTER_MS != 0u) && (s_side_ms >= LINE_ESCALATE_AFTER_MS)) ? LINE_ESCALATE_INNER_CM_S
-                                                       : LINE_TURN_INNER_SPEED_CM_S);
+        s_last_side = side;
+        s_side_ms = (s_state == next_state) ? (s_side_ms + LINE_UPDATE_PERIOD_MS) : 0u;
+        s_state = next_state;
+#if LINE_ESCALATE_AFTER_MS != 0u
+        steer(side, s_side_ms >= LINE_ESCALATE_AFTER_MS ? LINE_ESCALATE_INNER_CM_S
+                                                        : LINE_TURN_INNER_SPEED_CM_S);
+#else
+        steer(side, LINE_TURN_INNER_SPEED_CM_S);
+#endif
     }
     else if (LINE_SENSORS_STRADDLE != 0u)
     {
-        /* line is between the sensors: this is the normal on-track state */
+        /* Both sensors are over white in the normal straddle position. */
         s_side_ms = 0u;
-        s_lost_ms += LINE_UPDATE_PERIOD_MS;
-        if (s_lost_ms < LINE_STRADDLE_STOP_MS)
-        {
-            s_state = LINE_STATE_STRAIGHT;
-            drive(LINE_STRAIGHT_SPEED_CM_S, LINE_STRAIGHT_SPEED_CM_S);
-        }
-        else if (s_state != LINE_STATE_STOPPED)
-        {
-            s_state = LINE_STATE_STOPPED;
-            s_left_cmd = 0.0f;
-            s_right_cmd = 0.0f;
-            motion_stop();
-        }
-        else
-        {
-            /* already stopped */
-        }
+        s_state = LINE_STATE_STRAIGHT;
+        drive(LINE_STRAIGHT_SPEED_CM_S, LINE_STRAIGHT_SPEED_CM_S);
     }
     else
     {

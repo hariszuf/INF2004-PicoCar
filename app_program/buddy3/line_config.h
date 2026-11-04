@@ -33,9 +33,6 @@
  * Place one sensor on each side, with both seeing white when centred.
  */
 #define LINE_SENSORS_STRADDLE       (1u)     /* centred with both sensors over white */
-/** In STRADDLE mode, cap continuous both-white driving at this duration. */
-#define LINE_STRADDLE_STOP_MS       (12000u) /* TUNE */
-#define LINE_BOTH_BLACK_STOP_MS    (5000u)
 
 /* ------------------------------------------------------------------ */
 /* Timing                                                              */
@@ -48,15 +45,12 @@
 /* Speeds (cm/s). Much slower than the Buddy 2 demo.                   */
 /* Team test used 300 counts/s straight, 120 inner (about 5 and 2 cm/s). */
 /* ------------------------------------------------------------------ */
-#define LINE_STRAIGHT_SPEED_CM_S    (3.0f)   /* TUNE: both sensors on the line */
-#define LINE_TURN_OUTER_SPEED_CM_S  (3.5f)   /* left-turn outside wheel (right motor) */
-/* TEMP TEST: right turns depend on the LEFT motor, so raise its target gently.
-   If testing shows actual left wheel speed cannot reach the command, investigate
-   hardware / wheel stiction instead of increasing speed again. */
+#define LINE_STRAIGHT_SPEED_CM_S    (1.0f)
+#define LINE_TURN_OUTER_SPEED_CM_S  (1.0f)
 #ifndef LINE_RIGHT_OUTER_SPEED_CM_S
-#define LINE_RIGHT_OUTER_SPEED_CM_S (4.5f)
+#define LINE_RIGHT_OUTER_SPEED_CM_S LINE_TURN_OUTER_SPEED_CM_S
 #endif
-#define LINE_TURN_INNER_SPEED_CM_S  (0.0f)   /* TUNE: inside wheel while steering (0 = brake and pivot) */
+#define LINE_TURN_INNER_SPEED_CM_S  (0.0f)   /* Stop the inner wheel for a clear correction at low speed. */
 
 /** Optional (off by default). Escalating turn: if only one sensor keeps seeing the line for this long, the
  *  turn is not tight enough (sharp curve), so the inside wheel is driven at
@@ -64,10 +58,10 @@
 #define LINE_ESCALATE_AFTER_MS      (0u)     /* 0 = off (basic rule). TUNE: e.g. 150 to pivot harder on sharp curves */
 #define LINE_ESCALATE_INNER_CM_S    (-2.0f)  /* TUNE */
 
-/** Per-wheel speed scale to even out the two motors (1.0 = none). If the car
- *  pulls to one side on a straight, lower the scale of the wheel that is faster. */
+/** Per-wheel speed scale during turns (1.0 = none).
+ *  Straight segments use equal targets and Buddy 2's encoder correction. */
 #ifndef LINE_LEFT_WHEEL_SCALE
-#define LINE_LEFT_WHEEL_SCALE       (0.97f)  /* TUNE: left traveled ~3% farther than right in straight runs (2 Nov logs) */
+#define LINE_LEFT_WHEEL_SCALE       (0.94f)  /* Trial trim for observed right drift. */
 #endif
 #define LINE_RIGHT_WHEEL_SCALE      (1.0f)   /* TUNE */
 

@@ -44,11 +44,11 @@ static volatile bool run_enabled;
 static bool buddy4_ready;
 
 #if TM_WIFI_MQTT
-static void report_measurement(uint8_t source, uint8_t type, uint16_t flags,
+static ER report_measurement(uint8_t source, uint8_t type, uint16_t flags,
                                int32_t first, int32_t second, uint32_t sequence)
 {
  telemetry_message_t message={source,type,flags,first,second,sequence};
- (void)buddy1_telemetry_submit(&message);
+ return buddy1_telemetry_submit(&message);
 }
 #endif
 static volatile bool user_stop_pending;
@@ -112,9 +112,12 @@ static void controller_task(INT stacd,void *exinf) {
  uint32_t now=buddy5_clock_ms(),last_motor=now,last_line=now,last_report=now;
 #if TM_WIFI_MQTT
  uint32_t report_sequence=0;
+ uint32_t last_line_report=now-1000u;
+ uint8_t last_reported_mask=0;
+ line_state_t last_reported_state=LINE_STATE_IDLE;
  uint32_t line_reacquired_count=0;
 #endif
- uint32_t run_since=0,lost_since=0,last_guard_clear=0;
+ uint32_t lost_since=0,last_guard_clear=0;
  uint8_t mask=0; bool fault_latched=false;
  (void)stacd; (void)exinf;
  auto_start_init(&start,now);
@@ -127,21 +130,20 @@ static void controller_task(INT stacd,void *exinf) {
   if(command=='R' && !run_enabled && nav.settled>=3) {
    auto_start_init(&start,now-3000u); discard_commands();
   }
-  if(run_enabled && ((uint32_t)(now-run_since)>300000u ||
-     (uint32_t)(now-scan.heartbeat_ms)>400u)) halt(&nav,&start,"run/scan heartbeat timeout");
+  if(run_enabled && (uint32_t)(now-scan.heartbeat_ms)>400u)
+   halt(&nav,&start,"obstacle scanner heartbeat timeout");
   if(run_enabled && scan.state==B5_ERROR) halt(&nav,&start,"obstacle subsystem fault (see SCAN)");
   if((uint32_t)(now-last_line)>=5u) {
    last_line=now; mask=line_sensors_read();
    if(run_enabled && scan.state==B5_MONITORING && !nav.active) {
-    if(!(mask&(LINE_SENSOR_LEFT|LINE_SENSOR_RIGHT))) {
+    if(!LINE_SENSORS_STRADDLE && !(mask&(LINE_SENSOR_LEFT|LINE_SENSOR_RIGHT))) {
      if(!lost_since) lost_since=now;
-     /* Both-white is normal when the sensors straddle the line. Keep
-      * the longer straddle timeout because white alone cannot confirm it. */
-     uint32_t timeout_ms=LINE_SENSORS_STRADDLE ? LINE_STRADDLE_STOP_MS : 700u;
-     if((uint32_t)(now-lost_since)>=timeout_ms)
+     if((uint32_t)(now-lost_since)>=700u)
       halt(&nav,&start,"line lost outside recovery");
     } else lost_since=0;
-    if(run_enabled) line_follow_update();
+    if(run_enabled) {
+     line_follow_update();
+    }
    } else lost_since=0;
   }
   UW irq; bool got; b5_request_t request={0};
@@ -232,7 +234,7 @@ static void controller_task(INT stacd,void *exinf) {
    }
   }
   if(action==AUTO_START) {
-   run_enabled=true; run_since=now;
+   run_enabled=true;
    /* If already 15..20cm from an obstacle, remain stationary and let the
     * first active front sample request STOP/SCAN. Never drive into it. */
    if(scan.front_clearance_mm>B5_STOP_FRONT_MM && !line_follow_start())
@@ -245,6 +247,21 @@ static void controller_task(INT stacd,void *exinf) {
   b5_feedback_t f;
   full_nav_feedback(&nav,last_motor,&f); f.fault=fault_latched;
   DI(irq); feedback_shared=f; EI(irq);
+#if TM_WIFI_MQTT
+  if(mqtt_dashboard_ready() && (uint32_t)(now-last_line_report)>=200u) {
+   line_status_t current;
+   line_follow_get_status(&current);
+   if(mask!=last_reported_mask || current.state!=last_reported_state ||
+      (uint32_t)(now-last_line_report)>=1000u) {
+    if(report_measurement(TELEMETRY_SOURCE_BUDDY3,TELEMETRY_TYPE_LINE_SENSOR,0,
+        mask,current.state,report_sequence)==E_OK) {
+     last_line_report=now;
+     last_reported_mask=mask;
+     last_reported_state=current.state;
+    }
+   }
+  }
+#endif
   if((uint32_t)(now-last_report)>=1000u
 #if TM_WIFI_MQTT
      && mqtt_dashboard_ready()
@@ -299,8 +316,13 @@ static void controller_task(INT stacd,void *exinf) {
    report_measurement(6,57,0,line_reacquired_count,0,report_sequence);
    report_measurement(TELEMETRY_SOURCE_BUDDY2,TELEMETRY_TYPE_ODOMETRY,0,
        (int32_t)(motor.distance_cm*10),motor.fault,report_sequence);
-   report_measurement(TELEMETRY_SOURCE_BUDDY3,TELEMETRY_TYPE_LINE_SENSOR,0,
-       mask,line.state,report_sequence);
+   char letter;
+   uint32_t read_ms;
+   if(buddy3_barcode_latest(&letter,&read_ms)) {
+    uint32_t age_ms=(uint32_t)(b5p_time_us_64()/1000u)-read_ms;
+    report_measurement(TELEMETRY_SOURCE_BUDDY3,TELEMETRY_TYPE_BARCODE,0,
+        (int32_t)letter,age_ms>INT32_MAX ? INT32_MAX : (int32_t)age_ms,report_sequence);
+   }
    report_measurement(TELEMETRY_SOURCE_BUDDY4,TELEMETRY_TYPE_IMU,
        tilt_valid?TELEMETRY_IMU_TILT_VALID:0,pitch,roll,report_sequence);
 #endif
@@ -341,7 +363,7 @@ EXPORT INT usermain(void) {
   ER e=buddy4_task_start();
   if(e<E_OK) { buddy4_ready=false; tm_printf((UB*)"[B4] IMU task did not start (%d); driving continues.\n",e); }
  }
-#if TM_CONSOLE_USB_CDC
+#if TM_CONSOLE_USB_CDC || TM_WIFI_MQTT
  ER barcode_error=buddy3_barcode_start();
  if(barcode_error<E_OK)
   tm_printf((UB*)"[B3 BARCODE] Task start failed (%d); driving continues.\n",barcode_error);
