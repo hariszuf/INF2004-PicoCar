@@ -226,7 +226,10 @@ static void controller_task(INT stacd,void *exinf) {
     * first active front sample request STOP/SCAN. Never drive into it. */
    if(scan.front_clearance_mm>B5_STOP_FRONT_MM && !line_follow_start())
     halt(&nav,&start,"line follower could not start");
-   else tm_printf((UB*)"[AUTO] RUNNING automatically; front=%dmm (-1=out of range).\n",scan.front_clearance_mm==B5_CLEAR_FRONT_MM?-1:scan.front_clearance_mm);
+   else {
+    if(buddy4_ready) (void)buddy4_task_begin_run();
+    tm_printf((UB*)"[AUTO] RUNNING automatically; front=%dmm (-1=out of range).\n",scan.front_clearance_mm==B5_CLEAR_FRONT_MM?-1:scan.front_clearance_mm);
+   }
   }
   b5_feedback_t f;
   full_nav_feedback(&nav,last_motor,&f); f.fault=fault_latched;
@@ -253,10 +256,13 @@ static void controller_task(INT stacd,void *exinf) {
      report_measurement(4,16,(imu.last_event.stable_valid?1:0)|(imu.last_event.median_valid?2:0),
          imu.last_event.stable_valid?(int32_t)(imu.last_event.stable_cm*10):0,
          imu.last_event.median_valid?(int32_t)(imu.last_event.median_cm*10):0,report_sequence);
-     report_measurement(4,17,imu.completed_events?1:0,imu.last_event.side,
+     report_measurement(4,17,imu.last_event.end_us?1:0,imu.last_event.side,
          (int32_t)(imu.last_event.end_us/1000u),report_sequence);
      report_measurement(4,18,imu.impact_valid?1:0,imu.impact_count,
          (int32_t)(imu.impact_time_us/1000u),report_sequence);
+     report_measurement(4,TELEMETRY_TYPE_HIGHEST_HUMP,imu.highest_hump_valid?1:0,
+         imu.highest_hump_valid?(int32_t)(imu.highest_hump_cm*10):0,
+         (int32_t)imu.run_id,report_sequence);
      tilt_valid=imu.valid && imu.tilt_valid;
      if(tilt_valid) {
       pitch=(int32_t)(imu.pitch_deg*100);

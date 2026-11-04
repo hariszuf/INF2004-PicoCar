@@ -128,7 +128,7 @@ for (const [view, panels] of Object.entries(sections)) {
         heading.innerHTML = "<h2>Saved event results</h2><span class='muted'>Separate from current sensor measurements</span>";
         const events = document.createElement("div");
         events.className = "two-column";
-        const ramp = metricPanel("Ramp-height result", [["Saved stable peak height (cm)", "peak-height"], ["Saved median peak height (cm)", "median-peak-height"], ["Detected side", "peak-side"], ["Event timestamp (device uptime)", "peak-time"]]);
+        const ramp = metricPanel("Ramp-height result", [["Saved stable peak height (cm)", "peak-height"], ["Saved median peak height (cm)", "median-peak-height"], ["Highest Hump Recorded (cm)", "highest-hump"], ["Detected side", "peak-side"], ["Event timestamp (device uptime)", "peak-time"]]);
         const rampNote = document.createElement("p");
         rampNote.className = "panel-note";
         rampNote.textContent = "Preliminary estimates. Stable and median peaks have independent validity; saved results are not current wheel-height readings.";
@@ -317,6 +317,7 @@ const telemetryValueKeys = {
     "4/16": ["stable_peak_mm", "median_peak_mm"],
     "4/17": ["peak_side", "peak_end_ms"],
     "4/18": ["impact_count", "last_impact_ms"],
+    "4/19": ["highest_hump_mm", "run_id"],
     "6/57": ["line_reacquired_count", "reserved"],
 };
 
@@ -405,7 +406,9 @@ function updateMeasurements() {
         element.textContent = value;
         element.dataset.tone = tone;
         const note = document.createElement("small");
-        note.textContent = !statusAvailable || !telemetryAvailable ? "Connection unknown; last observation" : !brokerConnected ? "Disconnected; last observation" : !heartbeatFresh || heartbeatAge === null || heartbeatAge + (Date.now() - lastPollAt) / 1000 >= 15 ? "Heartbeat stale; last observation" : observationLabel(observation);
+        note.textContent = observation?.fields.src === 4
+            ? (!statusAvailable || !telemetryAvailable ? "Connection unknown; retained observation" : !brokerConnected ? "Disconnected; retained observation" : Date.now() - observation.at >= 3000 ? "Buddy 4 stale; retained observation" : observationLabel(observation))
+            : !statusAvailable || !telemetryAvailable ? "Connection unknown; last observation" : !brokerConnected ? "Disconnected; last observation" : !heartbeatFresh || heartbeatAge === null || heartbeatAge + (Date.now() - lastPollAt) / 1000 >= 15 ? "Heartbeat stale; last observation" : observationLabel(observation);
         if (observation?.received && note.textContent !== observationLabel(observation)) {
             note.textContent += ` · ${observationLabel(observation)}`;
         }
@@ -450,10 +453,11 @@ function updateMeasurements() {
         const states = ["Idle", "Straight", "Steer left", "Steer right", "Recovering", "Stopped", "Fault"];
         measured("tracking-state", states[state] ?? "Unknown", line);
     }
+    const imuLive = observation => observation && statusAvailable && telemetryAvailable && brokerConnected && Date.now() - observation.at < 3000;
     const imu = sensorObservations.get("4/7");
     if (imu) {
-        const valid = (imu.fields.flags & 1) !== 0;
-        measured("imu-status", valid ? "Tilt valid" : "Tilt unavailable", imu);
+        const valid = imuLive(imu) && (imu.fields.flags & 1) !== 0;
+        measured("imu-status", !imuLive(imu) ? "Stale" : valid ? "Tilt valid" : "Tilt unavailable", imu);
         measured("pitch", valid ? `${(imu.fields.value1 / 100).toFixed(2)}°` : "N/A", imu);
         measured("roll", valid ? `${(imu.fields.value2 / 100).toFixed(2)}°` : "N/A", imu);
     }
@@ -477,17 +481,23 @@ function updateMeasurements() {
     for (const [type, firstId, secondId, firstValue, secondValue] of imuReports) {
         const observation = sensorObservations.get(`4/${type}`);
         if (!observation) continue;
-        measured(firstId, firstValue(observation.fields), observation);
-        measured(secondId, secondValue(observation.fields), observation);
+        const live = type === 11 || type === 13 || type === 14 || type === 15;
+        const first = type === 11 && observation.fields.value1 >= 0
+            ? `${Math.round(observation.fields.value1 + Math.max(0, Date.now() - observation.at))} ms`
+            : firstValue(observation.fields);
+        measured(firstId, live && !imuLive(observation) ? "N/A" : first, observation);
+        measured(secondId, live && !imuLive(observation) && (type === 13 || type === 14 || type === 15) ? "N/A" : secondValue(observation.fields), observation);
     }
     const acquisition = sensorObservations.get("4/11");
     if (acquisition) {
-        measured("imu-freshness", acquisition.fields.flags & 1 ? "Fresh at report" : "Unavailable at report", acquisition);
+        measured("imu-freshness", !imuLive(acquisition) ? "Stale" : acquisition.fields.flags & 1 ? "Fresh at report" : "Unavailable at report", acquisition);
     }
     const impact = sensorObservations.get("4/18");
     if (impact) {
         measured("impact-result", impact.fields.value1 ? "Possible impact recorded" : "No event recorded", impact);
     }
+    const highest = sensorObservations.get("4/19");
+    if (highest) measured("highest-hump", highest.fields.flags & 1 ? `${(highest.fields.value1 / 10).toFixed(1)} cm` : "N/A", highest);
     const reacquired = sensorObservations.get("6/57");
     if (reacquired) measured("line-reacquired", `${reacquired.fields.value1 >>> 0} this boot`, reacquired);
     const latest = sourceObservations.get(5);
@@ -551,13 +561,14 @@ const telemetryValueLabels = {
     "4/16": ["Stable peak height (mm)", "Median peak height (mm)"],
     "4/17": ["Peak side", "Peak end uptime (ms)"],
     "4/18": ["Impact count", "Last impact uptime (ms)"],
+    "4/19": ["Highest stable peak (mm)", "Run ID"],
     "6/57": ["Line reacquisition count", "Reserved"],
 };
 
 function updateTelemetryDisplay() {
     byId("telemetry-age").textContent = !hasTelemetryObservation ? "N/A" : lastTelemetryChange === null ? "Cached; age unknown" : `Changed ${ageLabel(Date.now() - lastTelemetryChange)} ago`;
     const fields = latestEnvelope;
-    const types = { 1: "Heartbeat", 2: "State", 3: "Motor speed", 4: "Encoder", 5: "Line sensor", 6: "Barcode", 7: "IMU", 8: "Hump", 9: "Ultrasonic", 10: "Odometry", 11: "IMU acquisition", 12: "IMU sample counters", 13: "Terrain and side", 14: "Estimated motion and yaw", 15: "Wheel height and quality", 16: "Saved peak heights", 17: "Saved ramp event", 18: "Possible impacts", 50: "Obstacle state", 51: "Obstacle size", 52: "Bypass plan", 53: "Depth bounds", 54: "Front clearance", 55: "Obstacle correlation", 56: "Obstacle validity", 57: "Line reacquisition", 58: "Raw ultrasonic range" };
+    const types = { 1: "Heartbeat", 2: "State", 3: "Motor speed", 4: "Encoder", 5: "Line sensor", 6: "Barcode", 7: "IMU", 8: "Hump", 9: "Ultrasonic", 10: "Odometry", 11: "IMU acquisition", 12: "IMU sample counters", 13: "Terrain and side", 14: "Estimated motion and yaw", 15: "Wheel height and quality", 16: "Saved peak heights", 17: "Saved ramp event", 18: "Possible impacts", 19: "Highest hump", 50: "Obstacle state", 51: "Obstacle size", 52: "Bypass plan", 53: "Depth bounds", 54: "Front clearance", 55: "Obstacle correlation", 56: "Obstacle validity", 57: "Line reacquisition", 58: "Raw ultrasonic range" };
     const rawSequence = previousPayloads.get(telemetryTopic)?.match(/(?:^|\s)seq=(\d+)(?=\s|$)/);
     const sequence = rawSequence && Number(rawSequence[1]) <= 4294967295 ? rawSequence[1] : "N/A";
     byId("sequence").textContent = fields ? String(fields.seq) : sequence;

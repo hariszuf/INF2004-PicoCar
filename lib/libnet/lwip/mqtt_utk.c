@@ -342,6 +342,7 @@ static const struct {
     {4, 16, "stable_peak_mm", "median_peak_mm"},
     {4, 17, "peak_side", "peak_end_ms"},
     {4, 18, "impact_count", "last_impact_ms"},
+    {4, 19, "highest_hump_mm", "run_id"},
     {6, 57, "line_reacquired_count", "reserved"},
 };
 
