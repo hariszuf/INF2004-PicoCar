@@ -1,7 +1,7 @@
 # Motion Accuracy Evaluation — Motion Control (Buddy 2)
 
 Team 08, INF2004. Author: Afiq.
-Status: **test plan ready, results to be filled from the car.** No accuracy figures have been measured yet.
+Status: **mostly not tested (5 Nov 2026).** Only the encoder calibration check and the 20 cm/s speed-consistency data exist. The distance, turn, drift, battery, emergency-stop and stall tests were **not run**, so no distance or angle accuracy figures are claimed. Section 6 lists what is measured and what is not.
 
 ## 1. Purpose
 
@@ -25,9 +25,9 @@ The Week 6 document has no numeric motion targets. These are proposals to add as
 |---|---|---|
 | Wheel diameter | 6.5 cm | team measurement |
 | Wheel gap | 12.2 cm | team measurement |
-| Counts per turn, left / right | 1265.8 / 1268.5 | 10 hand turns each (12658, 12685) |
+| Counts per turn, left / right | 1265.8 / 1268.5 | 10 hand turns each (12658, 12685), counted on both edges. Firmware set to `MOTION_ENCODER_EDGE_MODE` 3 on 5 Nov 2026 after a hand-turn check (5 turns gave 3162 / 3178 counts in mode 1, so mode 1 counted half). |
 | Turn scale (`MOTION_TURN_SCALE`) | 1.00 until calibrated | see section 5.2 |
-| Stop lead (`MOTION_STOP_LEAD_S`) | from the brake test | PID report section 6 |
+| Stop lead (`MOTION_STOP_LEAD_S`) | 0.045 s | brake test, 3 runs (PID report section 6) |
 
 Formulas used by the firmware:
 
@@ -46,9 +46,11 @@ Formulas used by the firmware:
 
 Per set of trials: mean error = mean(measured − target); repeatability = standard deviation of the measured values; worst case = largest absolute error.
 
-Conditions: surface ____ , battery ____ , speed ____ cm/s, date ____ .
+Conditions for the data that exists (speed consistency, 5.4): tile floor, battery full to half, 20 cm/s, 5 Nov 2026.
 
 ## 5. Tests
+
+**Status, 5 Nov 2026:** 5.1 (distance), 5.2 (turning), 5.3 (drift), 5.5 (battery), 5.6 (emergency stop) and 5.7 (stall) were **not run**; their tables are left blank on purpose. Only 5.4 has data, and only at 20 cm/s.
 
 ### 5.1 Straight distance
 
@@ -107,11 +109,13 @@ MC3 met? ____
 
 Run the step test (`t`) at 10, 20 and 30 cm/s. Using the log, take the last second of steady speed.
 
+Measured: three step tests at 20 cm/s (the bench step test is fixed at 20 cm/s). Values are the average of the three runs over the last second (2.0 to 3.0 s) with the old feed-forward 0.025; individual runs: mean left 19.97 to 20.00, mean right 19.85 to 20.08, std dev left 0.19 to 0.26, std dev right 0.23 to 0.29. Raw logs were not archived. See the PID report for the full step response.
+
 | Set-point (cm/s) | Mean left | Mean right | Std dev left | Std dev right | MC4 met? |
 |---|---|---|---|---|---|
-| 10 | | | | | |
-| 20 | | | | | |
-| 30 | | | | | |
+| 10 | not tested | | | | |
+| 20 | 19.99 | 19.96 | 0.22 | 0.25 | Yes (under 1.5 cm/s) |
+| 30 | not tested | | | | |
 
 ### 5.5 Battery dependence
 
@@ -140,18 +144,19 @@ Hold one wheel briefly while driving (with the car on a block). The car should e
 
 | Requirement | Result | Met? |
 |---|---|---|
-| MC1 distance | | |
-| MC2 turn angle | | |
-| MC3 drift | | |
-| MC4 speed ripple | | |
-| MC5 emergency stop | | |
+| MC1 distance | not tested | Not tested |
+| MC2 turn angle | not tested | Not tested |
+| MC3 drift | not tested (the firmware heading changed by +0.53°, -2.04° and -0.53° in three 20 cm/s step runs without straight-line correction; this is its own estimate, not a measurement) | Not tested |
+| MC4 speed ripple | std dev 0.19 to 0.29 cm/s at 20 cm/s | Yes, at 20 cm/s only (10 and 30 cm/s not tested) |
+| MC5 emergency stop | not tested (the normal `motion_stop` brake test stops with about 2 cm of coast and a 0.045 s lead, but this is not the emergency-stop test) | Not tested |
 
 ## 7. Limitations and discussion
 
-(Fill in after testing.) Points to cover:
-
-- One encoder phase per wheel: no direction sensing. Direction is the last driven direction, and the firmware brakes before reversing. State any case where this gave a wrong count.
-- Wheel slip during spin turns and why `MOTION_TURN_SCALE` is needed.
-- Effect of battery level and floor surface.
-- Measurement error of the tape measure and protractor.
-- What would improve results (second encoder phase, IMU yaw to cross-check turns).
+- **Calibration problem found.** The encoder edge mode did not match the calibration constants, so the firmware counted half of the real distance (a 100 cm command would have driven about 200 cm). It was found with a hand-turn check (5 turns gave 3162 and 3178 counts, about 634 per turn instead of about 1266) and fixed by setting `MOTION_ENCODER_EDGE_MODE` to 3. After the fix the same check was reported to be in the expected range (about 6330 and 6340 after 5 turns; the exact counts were not recorded). No tape-measure distance check has been done yet, so the calibration is confirmed by counts per turn only, not by a measured travelled distance.
+- **Not tested:** distance (30 to 200 cm, forward and backward), turn angles (360° calibration, 90°, 180°), straight-line drift, battery dependence, emergency stop, and stall. `MOTION_TURN_SCALE` is still 1.00 (uncalibrated).
+- **Speed consistency:** only 20 cm/s was tested, with one battery state and one surface (tile).
+- **One encoder phase per wheel:** no direction sensing. Direction is the last driven direction, and the firmware brakes before reversing. No case of a wrong count was observed in the tests that were run.
+- **Wheel slip during spin turns:** not measured; this is why `MOTION_TURN_SCALE` is needed.
+- **Measurement error** of the tape measure and protractor does not apply yet because those tests were not run.
+- **What would improve results:** a second encoder phase, and IMU yaw to cross-check turns.
+- **Next step to complete this report:** run the 100 cm straight test (5 trials) and the 90° turn tests, and compare the tape measure with the firmware distance and heading.
