@@ -2,6 +2,7 @@
 #include <tk/tkernel.h>
 #include <tm/tmonitor.h>
 #include "scan_link.h"
+#include "vehicle_controller.h"
 #include "platform.h"
 #include "range_policy.h"
 #include "buddy5_servo.h"

@@ -1,38 +1,28 @@
 #ifdef B5_FULL_TEST
 #include <tk/tkernel.h>
 #include <tm/tmonitor.h>
+#include "vehicle_controller.h"
 #include "platform.h"
 #include "barcode_task.h"
 #include "scan_link.h"
 #include "vehicle_nav.h"
 #include "auto_start.h"
-#include "../../buddy1/buddy1.h"
-#include "../../buddy1/telemetry.h"
-#include "../../buddy2/motion_encoder.h"
-#include "buddy5_servo.h"
-#include "../../buddy5/ultrasonic.h"
-#include "../../buddy2/motion_control.h"
-#include "../../buddy3/line_follow.h"
-#include "../../buddy3/line_sensors.h"
-#include "../../buddy3/line_config.h"
-#include "../../buddy4/rtos/buddy4_task.h"
+#include "../buddy1/telemetry.h"
+#include "../buddy2/motion_encoder.h"
+#include "../buddy2/motion_control.h"
+#include "../buddy3/line_follow.h"
+#include "../buddy3/line_sensors.h"
+#include "../buddy3/line_config.h"
+#include "../buddy4/rtos/buddy4_task.h"
+#include "../buddy5/rtos/buddy5_servo.h"
 #if TM_WIFI_MQTT
-#include "../../../lib/libnet/lwip/mqtt_dashboard_ready.h"
+#include "../../lib/libnet/lwip/mqtt_dashboard_ready.h"
 #endif
 #ifndef B5_HEADLESS
 #define B5_HEADLESS 0
 #endif
 #ifndef B5_TIGHT_COURSE
 #define B5_TIGHT_COURSE 0
-#endif
-#if TK_SUPPORT_SMP
-#error "This integration profile requires SMP=0"
-#endif
-#if CNF_TIMER_PERIOD != 1
-#error "Use picocar_integration.mk (1ms kernel tick required)"
-#endif
-#if TM_CONSOLE_UART
-#error "GP0 belongs to the line sensor: this profile requires USB-only console"
 #endif
 #if TM_CONSOLE_USB_CDC
 IMPORT UW tm_usb_state(void);
@@ -41,7 +31,7 @@ static b5_feedback_t feedback_shared;
 static b5_request_t pending_request;
 static bool request_pending;
 static volatile bool run_enabled;
-static bool buddy4_ready;
+static volatile bool buddy4_ready;
 
 #if TM_WIFI_MQTT
 static ER report_measurement(uint8_t source, uint8_t type, uint16_t flags,
@@ -55,7 +45,7 @@ static volatile bool user_stop_pending;
 static unsigned char commands[8];
 static unsigned command_head,command_tail;
 bool line_controller_active(void) { return run_enabled; }
-bool b5_line_usb_connected(void) {
+static bool b5_line_usb_connected(void) {
 #if TM_CONSOLE_USB_CDC
  return tm_usb_state()>=3;
 #else
@@ -75,12 +65,12 @@ void b5_line_command_received(unsigned c) {
  }
  EI(irq);
 }
-bool b5_line_take_stop(void) {
+static bool b5_line_take_stop(void) {
  UW irq; bool stop;
  DI(irq); stop=user_stop_pending; user_stop_pending=false; EI(irq);
  return stop;
 }
-int b5_line_take_command(void) {
+static int b5_line_take_command(void) {
  UW irq; int c=-1;
  DI(irq);
  if(command_head!=command_tail) {
@@ -360,35 +350,20 @@ static void controller_task(INT stacd,void *exinf) {
   tk_dly_tsk(1);
  }
 }
-EXPORT INT usermain(void) {
- T_CTSK cfg={0};
- if(b5_platform_init()<E_OK || motion_init()!=MOTION_OK) return 1;
- motion_emergency_stop(); line_follow_init(); ultrasonic_init();
- if(!buddy5_servo_init()) return 1;
- ER buddy1_init_result=buddy1_init();
- if(buddy1_init_result<E_OK)
-  tm_printf((UB*)"[B1] Telemetry unavailable (%d); driving continues.\n",buddy1_init_result);
- ER buddy4_init_result=buddy4_task_init();
- buddy4_ready=buddy4_init_result>=E_OK;
- if(!buddy4_ready) tm_printf((UB*)"[B4] IMU task unavailable (%d); driving continues.\n",buddy4_init_result);
+int32_t vehicle_controller_start(bool imu_ready) {
+ /* Other shared state is zero-initialised before USB can deliver commands. */
+ buddy4_ready=imu_ready;
  /* Motor timing must outrank the 2 ms Wi-Fi poll task (priority 4). */
+ T_CTSK cfg={0};
  cfg.tskatr=TA_HLNG|TA_RNG3; cfg.task=controller_task; cfg.itskpri=2; cfg.stksz=4096;
- ID id=tk_cre_tsk(&cfg); if(id<0) return 1;
- if(tk_sta_tsk(id,0)<0) { tk_del_tsk(id); return 1; }
- if(line_scan_start()<E_OK) { motion_emergency_stop(); return 1; }
- if(buddy1_init_result>=E_OK) {
-  ER e=buddy1_start();
-  if(e<E_OK) tm_printf((UB*)"[B1] Telemetry start failed (%d); driving continues.\n",e);
- }
- if(buddy4_ready) {
-  ER e=buddy4_task_start();
-  if(e<E_OK) { buddy4_ready=false; tm_printf((UB*)"[B4] IMU task did not start (%d); driving continues.\n",e); }
- }
-#if TM_CONSOLE_USB_CDC || TM_WIFI_MQTT
- ER barcode_error=buddy3_barcode_start();
- if(barcode_error<E_OK)
-  tm_printf((UB*)"[B3 BARCODE] Task start failed (%d); driving continues.\n",barcode_error);
-#endif
- tk_slp_tsk(TMO_FEVR); return 0;
+ ID id=tk_cre_tsk(&cfg);
+ if(id<0) return id;
+ ER e=tk_sta_tsk(id,0);
+ if(e<0) tk_del_tsk(id);
+ return e;
+}
+
+void vehicle_controller_disable_imu(void) {
+ buddy4_ready=false;
 }
 #endif
