@@ -26,8 +26,6 @@ ifneq ($(CONSOLE),usb_cdc)
 $(error Use CONSOLE=usb_cdc, or set HEADLESS=1 for power-bank operation)
 endif
 endif
-# Optional existing Buddy 1 radio profile uses the original makefile gates.
-override BUDDY1_ONLY := 1
 override PROFILE_ID = picocar-integration-v3-smp0-headless$(HEADLESS)-tight$(TIGHT_COURSE)-tick1-wifi$(WIFI)-join$(WIFI_JOIN)-netif$(WIFI_NETIF)-static$(WIFI_STATIC)-dhcp$(WIFI_DHCP)-dns$(WIFI_DNS)-udp$(WIFI_UDP)-tcp$(WIFI_TCP)-bulk$(WIFI_TCPBULK)-mqtt$(WIFI_MQTT)
 TIGHT_SUFFIX :=
 ifeq ($(TIGHT_COURSE),1)

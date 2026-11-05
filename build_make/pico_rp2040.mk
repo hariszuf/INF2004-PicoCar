@@ -17,7 +17,9 @@
 ################################################################################
 
 SMP ?= 0
-BUDDY1_ONLY ?= 0
+ifeq ($(BUDDY1_ONLY),1)
+$(error The standalone Buddy 1 profile has been retired. Use picocar_integration.mk for RoboCar)
+endif
 
 ifneq ($(SMP),0)
 ifneq ($(SMP),1)
@@ -287,7 +289,7 @@ endif
 # before any recipe executes.
 ################################################################################
 
-PROFILE_ID := smp$(SMP)-$(CONSOLE)-wifi$(WIFI)-join$(WIFI_JOIN)-netif$(WIFI_NETIF)-static$(WIFI_STATIC)-dhcp$(WIFI_DHCP)-dns$(WIFI_DNS)-udp$(WIFI_UDP)-tcp$(WIFI_TCP)-bulk$(WIFI_TCPBULK)-buddy1$(BUDDY1_ONLY)-mqtt$(WIFI_MQTT)
+PROFILE_ID := smp$(SMP)-$(CONSOLE)-wifi$(WIFI)-join$(WIFI_JOIN)-netif$(WIFI_NETIF)-static$(WIFI_STATIC)-dhcp$(WIFI_DHCP)-dns$(WIFI_DNS)-udp$(WIFI_UDP)-tcp$(WIFI_TCP)-bulk$(WIFI_TCPBULK)-mqtt$(WIFI_MQTT)
 PROFILE_FILE := .build_profile
 
 ifneq ($(strip $(shell cat $(PROFILE_FILE) 2>/dev/null)),$(PROFILE_ID))

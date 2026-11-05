@@ -2,17 +2,9 @@
 # micro T-Kernel 3.0 BSP - Application Sources
 ################################################################################
 
-# Buddy 1 development profile:
-# Compile only shared application files and Buddy 1.
 # The integration makefile supplies its own source list.
-
-ifeq ($(BUDDY1_ONLY),1)
-TEMP_SRCS = $(wildcard ../app_program/*.c) \
-            $(wildcard ../app_program/buddy1/*.c)
-else
 TEMP_SRCS = $(wildcard ../app_program/*.c) \
             $(filter-out ../app_program/vehicle/%.c,$(wildcard ../app_program/*/*.c))
-endif
 
 TEMP_OBJS = $(TEMP_SRCS:.c=.o)
 TEMP_DEPS = $(TEMP_SRCS:.c=.d)
