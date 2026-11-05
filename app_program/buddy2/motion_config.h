@@ -32,7 +32,7 @@
  * both), otherwise every distance and angle is scaled wrongly.
  * 1u = rising edge only, 2u = falling edge only, 3u = both edges.
  */
-#define MOTION_ENCODER_EDGE_MODE    (1u)   /* TUNE: match the hand-turn test */
+#define MOTION_ENCODER_EDGE_MODE    (3u)   /* both edges: 5 hand turns gave ~3170 counts in mode 1 (~634/turn), so mode 3 gives ~1266/turn matching the 12658/12685 per 10 turns constants */
 
 /* ------------------------------------------------------------------ */
 /* Measured geometry (team measurements)                               */
@@ -62,7 +62,7 @@
 /* Motion profile                                                      */
 /* ------------------------------------------------------------------ */
 #define MOTION_DEFAULT_SPEED_CM_S       (20.0f)   /* TUNE */
-#define MOTION_MAX_SPEED_CM_S           (40.0f)   /* TUNE: measure at full duty */
+#define MOTION_MAX_SPEED_CM_S           (65.0f)   /* measured 73-77 cm/s at full duty (5 Nov 2026), ~10 % margin */
 #define MOTION_MIN_SPEED_CM_S           (6.0f)    /* creep speed near target */
 #ifndef MOTION_TURN_SPEED_CM_S
 #define MOTION_TURN_SPEED_CM_S          (15.0f)   /* wheel speed during a spin */
@@ -83,7 +83,7 @@
 #define MOTION_PID_INTEGRAL_LIMIT       (0.30f)
 /* Both can be overridden from the build (e.g. Buddy 3 line following runs much slower). */
 #ifndef MOTION_FEEDFORWARD_DUTY_PER_CM_S
-#define MOTION_FEEDFORWARD_DUTY_PER_CM_S (0.025f) /* TUNE: duty / (cm/s) */
+#define MOTION_FEEDFORWARD_DUTY_PER_CM_S (0.013f) /* measured duty sweep slope 0.0126-0.0133 (5 Nov 2026) */
 #endif
 /** Break-away: while a wheel that is asked to turn is still (measured speed below
  *  MOTION_BREAKAWAY_SPEED_CM_S), apply at least this duty to overcome stiction.
@@ -118,7 +118,7 @@
 /** Braking is not instant. A move or turn ends early by (wheel speed x this
  *  time) so the robot stops on target. TUNE: measure with the braking test,
  *  then adjust until the mean distance and angle error are close to zero. */
-#define MOTION_STOP_LEAD_S              (0.03f)
+#define MOTION_STOP_LEAD_S              (0.045f)  /* measured brake test, 3 runs (5 Nov 2026) */
 
 #define MOTION_SETTLE_SPEED_CM_S        (0.5f)
 #define MOTION_SETTLE_CYCLES            (3u)
