@@ -74,15 +74,15 @@
 #endif
 /* TUNE: depth of the box along the line (mm) when the scan could not measure it. Bigger = safer. */
 #ifndef B5_ASSUMED_DEPTH_MM
-#define B5_ASSUMED_DEPTH_MM 500
+#define B5_ASSUMED_DEPTH_MM 350
 #endif
 /* The scan only sees about +/-35 degrees, so a wide box's edges can be out of view and its width underestimated.
  * Always keep the car at least this far (mm) from the line while passing. TUNE: >= half the widest box + 85 + 50. */
 #ifndef B5_MIN_BYPASS_OFFSET_MM
-#define B5_MIN_BYPASS_OFFSET_MM 420
+#define B5_MIN_BYPASS_OFFSET_MM 350
 #endif
 /* Extra distance past the box rear so the car's tail clears it before turning back (mm). */
-#define B5_BYPASS_END_MARGIN_MM 60
+#define B5_BYPASS_END_MARGIN_MM 40
 /* A long open-loop forward move drifts a little: allowed end-position error (mm). */
 #if B5_SIMPLE_BYPASS
 #define B5_ADV_TOL_X_MM 60
@@ -92,7 +92,11 @@
 #define B5_ADV_TOL_Y_MM 20
 #endif
 /* Sideways sweep back to the line: how far past the expected line position to keep looking (mm). */
-#define B5_LINE_SWEEP_EXTRA_MM 150
+#define B5_LINE_SWEEP_EXTRA_MM 100
+/* Wheel speed (cm/s) for the straight legs of the bypass. */
+#ifndef B5_BYPASS_SPEED_CM_S
+#define B5_BYPASS_SPEED_CM_S 8.0f
+#endif
 /* Slow pivot that finds the line after the return turn: speed (cm/s) and timeout (ms). */
 #define B5_LINE_SEARCH_SPEED_CM_S 4.0f
 #define B5_LINE_SEARCH_MS 4000u

@@ -192,7 +192,7 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
  } else {
   if(!guard) return; /* only a forward translation needs clear forward sonar */
   if(a.value<4) { ++n->index; return; }
-  if(motion_set_speed(6.0f)!=MOTION_OK) { fail(n); return; }
+  if(motion_set_speed(B5_BYPASS_SPEED_CM_S)!=MOTION_OK) { fail(n); return; }
   result=motion_move_forward(a.value/10.0f);
  }
  if(result!=MOTION_OK) { fail(n); return; }
