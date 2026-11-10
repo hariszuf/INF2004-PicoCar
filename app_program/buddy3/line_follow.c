@@ -48,6 +48,7 @@ typedef enum
 
 static junction_phase_t s_junction;
 static bool s_junction_armed = true;   /* false while still on the bar we just handled */
+static bool s_junction_halted;         /* stopped at a junction with no barcode letter: stay put */
 static junction_action_t s_junction_action;
 static uint32_t s_junction_ms;         /* time in the current junction step, for the timeout */
 #if LINE_JUNCTION_USE_BARCODE
@@ -101,7 +102,6 @@ static junction_action_t junction_choose(void)
 
 static void junction_begin(void)
 {
-    s_junction = J_STOPPING;
     s_junction_action = junction_choose();
     s_junction_ms = 0u;
     s_junction_armed = false;
@@ -109,6 +109,14 @@ static void junction_begin(void)
     s_left_cmd = 0.0f;
     s_right_cmd = 0.0f;
     motion_stop();
+    if (s_junction_action == JUNCTION_NONE)
+    {
+        /* No barcode letter for this junction: do not guess. Stop here and stay stopped. */
+        s_junction = J_NONE;
+        s_junction_halted = true;
+        return;
+    }
+    s_junction = J_STOPPING;
 }
 
 static void junction_abort(void)
@@ -252,6 +260,7 @@ void line_follow_init(void)
 #if LINE_JUNCTION
     s_junction = J_NONE;
     s_junction_armed = true;
+    s_junction_halted = false;
 #endif
 }
 
@@ -277,6 +286,7 @@ bool line_follow_start(void)
 #if LINE_JUNCTION
     s_junction = J_NONE;
     s_junction_armed = true;
+    s_junction_halted = false;
 #endif
     return true;
 }
@@ -287,6 +297,7 @@ void line_follow_stop(void)
     s_state = LINE_STATE_IDLE;
 #if LINE_JUNCTION
     s_junction = J_NONE;
+    s_junction_halted = false;
 #endif
     motion_stop();
 }
@@ -301,6 +312,12 @@ void line_follow_update(void)
     {
         return;
     }
+#if LINE_JUNCTION
+    if (s_junction_halted)
+    {
+        return;   /* waiting at a junction without a barcode letter: send no commands */
+    }
+#endif
 
     motion_get_status(&status);
     if (status.state == MOTION_STATE_ERROR)
