@@ -2,7 +2,11 @@
  *   cd app_program/buddy5/test/host
  *   gcc -std=gnu11 -Wall -Wextra -DB5_FULL_TEST=1 -I../../rtos -I../../vehicle -I../../../buddy2 -I../../../buddy3 -I../../.. \
  *       sim_bypass.c ../../vehicle/vehicle_nav.c ../../rtos/buddy5_core.c -lm -o /tmp/sim && /tmp/sim
- * Optional: -DBOX_W=350 -DBOX_D=300 -DBOX_Y=0 -DSTART_GAP=220
+ * Two/three boxes: -DBOX2_W=300 -DBOX2_Y=-330 [-DBOX3_W=300 -DBOX3_Y=330] (side by side, same front plane).
+ * Extra: -DSIM_BLOCK_UNTIL_DEG=80 -DTSLIP=0.8 tests the sonar-triggered extra turn when the car under-turns.
+ * With the real line follower (junction-style hand-back): add -DSIM_REAL_LINE=1 -DLINE_JUNCTION_USE_BARCODE=0 and
+ *   ../../../buddy3/line_follow.c ../../../buddy3/junction_map.c to the source list.
+ * Optional: -DSENSOR_HALF=55 -DMSLIP=0.95 -DTSLIP=1.05 -DBOX_W=350 -DBOX_D=300 -DBOX_Y=0 -DSTART_GAP=220
  */
 #include <stdio.h>
 #include <string.h>
@@ -27,9 +31,19 @@
 #define START_GAP 220.0   /* sensor to box front, mm */
 #endif
 #define SENSOR_AHEAD 80.0 /* axle to IR sensors / ultrasonic, mm */
-#define TAPE_HALF 7.5
-#define SENSOR_HALF 7.5
+#ifndef TAPE_HALF
+#define TAPE_HALF 9.0       /* 18 mm tape */
+#endif
+#ifndef SENSOR_HALF
+#define SENSOR_HALF 55.0    /* half the spacing of the two straddling IR sensors (-DSENSOR_HALF=.. to change) */
+#endif
 #define PI 3.14159265358979
+#ifndef MSLIP
+#define MSLIP 1.0           /* real distance / odometer distance on straight moves (e.g. 0.95) */
+#endif
+#ifndef TSLIP
+#define TSLIP 1.0           /* real turn / commanded turn (e.g. 1.05) */
+#endif
 
 /* ---------- car model ---------- */
 static double X, Y, TH, REP, DIST_CM;          /* axle position, physical heading (deg), reported heading, odometer */
@@ -85,13 +99,13 @@ static void physics(double dt)
     cur_l=cur_r=0;
     if(mode==TURN) {
         double step=60.0*dt; if(step>fabs(rem)) step=fabs(rem);
-        double d=(rem>0?1:-1)*step; TH+=d; REP+=d*MOTION_TURN_SCALE; rem-=d;
+        double d=(rem>0?1:-1)*step; TH+=d*TSLIP; REP+=d*MOTION_TURN_SCALE; rem-=d;
         cur_l=-(d>0?1:-1)*10; cur_r=-cur_l;
         if(fabs(rem)<1e-6) { mode=STOPPING; stop_ms=100; }
     } else if(mode==MOVE) {
         double step=move_speed*dt; if(step>fabs(rem)) step=fabs(rem);
         double s=(rem>0?1:-1)*step;
-        X+=s*cos(TH*PI/180); Y+=s*sin(TH*PI/180); DIST_CM+=s/10.0; rem-=s;
+        X+=s*MSLIP*cos(TH*PI/180); Y+=s*MSLIP*sin(TH*PI/180); DIST_CM+=s/10.0; rem-=s;
         cur_l=cur_r=(rem>0?1:-1)*move_speed/10.0;
         if(fabs(rem)<1e-6) { mode=STOPPING; stop_ms=100; }
     } else if(mode==DRIVE) {
@@ -107,7 +121,7 @@ static void physics(double dt)
 
 /* ---------- world ---------- */
 static double bx0, bx1, by0, by1;
-static double ray_to_box(double ox,double oy,double ang_deg,int *hit)
+static double ray_to_one(double ox,double oy,double ang_deg,int *hit)
 {
     double a=ang_deg*PI/180, dx=cos(a), dy=sin(a), tmin=0, tmax=1e9;
     double lo[2]={bx0,by0}, hi[2]={bx1,by1}, o[2]={ox,oy}, d[2]={dx,dy};
@@ -122,6 +136,18 @@ static double ray_to_box(double ox,double oy,double ang_deg,int *hit)
     }
     if(tmin<=0) return 0;
     *hit=1; return tmin;
+}
+/* Up to two boxes side by side (-DBOX2_W=300 -DBOX2_Y=-330 adds a second one). */
+static double BXa[3],BXb[3],BYa[3],BYb[3]; static int NBOX=1;
+static double ray_to_box(double ox,double oy,double ang_deg,int *hit)
+{
+    double best=0; *hit=0;
+    for(int k=0;k<NBOX;k++) {
+        int h; bx0=BXa[k]; bx1=BXb[k]; by0=BYa[k]; by1=BYb[k];
+        double d=ray_to_one(ox,oy,ang_deg,&h);
+        if(h && (!*hit || d<best)) { best=d; *hit=1; }
+    }
+    return best;
 }
 static void sensor_xy(int side,double *sx,double *sy)
 {
@@ -143,7 +169,7 @@ static b5_range_t range_at(double servo_deg)
     if(!hit || d>4000.0) return (b5_range_t){true,B5_NO_ECHO_MM};
     return (b5_range_t){true,(uint32_t)lround(d)};
 }
-static int collides(void)
+static int collides1(void)
 {
     double a=TH*PI/180, c=cos(a), s=sin(a);
     for(double u=-177.5;u<=177.5;u+=10) for(double v=-85;v<=85;v+=10) {
@@ -153,6 +179,11 @@ static int collides(void)
     return 0;
 }
 
+static int collides(void)
+{
+    for(int k=0;k<NBOX;k++) { bx0=BXa[k]; bx1=BXb[k]; by0=BYa[k]; by1=BYb[k]; if(collides1()) return 1; }
+    return 0;
+}
 int main(void)
 {
     full_nav_t nav; b5_core_t core; motion_status_t ms; b5_feedback_t fb;
@@ -160,6 +191,13 @@ int main(void)
     int collisions=0, ok=0, last_state=-1;
     double min_gap=1e9;
     bx0=SENSOR_AHEAD+START_GAP; bx1=bx0+BOX_D; by0=BOX_Y-BOX_W/2; by1=BOX_Y+BOX_W/2;
+    BXa[0]=bx0; BXb[0]=bx1; BYa[0]=by0; BYb[0]=by1;
+#ifdef BOX2_W
+    BXa[1]=bx0; BXb[1]=bx1; BYa[1]=BOX2_Y-BOX2_W/2.0; BYb[1]=BOX2_Y+BOX2_W/2.0; NBOX=2;
+#endif
+#ifdef BOX3_W
+    BXa[2]=bx0; BXb[2]=bx1; BYa[2]=BOX3_Y-BOX3_W/2.0; BYb[2]=BOX3_Y+BOX3_W/2.0; NBOX=3;
+#endif
     X=Y=TH=REP=DIST_CM=0;
     motion_get_status(&ms); full_nav_init(&nav,&ms); nav.settled=3;
     b5_core_init(&core,now);
@@ -177,7 +215,16 @@ int main(void)
         bool guard=(range_at(0).distance_mm==B5_NO_ECHO_MM) || (int32_t)(fwd-B5_FRONT_OVERHANG_MM)>B5_GUARD_FRONT_MM;
         /* main.c: B5_BYPASS_IGNORE_GUARD during the return */
         if(B5_BYPASS_IGNORE_GUARD && nav.active && (nav.request.kind==B5_REQ_ADVANCE || nav.request.kind==B5_REQ_RECOVER_LINE || nav.request.kind==B5_REQ_BACKUP)) guard=true;
+#ifdef SIM_BLOCK_UNTIL_DEG
+        /* Test of the "did not turn enough" correction: the sonar keeps seeing something ahead until the car has
+         * really turned this far (deg) toward the side. */
+        if(nav.active && nav.request.kind==B5_REQ_BYPASS && fabs(TH)<SIM_BLOCK_UNTIL_DEG) guard=false;
+#endif
         { int a=b5_core_angle(&core); b5_range_t fr=range_at(a); full_nav_set_front(&nav,true,b5_range_no_echo(&fr)?B5_CLEAR_FRONT_MM:(int32_t)fr.distance_mm-B5_FRONT_OVERHANG_MM,a); }
+        /* scan_task.c keeps core.front_clearance_mm fresh while positioning and during the straight pass. */
+        if(core.state==B5_PROCESSING || (core.state==B5_AVOIDING && core.phase==2)) {
+            b5_range_t r0=range_at(0); core.front_clearance_mm=b5_front_clearance(&r0);
+        }
         full_nav_update(&nav,now,&ms,read_mask(),guard);
         full_nav_feedback(&nav,now,&fb);
         int want=b5_core_wants_range(&core); int ang=b5_core_angle(&core);
@@ -188,7 +235,7 @@ int main(void)
         b5_core_update(&core,now,&fb,rp);
         if(core.request.id && core.request.id!=delivered) {
             delivered=core.request.id;
-            static const char *k[]={"NONE","STOP","BYPASS","ADVANCE","RECOVER_LINE","RESUME_LINE","BC_L","BC_R"};
+            static const char *k[]={"NONE","STOP","BYPASS","ADVANCE","RECOVER_LINE","RESUME_LINE","BC_L","BC_R","BACKUP"};
             printf("[%6.1fs] request %s fwd=%d lat=%d\n",(now-1000)/1000.0,k[core.request.kind],core.request.forward_mm,core.request.lateral_mm);
             if(!full_nav_accept(&nav,&core.request,now)) printf("  nav rejected\n");
         }
@@ -203,6 +250,7 @@ int main(void)
         if(line_starts>0 && core.state==B5_MONITORING) { ok=1; break; }
     }
     { double sy=Y+SENSOR_AHEAD*sin(TH*PI/180); printf("sensor-pair centre %.1f mm from the tape centre, heading %.1f deg\n",sy,TH); }
+    printf("\nturn re-checks=%d  sonar extra turns=%d\n",(int)nav.turn_fixes_total,(int)nav.block_fixes_total);
     printf("\nresult: %s | line follower restarted=%d | collisions(steps)=%d | final x=%.0f y=%.0f heading=%.1f deg\n",
            ok?"BYPASS COMPLETED":"NOT COMPLETED",line_starts,collisions,X,Y,TH);
     (void)min_gap;

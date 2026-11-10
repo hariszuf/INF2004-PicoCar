@@ -61,9 +61,11 @@ static void trip(full_nav_t *n,float target_y,bool check) {
 bool full_nav_accept(full_nav_t *n,const b5_request_t *r,uint32_t now) {
  if(n->failed || (n->active && r->kind!=B5_REQ_STOP)) return false;
  n->request=*r; n->active=true; n->issued=false; n->moving=false; n->forward_moving=false; n->motion_seen=false; n->recovery_stop=false;
+ n->turn_tries=0; n->turn_recheck=false; n->fixing=false; n->block_since=0; n->block_fixes=0;
+ n->last_turn_dir=r->lateral_mm<0?-1:1;
  n->resumed=false; n->rejoining=false; n->search_phase=0; n->index=n->count=n->search=0; n->started=now; n->check_since=0;
  switch(r->kind) {
- case B5_REQ_STOP: line_follow_stop(); motion_stop(); n->settled=0; break;
+ case B5_REQ_STOP: line_follow_stop(); motion_stop(); n->settled=0; n->turn_fixes_total=n->block_fixes_total=0; break;
  case B5_REQ_BYPASS: trip(n,(float)r->lateral_mm,false); break;
  case B5_REQ_ADVANCE:
   if(r->forward_mm<=n->x || absolute(n->heading)>NAV_HEADING_ALIGNED_DEG) { fail(n); return false; }
@@ -197,7 +199,10 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
   if(n->motion_seen && (uint32_t)(now-n->check_since)>=60u &&
      n->settled>=3 && motion_is_idle()) {
    n->issued=false; n->moving=false; n->forward_moving=false; n->motion_seen=false;
-   ++n->index; n->check_since=0;
+   n->check_since=0;
+   if(n->fixing) n->fixing=false;   /* extra sonar turn done: look at the same action again */
+   else if(n->actions[n->index].kind==TURN && !full_nav_barcode_turn_active(n)) n->turn_recheck=true;   /* verify the heading first */
+   else ++n->index;
   } else return;
  }
  if(n->index>=n->count) {
@@ -216,7 +221,7 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
   bool pose=absolute(n->heading)<=NAV_HEADING_ALIGNED_DEG;
   if(n->request.kind==B5_REQ_RECOVER_LINE) pose=absolute(n->heading)<=30.0f;
   if(n->request.kind==B5_REQ_BYPASS)
-   pose=pose && absolute(n->x)<=B5_ADV_TOL_X_MM && absolute(n->y-n->request.lateral_mm)<=B5_ADV_TOL_Y_MM;
+   pose=pose && (n->block_fixes_total>0 || absolute(n->x)<=B5_ADV_TOL_X_MM) && absolute(n->y-n->request.lateral_mm)<=B5_ADV_TOL_Y_MM;
   if(n->request.kind==B5_REQ_ADVANCE)
    pose=pose && absolute(n->x-n->request.forward_mm)<=B5_ADV_TOL_X_MM && absolute(n->y-n->request.lateral_mm)<=B5_ADV_TOL_Y_MM;
   if(n->request.kind==B5_REQ_RECOVER_LINE) pose=pose && (n->line_seen>=3 || n->acquired);
@@ -267,7 +272,15 @@ if(a.kind==CHECK_FRONT) {
   bool barcode_turn=full_nav_barcode_turn_active(n);
   if(barcode_turn && !guard) return;
   float error=barcode_turn?a.value:a.value-n->heading;
-  if(absolute(error)<=NAV_TURN_DEADBAND_DEG) { ++n->index; return; }
+  if(absolute(error)<=NAV_TURN_DEADBAND_DEG) { ++n->index; n->turn_recheck=false; n->turn_tries=0; return; }
+  if(n->turn_recheck) {
+   /* The turn finished short of (or past) its target: turn again by the remaining error, a few times at most. */
+   n->turn_recheck=false;
+   if(n->turn_tries>=B5_TURN_RETRIES) { ++n->index; n->turn_tries=0; return; }
+   ++n->turn_tries;
+   if(n->turn_fixes_total<255) ++n->turn_fixes_total;
+  }
+  if(!barcode_turn) n->last_turn_dir=error>0?1:-1;
   /* Convert desired physical rotation back into the under-reporting motion
    * controller's angle domain. */
   error/=B5_TURN_ODOMETRY_CORRECTION;
@@ -303,7 +316,36 @@ if(a.kind==CHECK_FRONT) {
   n->search_phase=1; n->moving=true; n->forward_moving=false; n->settled=0; n->check_since=now;
   return;
  } else {
-  if(!guard) return; /* only a forward translation needs clear forward sonar */
+  if(!guard) {
+   if(n->request.kind!=B5_REQ_BYPASS) return;   /* only a forward translation needs clear forward sonar */
+   /* Something is still in front after the turn: the car did not turn enough. Wait a moment (a passer-by),
+    * then turn a little more the same way, up to B5_BLOCK_MAX_FIXES times. */
+   if(!n->block_since) n->block_since=now;
+   if((uint32_t)(now-n->block_since)<B5_BLOCK_WAIT_MS) return;
+   n->block_since=0;
+   if(n->block_fixes>=B5_BLOCK_MAX_FIXES) { fail(n); return; }
+   ++n->block_fixes;
+   if(n->block_fixes_total<255) ++n->block_fixes_total;
+   {
+    /* Each further attempt turns a bit more: 8, 12, 16, 20 degrees. */
+    float extra=(B5_BLOCK_EXTRA_TURN_DEG+4.0f*(float)(n->block_fixes-1))/B5_TURN_ODOMETRY_CORRECTION;
+    result=n->last_turn_dir>=0?motion_turn_left(extra):motion_turn_right(extra);
+   }
+   if(result!=MOTION_OK) { fail(n); return; }
+   n->fixing=true; n->issued=true; n->moving=true; n->forward_moving=false; n->motion_seen=false;
+   n->settled=0; n->check_since=now;
+   return;
+  }
+  n->block_since=0;
+  if(n->request.kind==B5_REQ_BYPASS && a.kind==MOVE) {
+   /* Sideways leg: drive whatever is still needed to reach the lateral target along the CURRENT heading (an extra
+    * turn, or a stop part-way, changes it). */
+   float s=sinf(n->heading*0.01745329252f);
+   if(absolute(s)>0.7f) {
+    float dist=absolute((float)n->request.lateral_mm-n->y)/absolute(s);
+    if(dist<=a.value*1.6f+100.0f) a.value=dist;
+   }
+  }
   if(a.value<4) { ++n->index; return; }
   if(motion_set_speed(B5_BYPASS_SPEED_CM_S)!=MOTION_OK) { fail(n); return; }
   result=motion_move_forward(a.value/10.0f);
@@ -311,6 +353,12 @@ if(a.kind==CHECK_FRONT) {
  if(result!=MOTION_OK) { fail(n); return; }
  n->issued=true; n->moving=true; n->forward_moving=(a.kind==MOVE || a.kind==SWEEP); n->motion_seen=false;
  n->settled=0; n->check_since=now;
+}
+bool full_nav_block_stop(full_nav_t *n) {
+ if(!n->active || n->failed || n->request.kind!=B5_REQ_BYPASS || n->block_fixes>=B5_BLOCK_MAX_FIXES) return false;
+ motion_stop();
+ n->issued=false; n->moving=false; n->forward_moving=false; n->motion_seen=false; n->settled=0; n->block_since=0;
+ return true;
 }
 void full_nav_feedback(const full_nav_t *n,uint32_t timestamp,b5_feedback_t *f) {
  *f=(b5_feedback_t){0}; f->valid=true; f->timestamp_ms=timestamp;
@@ -320,5 +368,6 @@ void full_nav_feedback(const full_nav_t *n,uint32_t timestamp,b5_feedback_t *f) 
  f->completed_id=n->completed_id; f->request_failed=n->failed;
  f->line_acquired=n->line_seen>=3 || n->acquired;
  f->front_ok=n->front_ok; f->extends=(uint8_t)n->retries;
+ f->turn_fixes=n->turn_fixes_total; f->block_fixes=n->block_fixes_total;
 }
 #endif

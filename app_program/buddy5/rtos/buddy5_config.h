@@ -86,8 +86,10 @@
 #ifndef B5_RESCAN_BACKUP_MM
 #define B5_RESCAN_BACKUP_MM 150
 #endif
+/* Reverse and scan again ONLY when the scan cannot tell which side is better (the obstacle fills the whole window,
+ * e.g. two boxes side by side). Each reverse widens what the +25/-35 degree window can see. */
 #ifndef B5_MAX_RESCANS
-#define B5_MAX_RESCANS 0   /* no reverse on the first detection */
+#define B5_MAX_RESCANS 2
 #endif
 /* The straight leg past the box is B5_PASS_WIDTH_FACTOR x the measured box width (B5_UNKNOWN_WIDTH_MM if it could
  * not be measured), counted from where the car first stopped, plus B5_PASS_SAFETY_MM. A deeper box is caught by the
@@ -154,5 +156,42 @@
 /* Slow pivot that finds the line after the return turn: speed (cm/s) and timeout (ms). */
 #define B5_LINE_SEARCH_SPEED_CM_S 4.0f
 #define B5_LINE_SEARCH_MS 4000u
+
+/* Side choice: two box edges must differ by at least this (mm) before the nearer one decides; otherwise the side with
+ * more free space beyond the box decides. */
+#ifndef B5_SIDE_PREFER_MM
+#define B5_SIDE_PREFER_MM 40
+#endif
+/* A turn that ends more than the deadband short of its target is repeated up to this many times. */
+#ifndef B5_TURN_RETRIES
+#define B5_TURN_RETRIES 3
+#endif
+/* Bypass: if the sonar still sees something in front for this long (ms) before a sideways move, or the guard trips
+ * during it, the car did not turn enough. It stops and turns a little more (B5_BLOCK_EXTRA_TURN_DEG), up to
+ * B5_BLOCK_MAX_FIXES times, then gives up (and the process restarts). */
+#ifndef B5_BLOCK_WAIT_MS
+#define B5_BLOCK_WAIT_MS 800u
+#endif
+#ifndef B5_BLOCK_EXTRA_TURN_DEG
+#define B5_BLOCK_EXTRA_TURN_DEG 8.0f
+#endif
+#ifndef B5_BLOCK_MAX_FIXES
+#define B5_BLOCK_MAX_FIXES 4
+#endif
+/* Before the straight pass beside the box, the sonar (now facing forward from the side position) must see clear space
+ * for the whole pass plus this margin (mm). Otherwise something else (a second box) is on that side: take the other
+ * side, or stop if both are blocked. */
+#ifndef B5_ROUTE_MARGIN_MM
+#define B5_ROUTE_MARGIN_MM 80
+#endif
+#ifndef B5_ROUTE_CHECK_MS
+#define B5_ROUTE_CHECK_MS 500u   /* wait for fresh forward readings after the turn */
+#endif
+/* During the straight pass: anything closer than this ahead stops the car. */
+#ifndef B5_ADVANCE_STOP_MM
+#define B5_ADVANCE_STOP_MM 200
+#endif
+/* Telemetry src5 type 59: left/right box edge, why that side was chosen, turn and sonar corrections. */
+#define B5_TELEM_DECISION 59u
 
 #endif

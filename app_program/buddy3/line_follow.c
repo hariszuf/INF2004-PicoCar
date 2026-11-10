@@ -15,6 +15,7 @@
  *   both black     -> stop; moves again as soon as a sensor sees white
  */
 #include "line_follow.h"
+#include <math.h>
 
 #include "line_config.h"
 #include "line_sensors.h"
@@ -44,8 +45,8 @@ typedef enum
     J_TURNING,     /* open-loop first part of the turn */
     J_SEARCHING,   /* slow pivot until a sensor sees the new line */
     J_CROSSING,    /* driving straight across */
-    J_CENTRING,    /* rejoin only: keep pivoting until the line is between the sensors */
-    J_CENTRE_BACK  /* rejoin only: pivot back to the middle of the two sensor crossings */
+    J_CENTRING,    /* rejoin only: pivot until the second sensor has crossed the tape */
+    J_CENTRE_BACK  /* rejoin only: pivot to the middle of the two sensor crossings */
 } junction_phase_t;
 
 static junction_phase_t s_junction;
@@ -56,11 +57,6 @@ static uint32_t s_junction_ms;         /* time in the current junction step, for
 /* Rejoin: the same junction turn, used by the obstacle bypass to get back onto the line. */
 static bool s_rejoin;
 static int8_t s_rejoin_result;         /* 0 running / not started, 1 done (centred, stopped), -1 failed */
-static uint8_t s_centre_first;         /* the sensor that saw the line first */
-static bool s_centre_have_exit, s_centre_have_enter;
-static float s_centre_exit_deg, s_centre_enter_deg, s_centre_target_deg, s_centre_dir;
-static float s_search_start_deg;       /* rejoin: heading where the slow search began */
-static bool s_search_reversed;         /* rejoin: line not found turning one way, now searching back */
 #if LINE_JUNCTION_USE_BARCODE
 extern bool buddy3_barcode_latest(char *letter, uint32_t *read_ms);   /* barcode_task.c */
 static bool s_barcode_used;
@@ -162,6 +158,110 @@ static void junction_abort(void)
     motion_stop();
 }
 
+#if LINE_REJOIN_CENTRE
+/* ------------------------------------------------------------------ */
+/* Bypass hand-back: put the tape midway between the two sensors.      */
+/* The car pivots on the spot and the heading at which each sensor     */
+/* crosses the tape is recorded. The middle of the two crossings is    */
+/* the heading at which the tape lies exactly between the sensors.     */
+/* It does not matter how far apart the sensors are: the sweep goes on */
+/* until BOTH sensors have crossed the tape (first one way, then the   */
+/* other if the second sensor lies behind), then pivots to the middle. */
+/* ------------------------------------------------------------------ */
+typedef struct
+{
+    bool in;        /* tape under the sensor right now */
+    bool done;      /* crossed completely: centre is valid */
+    bool ignore;    /* was already on the tape when the sweep began: wait until it is white */
+    float enter;
+    float centre;
+} rj_event_t;
+
+static rj_event_t s_ev[2];                 /* 0 = LEFT sensor, 1 = RIGHT sensor */
+static float s_rj_dir;                     /* +1 pivoting left (heading rising), -1 pivoting right */
+static float s_rj_start_deg;               /* heading where the current pivot began */
+static float s_rj_target_deg;              /* heading with the tape midway between the sensors */
+static int s_rj_second;                    /* sensor still to be measured after the first crossing */
+static bool s_rj_reversed_once;
+static bool s_rj_fast;
+
+static uint8_t rj_bit(int i)
+{
+    return (i == 0) ? (uint8_t)LINE_SENSOR_LEFT : (uint8_t)LINE_SENSOR_RIGHT;
+}
+
+static void rj_pivot(float dir, float speed)
+{
+    s_rj_dir = dir;
+    s_left_cmd = -dir * speed;
+    s_right_cmd = dir * speed;
+    (void)motion_drive(s_left_cmd, s_right_cmd);
+}
+
+static void rj_clear(int i)
+{
+    s_ev[i].in = false;
+    s_ev[i].done = false;
+    s_ev[i].ignore = ((s_mask & rj_bit(i)) != 0u);   /* already black: measure it on a later pass */
+}
+
+static void rj_track(float h)
+{
+    int i;
+
+    for (i = 0; i < 2; ++i)
+    {
+        bool black = ((s_mask & rj_bit(i)) != 0u);
+        rj_event_t *e = &s_ev[i];
+
+        if (e->done)
+        {
+            continue;
+        }
+        if (e->ignore)
+        {
+            if (!black)
+            {
+                e->ignore = false;
+            }
+            continue;
+        }
+        if (black && !e->in)
+        {
+            e->in = true;
+            e->enter = h;
+        }
+        else if (!black && e->in)
+        {
+            e->in = false;
+            e->done = true;
+            e->centre = 0.5f * (e->enter + h);
+        }
+    }
+}
+
+/* Forget both crossings and pivot in direction dir at the search speed. */
+static void rj_begin_search(float dir)
+{
+    rj_clear(0);
+    rj_clear(1);
+    s_junction_ms = 0u;
+    s_rj_start_deg = reported_heading();
+    rj_pivot(dir, LINE_JUNCTION_SEARCH_SPEED_CM_S);
+}
+
+/* Both crossings known: pivot to the middle of the two. */
+static void rj_go_to_middle(float h)
+{
+    s_rj_target_deg = 0.5f * (s_ev[0].centre + s_ev[1].centre);
+    s_rj_fast = (fabsf(s_rj_target_deg - h) > LINE_REJOIN_SLOW_ZONE_DEG);
+    rj_pivot((s_rj_target_deg > h) ? 1.0f : -1.0f,
+             s_rj_fast ? LINE_JUNCTION_SEARCH_SPEED_CM_S : LINE_REJOIN_CENTRE_SPEED_CM_S);
+    s_junction = J_CENTRE_BACK;
+    s_junction_ms = 0u;
+}
+#endif
+
 static void junction_start_search(void)
 {
     float v = LINE_JUNCTION_SEARCH_SPEED_CM_S;
@@ -169,14 +269,17 @@ static void junction_start_search(void)
     s_junction_ms = 0u;
     s_junction = J_SEARCHING;
     s_state = LINE_STATE_JUNCTION;
+#if LINE_REJOIN_CENTRE
+    if (s_rejoin)
+    {
+        s_rj_reversed_once = false;
+        rj_begin_search((s_junction_action == JUNCTION_LEFT) ? 1.0f : -1.0f);
+        return;
+    }
+#endif
     s_left_cmd = (s_junction_action == JUNCTION_LEFT) ? -v : v;
     s_right_cmd = -s_left_cmd;
     (void)motion_drive(s_left_cmd, s_right_cmd);
-    if (s_rejoin)
-    {
-        s_search_start_deg = reported_heading();
-        s_search_reversed = false;
-    }
 }
 
 static void junction_start_turn(void)
@@ -209,23 +312,90 @@ static void junction_step(void)
         junction_abort();
         return;
     }
+#if LINE_REJOIN_CENTRE
+    if (s_rejoin && ((s_junction == J_SEARCHING) || (s_junction == J_CENTRING) || (s_junction == J_CENTRE_BACK)))
+    {
+        float h = reported_heading();
+
+        if (s_junction == J_SEARCHING)
+        {
+            /* First pass: pivot until one sensor has crossed the tape completely. */
+            float travelled = (h - s_rj_start_deg) * s_rj_dir;
+
+            rj_track(h);
+            if (s_ev[0].done && s_ev[1].done)
+            {
+                rj_go_to_middle(h);
+            }
+            else if (s_ev[0].done || s_ev[1].done)
+            {
+                int f = s_ev[0].done ? 0 : 1;
+                int g = 1 - f;
+                /* Pivoting left meets the LEFT sensor first, pivoting right meets the RIGHT sensor first. */
+                int expected_first = (s_rj_dir > 0.0f) ? 0 : 1;
+
+                s_rj_second = g;
+                s_junction = J_CENTRING;
+                s_junction_ms = 0u;
+                if (f != expected_first)
+                {
+                    /* The other sensor crossed the tape earlier in this turn: turn back to measure it. */
+                    rj_clear(g);
+                    rj_pivot(-s_rj_dir, LINE_JUNCTION_SEARCH_SPEED_CM_S);
+                }
+                s_rj_start_deg = h;
+            }
+            else if (travelled > LINE_REJOIN_SEARCH_SPAN_DEG)
+            {
+                if (!s_rj_reversed_once)
+                {
+                    s_rj_reversed_once = true;   /* the turn may have overshot the tape: look the other way */
+                    rj_begin_search(-s_rj_dir);
+                }
+                else
+                {
+                    junction_abort();
+                }
+            }
+            return;
+        }
+        if (s_junction == J_CENTRING)
+        {
+            /* Second pass: pivot until the other sensor has crossed the tape completely. */
+            float travelled = (h - s_rj_start_deg) * s_rj_dir;
+
+            rj_track(h);
+            if (s_ev[s_rj_second].done)
+            {
+                rj_go_to_middle(h);
+            }
+            else if (travelled > 2.0f * LINE_REJOIN_SEARCH_SPAN_DEG)
+            {
+                junction_abort();
+            }
+            return;
+        }
+        /* J_CENTRE_BACK: pivot to the middle of the two crossings, slowly for the last few degrees. */
+        {
+            float remaining = (s_rj_target_deg - h) * s_rj_dir;   /* > 0 while still short of the target */
+
+            if (s_rj_fast && (remaining < LINE_REJOIN_SLOW_ZONE_DEG))
+            {
+                s_rj_fast = false;
+                rj_pivot(s_rj_dir, LINE_REJOIN_CENTRE_SPEED_CM_S);
+            }
+            /* Stop slightly early: the car keeps turning a little while it brakes. */
+            if ((remaining <= LINE_REJOIN_CENTRE_LEAD_DEG) || (s_junction_ms > LINE_REJOIN_CENTRE_MS))
+            {
+                rejoin_finish(1);
+            }
+        }
+        return;
+    }
+#endif
     if (s_junction == J_SEARCHING)
     {
-        if (((s_mask & (LINE_SENSOR_LEFT | LINE_SENSOR_RIGHT)) != 0u) && s_rejoin)
-        {
-#if LINE_REJOIN_CENTRE
-            /* Keep pivoting: note the heading where the first sensor leaves the tape and where the other
-               sensor reaches it. The middle of those two headings puts the tape midway between the sensors. */
-            s_centre_first = (s_mask & LINE_SENSOR_LEFT) ? LINE_SENSOR_LEFT : LINE_SENSOR_RIGHT;
-            s_centre_have_exit = false;
-            s_centre_have_enter = false;
-            s_junction = J_CENTRING;
-            s_junction_ms = 0u;
-#else
-            rejoin_finish(1);
-#endif
-        }
-        else if ((s_mask & (LINE_SENSOR_LEFT | LINE_SENSOR_RIGHT)) != 0u)
+        if ((s_mask & (LINE_SENSOR_LEFT | LINE_SENSOR_RIGHT)) != 0u)
         {
             /* Found the new line: hand over to normal line following, which centres it. */
             s_junction = J_NONE;
@@ -233,73 +403,9 @@ static void junction_step(void)
             s_lost_ms = 0u;
             s_side_ms = 0u;
         }
-        else if (s_rejoin)
-        {
-            /* Rejoin: if the line is not found within LINE_REJOIN_SEARCH_SPAN_DEG, pivot back the other way
-               (the turn may have overshot it) before giving up. */
-            float travelled = reported_heading() - s_search_start_deg;
-            float dir = (s_junction_action == JUNCTION_LEFT) ? 1.0f : -1.0f;   /* sign of the first search */
-            travelled *= dir;
-            if (!s_search_reversed && ((travelled > LINE_REJOIN_SEARCH_SPAN_DEG) || (s_junction_ms > LINE_JUNCTION_SEARCH_MS)))
-            {
-                s_search_reversed = true;
-                s_left_cmd = -s_left_cmd;
-                s_right_cmd = -s_right_cmd;
-                (void)motion_drive(s_left_cmd, s_right_cmd);
-                s_junction_ms = 0u;
-            }
-            else if (s_search_reversed && ((travelled < -LINE_REJOIN_SEARCH_SPAN_DEG) || (s_junction_ms > 2u * LINE_JUNCTION_SEARCH_MS)))
-            {
-                junction_abort();
-            }
-        }
         else if (s_junction_ms > LINE_JUNCTION_SEARCH_MS)
         {
             junction_abort();
-        }
-        return;
-    }
-    if (s_junction == J_CENTRING)
-    {
-        uint8_t other = (uint8_t)((LINE_SENSOR_LEFT | LINE_SENSOR_RIGHT) & ~s_centre_first);
-        float h = reported_heading();
-
-        if (!s_centre_have_enter && ((s_mask & other) != 0u))
-        {
-            s_centre_have_enter = true;
-            s_centre_enter_deg = h;
-        }
-        if (!s_centre_have_exit && ((s_mask & s_centre_first) == 0u))
-        {
-            s_centre_have_exit = true;
-            s_centre_exit_deg = h;
-        }
-        if (s_centre_have_enter && s_centre_have_exit)
-        {
-            s_centre_target_deg = 0.5f * (s_centre_enter_deg + s_centre_exit_deg);
-            s_centre_dir = (s_centre_target_deg > h) ? 1.0f : -1.0f;   /* +: heading must increase (left) */
-            s_left_cmd = -s_centre_dir * LINE_REJOIN_CENTRE_SPEED_CM_S;
-            s_right_cmd = s_centre_dir * LINE_REJOIN_CENTRE_SPEED_CM_S;
-            (void)motion_drive(s_left_cmd, s_right_cmd);
-            s_junction = J_CENTRE_BACK;
-            s_junction_ms = 0u;
-        }
-        else if (s_junction_ms > LINE_REJOIN_CENTRE_MS)
-        {
-            rejoin_finish(1);   /* tape already between the sensors, the other edge was not reached */
-        }
-        return;
-    }
-    if (s_junction == J_CENTRE_BACK)
-    {
-        float h = reported_heading();
-
-        /* Stop slightly early: the car keeps turning a little while it brakes. */
-        if (((s_centre_dir > 0.0f) && (h >= s_centre_target_deg - LINE_REJOIN_CENTRE_LEAD_DEG)) ||
-            ((s_centre_dir < 0.0f) && (h <= s_centre_target_deg + LINE_REJOIN_CENTRE_LEAD_DEG)) ||
-            (s_junction_ms > LINE_REJOIN_CENTRE_MS))
-        {
-            rejoin_finish(1);
         }
         return;
     }

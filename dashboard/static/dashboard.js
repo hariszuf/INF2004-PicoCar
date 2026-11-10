@@ -106,6 +106,7 @@ for (const [view, panels] of Object.entries(sections)) {
         profile.append(
             metricPanel("Width & bypass", [["Estimated obstacle width", "obstacle-width"], ["Width validity", "obstacle-width-validity"], ["Chosen bypass side", "bypass-side"], ["Planned sideways offset", "bypass-offset"]]),
             metricPanel("Depth estimate", [["Depth lower bound", "depth-low"], ["Depth upper bound", "depth-high"], ["Depth validity", "depth-validity"], ["Validity packet sequence", "obstacle-profile-sequence"]]),
+            metricPanel("Scan decision", [["Left box edge", "box-left-edge"], ["Right box edge", "box-right-edge"], ["Why this side", "side-reason"], ["Heading re-turns", "turn-fixes"], ["Sonar extra turns (turned too little)", "block-fixes"], ["Side switched after front check", "side-switched"], ["Rescans (reverse and look again)", "rescans"]]),
         );
         const profileNote = document.createElement("p");
         profileNote.className = "panel-note";
@@ -310,7 +311,7 @@ const telemetryValueKeys = {
     "5/56": ["obstacle_validity_mask", "extend_retries"],
     "5/58": ["raw_range_mm", "raw_range_status"],
     "5/57": ["halt_reason_code", "halt_count"],
-    "5/59": ["box_front_gap_mm", "advance_target_mm"],
+    "5/59": ["box_edges_packed", "decision_info"],
     "5/60": ["exec_state_and_start_result", "stop_reason_and_auto_restarts"],
     "2/4": ["left_encoder_ticks", "right_encoder_ticks"],
     "4/11": ["sample_age_ms", "imu_errors"],
@@ -384,7 +385,7 @@ function recordPayload(topic, payload) {
     latestEnvelope = parseEnvelope(payload);
     if (!latestEnvelope) return;
     const observation = { fields: latestEnvelope, at: Date.now(), initial };
-    if (latestEnvelope.src === 5 && latestEnvelope.type >= 50 && latestEnvelope.type <= 58) {
+    if (latestEnvelope.src === 5 && latestEnvelope.type >= 50 && latestEnvelope.type <= 59) {
         const previous = sourceObservations.get(5);
         if (previous && latestEnvelope.seq < previous.fields.seq) obstacleObservations.clear();
         obstacleObservations.set(latestEnvelope.type, observation);
@@ -563,14 +564,32 @@ function updateMeasurements() {
         // Bit 8: width estimated from the outermost echoes because the box is wider than the scan window.
         const estimated = type === 51 && matched && !(mask & bit) && (mask & 8) !== 0 && numericValid;
         const valid = (matched && (mask & bit) !== 0 && numericValid) || estimated;
-        const label = !matched ? "Unknown" : estimated ? "Estimated (box wider than scan window)" : !(mask & bit) ? "Invalid (reported)" : valid ? "Valid (reported)" : "Inconsistent";
+        const label = !matched ? "Unknown" : estimated ? "Lower bound only (box wider than the scan window)" : !(mask & bit) ? "Invalid (reported)" : valid ? "Valid (reported)" : "Inconsistent";
         measured(validityId, label, validity || estimate || latest);
-        ids.forEach((id, index) => measured(id, valid ? `${values[index].toLocaleString()} mm` : "Unknown", estimate || validity || latest));
+        ids.forEach((id, index) => measured(id, valid ? `${estimated ? "At least " : ""}${values[index].toLocaleString()} mm` : "Unknown", estimate || validity || latest));
     }
     const plan = obstacleObservations.get(52);
     const planned = plan && plan.fields.seq === latest.fields.seq && [1, -1].includes(plan.fields.value1);
     measured("bypass-side", planned ? plan.fields.value1 === 1 ? "Left" : "Right" : "Unknown", plan || latest);
     measured("bypass-offset", planned ? `${plan.fields.value2.toLocaleString()} mm` : "Unknown", plan || latest);
+    // Type 59: box edges (two signed 16-bit values packed in value1) and the scan decision (value2).
+    const decision = obstacleObservations.get(59);
+    const decided = decision && decision.fields.seq === latest.fields.seq;
+    const signed16 = (x) => (x & 0x8000) ? (x & 0xFFFF) - 0x10000 : (x & 0xFFFF);
+    const info = decided ? decision.fields.value2 : 0;
+    const edge = (shift, measuredBit) => decided
+        ? `${signed16(decision.fields.value1 >>> shift).toLocaleString()} mm${(info & measuredBit) ? " (measured)" : " (estimate, at least this far)"}`
+        : "Unknown";
+    const reasonNames = ["Unknown", "Only the left edge is in view (box fills the right side)", "Only the right edge is in view (box fills the left side)",
+        "Shorter detour (box edge nearer the car's path)", "Edges about equal: more free space beyond the box", "Box fills the scan, no edge in view (default right)",
+        "Only one side has enough room", "Box fills the scan, one side reaches further"];
+    measured("box-left-edge", edge(0, 16), decision || latest);
+    measured("box-right-edge", edge(16, 32), decision || latest);
+    measured("side-reason", decided ? reasonNames[info & 15] ?? `Code ${info & 15}` : "Unknown", decision || latest);
+    measured("turn-fixes", decided ? String((info >>> 8) & 255) : "Unknown", decision || latest);
+    measured("side-switched", decided ? ((info >>> 6) & 1 ? "Yes: the first side was blocked ahead" : "No") : "Unknown", decision || latest, decided && ((info >>> 6) & 1) ? "fault" : "neutral");
+    measured("rescans", decided ? String((info >>> 24) & 15) : "Unknown", decision || latest);
+    measured("block-fixes", decided ? String((info >>> 16) & 255) : "Unknown", decision || latest, decided && ((info >>> 16) & 255) > 0 ? "fault" : "neutral");
 }
 
 const telemetryValueLabels = {
@@ -589,7 +608,7 @@ const telemetryValueLabels = {
     "5/56": ["Obstacle validity bitmask (1 width, 2 depth, 4 edges seen)", "Reverse/extend retries"],
     "5/58": ["Raw ultrasonic range (mm)", "Ultrasonic status code"],
     "5/57": ["Last self-halt reason code", "Self-halt count"],
-    "5/59": ["Distance to box front (mm)", "Straight-leg target (mm)"],
+    "5/59": ["Box edges: left in bits 0-15, right in bits 16-31 (mm, signed, + = left of the car)", "Scan decision: reason (bits 0-3), left/right edge measured (bits 4/5), heading re-turns (bits 8-15), sonar extra turns (bits 16-23)"],
     "5/60": ["Execution state (bits 0-3) + last START result (bits 4-7)", "Last stop reason (bits 0-7) + automatic restarts (bits 8+)"],
     "2/4": ["Left encoder ticks", "Right encoder ticks"],
     "4/11": ["Sample age (ms)", "IMU errors"],
@@ -607,7 +626,7 @@ const telemetryValueLabels = {
 function updateTelemetryDisplay() {
     byId("telemetry-age").textContent = !hasTelemetryObservation ? "N/A" : lastTelemetryChange === null ? "Cached; age unknown" : `Changed ${ageLabel(Date.now() - lastTelemetryChange)} ago`;
     const fields = latestEnvelope;
-    const types = { 1: "Heartbeat", 2: "State", 3: "Motor speed", 4: "Encoder", 5: "Line sensor", 6: "Barcode", 7: "IMU", 8: "Hump", 9: "Ultrasonic", 10: "Odometry", 11: "IMU acquisition", 12: "IMU sample counters", 13: "Terrain and side", 14: "Estimated motion and yaw", 15: "Wheel height and quality", 16: "Saved peak heights", 17: "Saved ramp event", 18: "Possible impacts", 19: "Highest hump", 50: "Obstacle state", 51: "Obstacle size", 52: "Bypass plan", 53: "Depth bounds", 54: "Front clearance", 55: "Obstacle correlation", 56: "Obstacle validity", 57: "Line reacquisition", 58: "Raw ultrasonic range" };
+    const types = { 1: "Heartbeat", 2: "State", 3: "Motor speed", 4: "Encoder", 5: "Line sensor", 6: "Barcode", 7: "IMU", 8: "Hump", 9: "Ultrasonic", 10: "Odometry", 11: "IMU acquisition", 12: "IMU sample counters", 13: "Terrain and side", 14: "Estimated motion and yaw", 15: "Wheel height and quality", 16: "Saved peak heights", 17: "Saved ramp event", 18: "Possible impacts", 19: "Highest hump", 50: "Obstacle state", 51: "Obstacle size", 52: "Bypass plan", 53: "Depth bounds", 54: "Front clearance", 55: "Obstacle correlation", 56: "Obstacle validity", 57: "Line reacquisition", 58: "Raw ultrasonic range", 59: "Scan decision" };
     const rawSequence = previousPayloads.get(telemetryTopic)?.match(/(?:^|\s)seq=(\d+)(?=\s|$)/);
     const sequence = rawSequence && Number(rawSequence[1]) <= 4294967295 ? rawSequence[1] : "N/A";
     byId("sequence").textContent = fields ? String(fields.seq) : sequence;
@@ -675,7 +694,7 @@ async function refreshDashboard() {
                 const observation = { fields, payload, at: now - age_seconds * 1000, received: true };
                 sensorObservations.set(`${fields.src}/${fields.type}`, observation);
                 sourceObservations.set(fields.src, observation);
-                if (fields.src === 5 && fields.type <= 58) obstacleObservations.set(fields.type, observation);
+                if (fields.src === 5 && fields.type <= 59) obstacleObservations.set(fields.type, observation);
             }
         }
         if (typeof telemetry.value[statusTopic] === "string") byId("status").textContent = telemetry.value[statusTopic];

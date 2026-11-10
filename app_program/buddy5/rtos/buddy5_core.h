@@ -24,8 +24,18 @@ typedef struct {
  int32_t lateral_mm; /* signed target, +left */
  int32_t forward_mm; /* ADVANCE absolute target; BYPASS obstacle front */
 } b5_request_t;
+/* Why the bypass side was chosen (telemetry 5/59). */
+#define B5_WHY_NONE 0
+#define B5_WHY_LEFT_EDGE_ONLY 1   /* only the left box edge is inside the scan: the box fills the right of it */
+#define B5_WHY_RIGHT_EDGE_ONLY 2
+#define B5_WHY_SHORTER_DETOUR 3   /* both edges seen: the side whose edge is closer to the car's path */
+#define B5_WHY_MORE_ROOM 4        /* edges about equal: the side with more free space beyond the box */
+#define B5_WHY_NO_EDGES 5         /* box fills the scan: no side can be measured, default right (safer: larger offset) */
+#define B5_WHY_ONLY_ROOM 6        /* only one side has enough free space */
+#define B5_WHY_FAR_RAY 7          /* box fills the scan: a ray on one side reaches clearly further */
 typedef struct {
  bool valid, stopped, fault, request_failed;
+ uint8_t turn_fixes, block_fixes;   /* heading re-turns / sonar extra turns done since the last STOP */
  bool heading_aligned, line_acquired;
  bool front_ok;      /* sonar saw nothing ahead after turning toward the line */
  uint8_t extends;    /* reverse+extend retries used so far */
@@ -63,6 +73,10 @@ typedef struct {
  int32_t left_inner_mm, right_inner_mm;
  int32_t offset_mm; /* candidate, NOT certified collision-free */
  int8_t side; /* +1 left, -1 right */
+ int8_t side_reason;  /* B5_WHY_* */
+ int32_t alt_offset_mm; bool alt_ok;   /* offset for the OTHER side, used if the chosen side turns out to be blocked */
+ bool left_measured, right_measured;  /* the edge was bracketed by clear rays (not estimated) */
+ int32_t left_report_mm, right_report_mm;  /* edge estimate midway in the hit/clear bracket (reported; planning uses the outer edge) */
  uint32_t obstacle_id;
 } b5_profile_t;
 typedef struct {
@@ -77,6 +91,9 @@ typedef struct {
  int32_t bypass_y, advance_start_x, wall_range_mm;
  uint8_t clear_count, phase;
  uint8_t rescans, extends;
+ uint8_t turn_fixes, block_fixes;
+ bool alt_tried;             /* the first side was blocked ahead, so the other side was taken */
+ uint32_t route_check_since;
  uint32_t now_ms;            /* time of the last update (servo look pattern) */   /* backups done to see both box edges */
  bool edges_seen;   /* the last scan saw both edges, so the width is measured, not assumed */
  bool side_seen;

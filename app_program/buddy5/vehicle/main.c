@@ -307,7 +307,8 @@ static void controller_task(INT stacd,void *exinf) {
    if(motor.fault==MOTION_FAULT_STALL) fault_latched=true;
    if(run_enabled && motor.fault!=MOTION_FAULT_NONE)
     halt(&nav,&start,"motor fault");
-   if(run_enabled && nav.forward_moving && !guard)
+   /* Bypass sideways leg: a blocked front means the car did not turn enough; stop and correct instead of halting. */
+   if(run_enabled && nav.forward_moving && !guard && !full_nav_block_stop(&nav))
     halt(&nav,&start,"forward range unavailable while moving");
    {
     /* Any fresh reading with its servo angle (the return to the line looks back toward the box). */
