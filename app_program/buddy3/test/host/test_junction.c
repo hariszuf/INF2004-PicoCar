@@ -1,5 +1,5 @@
 /* Host test for the "+" junction: both sensors black -> stop -> advance -> turn -> carry on.
- *   gcc -std=c11 -Wall -Wextra -I../.. -I../../../buddy2 ../../line_follow.c ../../junction_map.c test_junction.c -o /tmp/junction && /tmp/junction
+ *   gcc -std=c11 -Wall -Wextra -DLINE_JUNCTION_USE_BARCODE=0 -I../.. -I../../../buddy2 ../../line_follow.c ../../junction_map.c test_junction.c -o /tmp/junction && /tmp/junction
  * Barcode variant (letters choose the direction):
  *   gcc -std=c11 -Wall -Wextra -DLINE_JUNCTION_USE_BARCODE=1 -DTEST_BARCODE=1 -I../.. -I../../../buddy2 ../../line_follow.c ../../junction_map.c test_junction.c -o /tmp/junction_bc && /tmp/junction_bc
  */
