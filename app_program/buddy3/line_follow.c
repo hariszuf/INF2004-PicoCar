@@ -267,8 +267,9 @@ static void junction_step(void)
     {
         float h = reported_heading();
 
-        if (((s_centre_dir > 0.0f) && (h >= s_centre_target_deg)) ||
-            ((s_centre_dir < 0.0f) && (h <= s_centre_target_deg)) ||
+        /* Stop slightly early: the car keeps turning a little while it brakes. */
+        if (((s_centre_dir > 0.0f) && (h >= s_centre_target_deg - LINE_REJOIN_CENTRE_LEAD_DEG)) ||
+            ((s_centre_dir < 0.0f) && (h <= s_centre_target_deg + LINE_REJOIN_CENTRE_LEAD_DEG)) ||
             (s_junction_ms > LINE_REJOIN_CENTRE_MS))
         {
             rejoin_finish(1);
@@ -395,7 +396,7 @@ void line_follow_stop(void)
 }
 
 #if LINE_JUNCTION
-bool line_follow_rejoin(int direction)
+bool line_follow_rejoin(int direction, float advance_cm)
 {
     if (!line_follow_start())
     {
@@ -406,9 +407,11 @@ bool line_follow_rejoin(int direction)
     s_rejoin_result = 0;
     s_junction_ms = 0u;
     s_state = LINE_STATE_JUNCTION;
-    if (LINE_JUNCTION_ADVANCE_CM > 0.0f)
+    /* Put the axle on the tape before turning, exactly like the junction (the caller measured the distance). */
+    if ((advance_cm > 0.3f) || (advance_cm < -0.3f))
     {
-        if (motion_move_forward(LINE_JUNCTION_ADVANCE_CM) != MOTION_OK)
+        motion_result_t r = (advance_cm > 0.0f) ? motion_move_forward(advance_cm) : motion_move_backward(-advance_cm);
+        if (r != MOTION_OK)
         {
             rejoin_finish(-1);
             return false;

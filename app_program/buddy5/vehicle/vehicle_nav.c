@@ -50,6 +50,7 @@ static void build_recover(full_nav_t *n,float side,bool extend) {
  n->actions[i++]=(full_action_t){SEARCH,-side};
 #endif
  n->count=i; n->index=0; n->issued=false; n->check_since=0;
+ n->tape_entered=false; n->tape_measured=false;
 }
 static void trip(full_nav_t *n,float target_y,bool check) {
  float delta=target_y-n->y;
@@ -144,9 +145,16 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
  /* During line recovery, stop the lateral sweep as soon as the front IR
   * sensors consistently see the line. Finish by aligning the heading. */
  if(n->request.kind==B5_REQ_RECOVER_LINE && n->issued && n->index<n->count &&
-    n->actions[n->index].kind==SWEEP && n->line_seen>=1 &&
-    !n->recovery_stop) {
-  motion_stop(); n->recovery_stop=true;
+    n->actions[n->index].kind==SWEEP && !n->recovery_stop) {
+  /* Drive across the tape and note where the sensors enter and leave it: the middle of the two is the
+   * line centre. Stop once past it; the hand-back then drives exactly onto the line. */
+  bool black=(mask&(LINE_SENSOR_LEFT|LINE_SENSOR_RIGHT))!=0;
+  float sy=n->y+B5_AXLE_TO_SENSOR_MM*sinf(n->heading*0.01745329252f);
+  if(black && !n->tape_entered) { n->tape_entered=true; n->tape_enter_y=sy; }
+  else if(n->tape_entered && (!black || absolute(sy-n->tape_enter_y)>=B5_TAPE_MAX_MM)) {
+   n->tape_line_y=0.5f*(n->tape_enter_y+sy); n->tape_measured=true;
+   motion_stop(); n->recovery_stop=true;
+  }
  }
  if(n->recovery_stop) {
   if(n->settled<3) return;
@@ -263,7 +271,15 @@ if(a.kind==CHECK_FRONT) {
   return;
  } else if(a.kind==REJOIN) {
 #if LINE_JUNCTION
-  if(!line_follow_rejoin(a.value>0?1:-1)) { fail(n); return; }
+  float adv=B5_LINE_ADVANCE_MM;
+  {
+   /* Distance along the heading that puts the axle on the measured line centre. */
+   float s=sinf(n->heading*0.01745329252f);
+   if(n->tape_measured && absolute(s)>0.5f) adv=(n->tape_line_y-n->y)/s;
+   if(adv>B5_LINE_ADVANCE_MM+80.0f) adv=B5_LINE_ADVANCE_MM+80.0f;
+   if(adv< -80.0f) adv=-80.0f;
+  }
+  if(!line_follow_rejoin(a.value>0?1:-1,adv/10.0f)) { fail(n); return; }
 #else
   fail(n); return;
 #endif

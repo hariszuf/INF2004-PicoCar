@@ -95,7 +95,8 @@
 #ifndef LINE_REJOIN_CENTRE
 #define LINE_REJOIN_CENTRE          (1)
 #endif
-#define LINE_REJOIN_CENTRE_SPEED_CM_S (3.0f)
+#define LINE_REJOIN_CENTRE_SPEED_CM_S (2.0f)
+#define LINE_REJOIN_CENTRE_LEAD_DEG (0.8f)   /* braking allowance for the final pivot back */
 #define LINE_REJOIN_CENTRE_MS       (2500u)
 
 /* ------------------------------------------------------------------ */
