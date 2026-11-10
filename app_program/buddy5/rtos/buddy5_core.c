@@ -73,7 +73,14 @@ int b5_core_angle(const b5_core_t *c) {
 #if B5_RECOVERY_LOOK_BACK
     /* Returning to the line: aim the sonar back toward the box so the check after turning sees a box rear
      * that is still level with the car's tail, not only one level with the axle. */
-    if (c->state==B5_LINE_RECOVERY && c->phase==0) return c->profile.side>0 ? B5_SCAN_MIN_DEG : B5_SCAN_MAX_DEG;
+    /* Alternate: straight ahead (box still level with the axle) and back toward the box (box level with the tail). */
+    if (c->state==B5_LINE_RECOVERY && c->phase==0) {
+        /* Three looks in turn: ahead, half-way back, fully back toward the box. Together they cover the box
+         * from level with the axle to well behind the car's tail. */
+        unsigned k=(c->now_ms/B5_LOOK_PERIOD_MS)%3u;
+        int far=c->profile.side>0 ? B5_SCAN_MIN_DEG : B5_SCAN_MAX_DEG;
+        return k==0u ? 0 : k==1u ? far/2 : far;
+    }
 #endif
     return 0;
 }
@@ -301,6 +308,7 @@ static void side_sample(b5_core_t *c,uint32_t now,
 }
 void b5_core_update(b5_core_t *c,uint32_t now,
                     const b5_feedback_t *f,const b5_range_t *r) {
+    c->now_ms=now;
     if (c->state==B5_ERROR) return;
     if (!fresh(now,f)) { b5_core_fail(c,B5_FAULT_FEEDBACK,now); return; }
     if (f->request_failed) { b5_core_fail(c,B5_FAULT_CONTROLLER,now); return; }
