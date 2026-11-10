@@ -152,7 +152,7 @@ for (const [view, panels] of Object.entries(sections)) {
     explanation.textContent = "No payload observed from this source in this browser session.";
     const protocolNote = document.createElement("p");
     protocolNote.textContent = view === "obstacle"
-        ? "Source 5: types 50–56 report state, profile, bypass plan and clearance; type 58 reports the last raw ultrasonic range and HC-SR04+ status (0 valid, 1 stuck high, 2 rise timeout, 3 fall timeout, 4 out of range; -1 stale). Type 56 carries width/depth validity in bits 0/1. Estimates require matching packet sequences."
+        ? "Source 5: types 50–56 report state, profile, bypass plan and clearance; type 58 reports the last raw ultrasonic range and HC-SR04+ status (0 valid, 1 stuck high, 2 rise timeout, 3 fall timeout, 4 out of range; -1 stale). Type 56 carries width/depth validity in bits 0/1, both box edges seen in bit 2 and an estimated (lower-bound) width in bit 3. Estimates require matching packet sequences."
         : view === "imu"
         ? "Source 4 reports tilt, terrain, motion, acquisition diagnostics and the last saved events. The panel uses each packet’s validity flags and shows event times as device uptime."
         : "Raw source/type fields remain visible in MQTT diagnostics. Measurements need confirmed payload meanings, units and validity before integration.";
@@ -546,7 +546,7 @@ function updateMeasurements() {
     measured("range-validity", rawKnown ? rawStatusNames[rawStatus] : "Unknown", rawRange || latest);
     const validity = obstacleObservations.get(56);
     const mask = validity?.fields.value1;
-    const knownMask = validity && mask >= 0 && (mask & ~23) === 0;
+    const knownMask = validity && mask >= 0 && (mask & ~31) === 0;
     measured("obstacle-profile-sequence", validity ? String(validity.fields.seq) : "N/A", validity || latest);
     for (const [type, bit, ids, validityId] of [
         [51, 1, ["obstacle-width"], "obstacle-width-validity"],
@@ -557,8 +557,10 @@ function updateMeasurements() {
         const matched = knownMask && estimate && estimate.fields.seq === validity.fields.seq && validity.fields.seq === latest.fields.seq;
         const values = estimate ? [estimate.fields.value1, estimate.fields.value2] : [];
         const numericValid = type === 51 ? values[0] > 0 : values[0] >= 0 && values[1] >= values[0];
-        const valid = matched && (mask & bit) !== 0 && numericValid;
-        const label = !matched ? "Unknown" : !(mask & bit) ? "Invalid (reported)" : valid ? "Valid (reported)" : "Inconsistent";
+        // Bit 8: width estimated from the outermost echoes because the box is wider than the scan window.
+        const estimated = type === 51 && matched && !(mask & bit) && (mask & 8) !== 0 && numericValid;
+        const valid = (matched && (mask & bit) !== 0 && numericValid) || estimated;
+        const label = !matched ? "Unknown" : estimated ? "Estimated (box wider than scan window)" : !(mask & bit) ? "Invalid (reported)" : valid ? "Valid (reported)" : "Inconsistent";
         measured(validityId, label, validity || estimate || latest);
         ids.forEach((id, index) => measured(id, valid ? `${values[index].toLocaleString()} mm` : "Unknown", estimate || validity || latest));
     }

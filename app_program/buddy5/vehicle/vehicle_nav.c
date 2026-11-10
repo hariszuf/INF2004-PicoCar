@@ -206,7 +206,11 @@ if(a.kind==CHECK_FRONT) {
    if((uint32_t)(now-n->check_since)<2000u) return;   /* wait for a fresh forward reading */
    n->front_ok=true; ++n->index; n->check_since=0; return;               /* none: the forward guard still protects the sweep */
   }
-  if(n->front_mm>=(int32_t)absolute(n->y)) { n->front_ok=true; ++n->index; n->check_since=0; return; }
+  /* Judge only readings taken after the turn has finished: a ping from mid-turn can see the box corner. */
+  if((uint32_t)(now-n->check_since)<B5_CHECK_SETTLE_MS) return;
+  /* Blocked only by something between the sonar and the line (the sonar is B5_AXLE_TO_SENSOR_MM ahead of
+   * the axle). Anything farther is beyond the line and is not the box: no reverse. */
+  if(n->front_mm>=(int32_t)absolute(n->y)-B5_AXLE_TO_SENSOR_MM-B5_CHECK_MARGIN_MM) { n->front_ok=true; ++n->index; n->check_since=0; return; }
   if(n->retries>=B5_MAX_EXTENDS) { fail(n); return; }
   ++n->retries;
   build_recover(n,n->recover_side,true);

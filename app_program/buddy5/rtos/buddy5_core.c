@@ -99,6 +99,17 @@ static bool scan_next(b5_scan_t *s) {
     }
     return false;
 }
+static int32_t isqrt32(int32_t v) { int32_t r=0; if(v<=0) return 0; while((r+1)*(r+1)<=v) ++r; return r; }
+/* Half-width on one side when no clear ray was seen there. The outermost echo is either the box face
+ * (d = F/cos a, a lower bound) or the box corner caught by the wide sonar beam (d^2 = F^2 + e^2).
+ * Either way e = sqrt(d^2 - F^2) is a usable estimate that never exceeds the real half-width. */
+static int32_t side_extent(const b5_scan_t *s,int32_t front,bool left) {
+    int i0=left?B5_SCAN_POINTS-1:0, step=left?-1:1;
+    for (int i=i0; i!=B5_SCAN_ZERO_SLOT; i+=step)
+        if (s->sampled[i] && s->valid[i]==B5_SCAN_ECHO && s->distance[i]>front)
+            return isqrt32((int32_t)s->distance[i]*s->distance[i]-front*front);
+    return 0;
+}
 static int32_t projected_x(const b5_scan_t *s, int slot) {
     return (int32_t)s->distance[slot]*cs[ab(slot-B5_SCAN_ZERO_SLOT)]/32768;
 }
@@ -142,6 +153,16 @@ static bool process(b5_core_t *c) {
          * expected 200 mm width; the live forward guard still vetoes a
          * blocked bypass direction before translation begins. */
         int32_t half=100;
+#if B5_SIMPLE_BYPASS
+        /* Estimate each side that has no clear ray from its outermost echo (see side_extent). */
+        (void)half;
+        p->left_edge_mm=left_clear>=0 ? plane_y(p->front_mm,left_clear) : side_extent(s,p->front_mm,true);
+        p->right_edge_mm=right_clear>=0 ? plane_y(p->front_mm,right_clear) : -side_extent(s,p->front_mm,false);
+        p->left_inner_mm=p->left_edge_mm;
+        p->right_inner_mm=p->right_edge_mm;
+        p->width_mm=p->left_edge_mm-p->right_edge_mm;
+        p->width_valid=false; p->width_estimated=p->width_mm>0;
+#else
         if (left_clear>=0) {
             p->left_edge_mm=plane_y(p->front_mm,left_clear);
             p->right_edge_mm=p->left_edge_mm-2*half;
@@ -153,7 +174,8 @@ static bool process(b5_core_t *c) {
         }
         p->left_inner_mm=p->left_edge_mm;
         p->right_inner_mm=p->right_edge_mm;
-        p->width_mm=2*half; p->width_valid=!B5_SIMPLE_BYPASS;   /* a guess, not a measurement */
+        p->width_mm=2*half; p->width_valid=true;   /* a guess, not a measurement */
+#endif
         int32_t extra=B5_CAR_WIDTH_MM/2+B5_CLEARANCE_MM+B5_EDGE_ALLOWANCE_MM;
         int32_t left=p->left_edge_mm+extra;
         int32_t right=p->right_edge_mm-extra;
@@ -346,6 +368,13 @@ void b5_core_update(b5_core_t *c,uint32_t now,
                     c->profile.offset_mm=B5_MIN_BYPASS_OFFSET_MM;
                 if (c->profile.side<0 && c->profile.offset_mm>-B5_MIN_BYPASS_OFFSET_MM)
                     c->profile.offset_mm=-B5_MIN_BYPASS_OFFSET_MM;
+                {
+                    /* Room to pivot 90 degrees beside the box: the car's corner swings out ~196 mm. */
+                    int32_t edge=c->profile.side>0 ? c->profile.left_edge_mm : -c->profile.right_edge_mm;
+                    int32_t need=edge+B5_PIVOT_CLEAR_MM;
+                    if (need>B5_MAX_OFFSET_MM) need=B5_MAX_OFFSET_MM;
+                    if (ab(c->profile.offset_mm)<need) c->profile.offset_mm=c->profile.side*need;
+                }
 #endif
                 request(c,B5_REQ_BYPASS,now,c->profile.front_mm,c->profile.offset_mm);
             }

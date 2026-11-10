@@ -161,12 +161,12 @@ static void scan_task(INT stacd,void *exinf) {
   ) {
    uint32_t seq=++report_sequence;
    emit(50,core.state,core.fault,seq);
-   emit(51,core.profile.width_valid?core.profile.width_mm:-1,core.profile.depth_valid?core.profile.depth_high_mm:-1,seq);
+   emit(51,(core.profile.width_valid||core.profile.width_estimated)?core.profile.width_mm:-1,core.profile.depth_valid?core.profile.depth_high_mm:-1,seq);
    emit(52,core.profile.side,core.profile.offset_mm,seq);
    emit(54,core.front_clearance_mm==B5_CLEAR_FRONT_MM?-1:core.front_clearance_mm,angle,seq);
    emit(53,core.profile.depth_valid?core.profile.depth_low_mm:-1,core.profile.depth_valid?core.profile.depth_high_mm:-1,seq);
    emit(55,(int32_t)core.profile.obstacle_id,(int32_t)now,seq);
-   emit(56,(core.profile.width_valid?1:0)|(core.profile.depth_valid?2:0)|(core.edges_seen?4:0)|16,(int32_t)core.extends,seq);
+   emit(56,(core.profile.width_valid?1:0)|(core.profile.depth_valid?2:0)|(core.edges_seen?4:0)|(core.profile.width_estimated?8:0)|16,(int32_t)core.extends,seq);
    emit(59,core.profile.front_mm,(int32_t)core.request.forward_mm,seq); /* box front gap, current ADVANCE target */
    /* Raw echo is separate from filtered front clearance; -1 means no fresh
     * measurement. Status follows ultrasonic_status_t (0..4). */
