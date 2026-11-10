@@ -1,5 +1,5 @@
 /* Host test for the "+" junction: both sensors black -> stop -> advance -> turn -> carry on.
- *   gcc -std=c11 -Wall -Wextra -DLINE_JUNCTION_USE_BARCODE=0 -I../.. -I../../../buddy2 ../../line_follow.c ../../junction_map.c test_junction.c -o /tmp/junction && /tmp/junction
+ *   gcc -std=c11 -Wall -Wextra -DLINE_JUNCTION_USE_BARCODE=0 -DLINE_JUNCTION_DEFAULT_ACTION=JUNCTION_RIGHT -I../.. -I../../../buddy2 ../../line_follow.c ../../junction_map.c test_junction.c -o /tmp/junction && /tmp/junction
  * Barcode variant (letters choose the direction):
  *   gcc -std=c11 -Wall -Wextra -DLINE_JUNCTION_USE_BARCODE=1 -DTEST_BARCODE=1 -I../.. -I../../../buddy2 ../../line_follow.c ../../junction_map.c test_junction.c -o /tmp/junction_bc && /tmp/junction_bc
  */
@@ -159,11 +159,19 @@ int main(void)
         CHECK(st.state == LINE_STATE_STRAIGHT, "back to following the line");
         tick(0u);
     }
-    /* No new scan: default action (RIGHT) is used. */
-    run_junction();
-    s_idle = true;
-    tick(0u);
-    CHECK(s_right_calls == 1, "no new barcode -> default action (right)");
+    /* No new scan: stop at the junction and stay stopped, no turn, no driving. */
+    tick(BOTH);
+    line_follow_get_status(&st);
+    CHECK(st.state == LINE_STATE_JUNCTION && s_stop_calls == 1, "no new barcode -> stops at the junction");
+    int moved = 0;
+    for (int i = 0; i < 2000; i++)
+    {
+        s_idle = true;
+        tick((i % 3 == 0) ? 0u : BOTH);
+        if (s_forward_calls || s_left_calls || s_right_calls || s_drive_calls) { moved = 1; }
+    }
+    line_follow_get_status(&st);
+    CHECK(!moved && st.state == LINE_STATE_JUNCTION, "no barcode -> stays stopped (10 s), sends no motion commands");
 #endif
     printf("%s\n", s_failures == 0 ? "ALL PASSED" : "SOME FAILED");
     return s_failures == 0 ? 0 : 1;

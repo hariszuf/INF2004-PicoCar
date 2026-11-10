@@ -62,13 +62,14 @@
 #define LINE_JUNCTION               (1u)
 #endif
 /** 1 = use the latest barcode letter for each junction. 0 = always use LINE_JUNCTION_DEFAULT_ACTION (testing,
- *  no barcode yet). With 1 and no new letter since the last junction, the default action is still used. */
+ *  no barcode yet). With 1 and no new letter since the last junction, the default action is used. */
 #ifndef LINE_JUNCTION_USE_BARCODE
 #define LINE_JUNCTION_USE_BARCODE   (1u)
 #endif
-/** Action when there is no barcode: JUNCTION_LEFT, JUNCTION_STRAIGHT or JUNCTION_RIGHT. Test = turn right. */
+/** Action when there is no new barcode letter: JUNCTION_NONE = stop and stay stopped (default, never guess),
+ *  or JUNCTION_LEFT / JUNCTION_STRAIGHT / JUNCTION_RIGHT to force a turn for testing. */
 #ifndef LINE_JUNCTION_DEFAULT_ACTION
-#define LINE_JUNCTION_DEFAULT_ACTION JUNCTION_RIGHT
+#define LINE_JUNCTION_DEFAULT_ACTION JUNCTION_NONE
 #endif
 /** The sensors sit ahead of the wheel axle. Before turning, drive forward this far so the car turns at the
  *  middle of the junction. TUNE: about the distance from the axle to the sensors. 0 = turn on the spot. */
