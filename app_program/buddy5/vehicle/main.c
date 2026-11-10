@@ -267,6 +267,7 @@ static void controller_task(INT stacd,void *exinf) {
     halt(&nav,&start,"motor fault");
    if(run_enabled && nav.forward_moving && !guard)
     halt(&nav,&start,"forward range unavailable while moving");
+   full_nav_set_front(&nav,guard_fresh,scan.front_clearance_mm);
    full_nav_update(&nav,now,&motor,mask,guard);
    if(run_enabled && nav.failed) halt(&nav,&start,"navigation failed/pose mismatch");
 #if TM_WIFI_MQTT

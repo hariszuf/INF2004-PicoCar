@@ -89,6 +89,21 @@
 #ifndef B5_MAX_RESCANS
 #define B5_MAX_RESCANS 2
 #endif
+/* The straight leg past the box is B5_PASS_WIDTH_FACTOR x the measured box width (B5_UNKNOWN_WIDTH_MM if it could
+ * not be measured), counted from where the car first stopped, plus B5_PASS_SAFETY_MM. A deeper box is caught by the
+ * sonar check after turning toward the line (see B5_MAX_EXTENDS), which extends the leg. */
+#define B5_PASS_WIDTH_FACTOR 2
+#define B5_UNKNOWN_WIDTH_MM 500
+#define B5_MIN_PASS_MM 400
+#ifndef B5_PASS_SAFETY_MM
+#define B5_PASS_SAFETY_MM 120
+#endif
+/* After the pass, turning toward the line: if the sonar still sees something closer than the distance to the
+ * line, the car is still beside the box. It reverses a little, faces forward, drives a little further and
+ * tries again (up to B5_MAX_EXTENDS times). */
+#define B5_RETURN_REVERSE_MM 60
+#define B5_EXTEND_MM 150
+#define B5_MAX_EXTENDS 3
 /* Extra distance past the box rear so the car's tail clears it before turning back (mm). */
 #define B5_BYPASS_END_MARGIN_MM 40
 /* A long open-loop forward move drifts a little: allowed end-position error (mm). */
