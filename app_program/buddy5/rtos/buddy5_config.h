@@ -93,8 +93,8 @@
  * not be measured), counted from where the car first stopped, plus B5_PASS_SAFETY_MM. A deeper box is caught by the
  * sonar check after turning toward the line (see B5_MAX_EXTENDS), which extends the leg. */
 #define B5_PASS_WIDTH_FACTOR 2
-/* Hardcoded straight leg beside the box: the axle ends this far (mm) past the box FRONT face. The sonar check
- * after turning toward the line catches a deeper box (reverse, extend, try again). */
+/* Straight leg beside the box, one move: the axle ends B5_PASS_BESIDE_MM + B5_PASS_TAIL_MM past the box FRONT face,
+ * then the car turns toward the line once. The sonar check there catches a deeper box (reverse, extend, try again). */
 #ifndef B5_PASS_BESIDE_MM
 #define B5_PASS_BESIDE_MM 300
 #endif
@@ -108,6 +108,12 @@
  * corner radius sqrt(177^2+85^2) = 196 plus a margin. */
 #define B5_PIVOT_CLEAR_MM 220
 #define B5_CHECK_MARGIN_MM 30
+/* 1 = during the return the sonar looks back toward the box (servo at its limit on that side). Echoes up to
+ * B5_CHECK_BEYOND_MM past the line still count as the box (it straddles the line). */
+#ifndef B5_RECOVERY_LOOK_BACK
+#define B5_RECOVERY_LOOK_BACK 1
+#endif
+#define B5_CHECK_BEYOND_MM 100
 /* 1 = the forward-range self-halt ("emergency stop") is overridden during ADVANCE / RECOVER_LINE / BACKUP. */
 #ifndef B5_BYPASS_IGNORE_GUARD
 #define B5_BYPASS_IGNORE_GUARD 1
@@ -127,7 +133,7 @@
  * tries again (up to B5_MAX_EXTENDS times). */
 #define B5_RETURN_REVERSE_MM 60
 #define B5_EXTEND_MM 150
-#define B5_MAX_EXTENDS 3
+#define B5_MAX_EXTENDS 6
 /* Extra distance past the box rear so the car's tail clears it before turning back (mm). */
 #define B5_BYPASS_END_MARGIN_MM 40
 /* A long open-loop forward move drifts a little: allowed end-position error (mm). */

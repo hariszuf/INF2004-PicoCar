@@ -61,6 +61,7 @@ void motion_get_status(motion_status_t *s)
 }
 static int line_starts;
 #ifdef SIM_REAL_LINE
+void line_follow_update(void);
 /* Real Buddy 3 line follower (junction-style rejoin and centring) on the simulated sensors. */
 static uint8_t read_mask(void);
 uint8_t line_sensors_read(void) { return read_mask(); }
@@ -174,7 +175,7 @@ int main(void)
         motion_get_status(&ms);
         double fwd=range_at(0).distance_mm;
         bool guard=(range_at(0).distance_mm==B5_NO_ECHO_MM) || (int32_t)(fwd-B5_FRONT_OVERHANG_MM)>B5_GUARD_FRONT_MM;
-        { b5_range_t fr=range_at(0); full_nav_set_front(&nav,true,b5_range_no_echo(&fr)?B5_CLEAR_FRONT_MM:(int32_t)fr.distance_mm-B5_FRONT_OVERHANG_MM); }
+        { int a=b5_core_angle(&core); b5_range_t fr=range_at(a); full_nav_set_front(&nav,true,b5_range_no_echo(&fr)?B5_CLEAR_FRONT_MM:(int32_t)fr.distance_mm-B5_FRONT_OVERHANG_MM,a); }
         full_nav_update(&nav,now,&ms,read_mask(),guard);
         full_nav_feedback(&nav,now,&fb);
         int want=b5_core_wants_range(&core); int ang=b5_core_angle(&core);

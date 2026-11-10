@@ -309,7 +309,11 @@ static void controller_task(INT stacd,void *exinf) {
     halt(&nav,&start,"motor fault");
    if(run_enabled && nav.forward_moving && !guard)
     halt(&nav,&start,"forward range unavailable while moving");
-   full_nav_set_front(&nav,guard_fresh,scan.front_clearance_mm);
+   {
+    /* Any fresh reading with its servo angle (the return to the line looks back toward the box). */
+    bool range_fresh=scan.front_valid && (uint32_t)(now-scan.front_timestamp_ms)<=400u;
+    full_nav_set_front(&nav,scan.angle==0?guard_fresh:range_fresh,scan.front_clearance_mm,scan.angle);
+   }
    full_nav_update(&nav,now,&motor,mask,guard);
    if(run_enabled && nav.failed) halt(&nav,&start,"navigation failed/pose mismatch");
 #if TM_WIFI_MQTT
