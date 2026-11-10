@@ -129,7 +129,7 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
   return;
  }
  if(n->request.kind==B5_REQ_RESUME_LINE) {
-  if(n->settled>=3 && guard && (n->line_seen>=3 || n->acquired) && absolute(n->heading)<=NAV_HEADING_ALIGNED_DEG) {
+  if(n->settled>=3 && guard && (n->line_seen>=3 || n->acquired)) {   /* heading not checked: like the junction, the line follower centres the car */
    if(!line_follow_start()) { fail(n); return; }
    n->completed_id=n->request.id; n->active=false; n->resumed=true;
   }
@@ -154,7 +154,8 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
    bool seen=(mask&(LINE_SENSOR_LEFT|LINE_SENSOR_RIGHT))!=0;
    /* Stop when the heading is back to the line direction, or earlier if a sensor already sees the line
     * and the car is nearly aligned (odometry under-reports the turn). */
-   if(absolute(n->heading)<=3.0f || (seen && absolute(n->heading)<=7.0f)) {
+   /* Same as the "+" junction: stop at the first black and let the line follower centre the car. */
+   if(seen || absolute(n->heading)<=2.0f) {
     n->acquired=true; motion_stop(); n->search_phase=2; n->check_since=now;
    } else if((uint32_t)(now-n->check_since)>B5_LINE_SEARCH_MS) { fail(n); }
    return;
@@ -188,7 +189,7 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
    n->completed_id=n->request.id; n->active=false; return;
   }
   bool pose=absolute(n->heading)<=NAV_HEADING_ALIGNED_DEG;
-  if(n->request.kind==B5_REQ_RECOVER_LINE) pose=absolute(n->heading)<=12.0f;
+  if(n->request.kind==B5_REQ_RECOVER_LINE) pose=absolute(n->heading)<=30.0f;
   if(n->request.kind==B5_REQ_BYPASS)
    pose=pose && absolute(n->x)<=B5_ADV_TOL_X_MM && absolute(n->y-n->request.lateral_mm)<=B5_ADV_TOL_Y_MM;
   if(n->request.kind==B5_REQ_ADVANCE)
@@ -256,7 +257,7 @@ if(a.kind==CHECK_FRONT) {
 void full_nav_feedback(const full_nav_t *n,uint32_t timestamp,b5_feedback_t *f) {
  *f=(b5_feedback_t){0}; f->valid=true; f->timestamp_ms=timestamp;
  f->stopped=n->settled>=3 && !n->moving;
- f->heading_aligned=absolute(n->heading)<=NAV_HEADING_ALIGNED_DEG;
+ f->heading_aligned=absolute(n->heading)<=NAV_HEADING_ALIGNED_DEG || n->acquired;
  f->forward_mm=(int32_t)lroundf(n->x); f->lateral_mm=(int32_t)lroundf(n->y);
  f->completed_id=n->completed_id; f->request_failed=n->failed;
  f->line_acquired=n->line_seen>=3 || n->acquired;

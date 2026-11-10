@@ -443,7 +443,7 @@ function updateMeasurements() {
     if (odometry) {
         measured("distance-travelled", `${(odometry.fields.value1 / 10).toFixed(1)} cm`, odometry);
         const fault = odometry.fields.value2;
-        const faults = ["No fault reported", "Emergency stop", "Motor stall"];
+        const faults = ["No fault reported", "Stopped by controller (see halt reason 5/57)", "Motor stall"];
         measured("motor-status", faults[fault] ?? `Unknown fault (${fault})`, odometry, fault ? "fault" : "neutral");
     }
     const line = sensorObservations.get("3/5");

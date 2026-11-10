@@ -99,6 +99,10 @@
 #define B5_PASS_BESIDE_MM 300
 #endif
 #define B5_AXLE_TO_SENSOR_MM 80
+/* 1 = the forward-range self-halt ("emergency stop") is overridden during ADVANCE / RECOVER_LINE / BACKUP. */
+#ifndef B5_BYPASS_IGNORE_GUARD
+#define B5_BYPASS_IGNORE_GUARD 1
+#endif
 /* Once the sonar sees nothing beside the car, drive this much further (mm) so the car's tail clears the box
  * rear when it pivots back onto the line. About the half car length (~177) plus a margin. */
 #ifndef B5_PASS_TAIL_MM
