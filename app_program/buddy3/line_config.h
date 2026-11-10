@@ -10,6 +10,8 @@
 #ifndef LINE_CONFIG_H
 #define LINE_CONFIG_H
 
+#include "junction_map.h"
+
 /* ------------------------------------------------------------------ */
 /* Pins (from ir_motor_curve_test.c)                                   */
 /* ------------------------------------------------------------------ */
@@ -34,6 +36,61 @@
  */
 #define LINE_SENSORS_STRADDLE       (1u)     /* centred with both sensors over white */
 
+/**
+ * Straddle mode only: white = move, black = stop.
+ *  1 = both sensors over black stops the car. It moves again as soon as at least
+ *      one sensor sees white. One sensor over black still steers toward that side
+ *      (that side's wheel stops, so the car turns).
+ *  0 = both sensors over black drives straight (previous behaviour).
+ */
+#define LINE_BOTH_BLACK_STOP        (1u)
+
+/** Hump/ramp freeze. A raised wheel lifts its IR sensor off the floor, which reads as black and would
+ *  stop that wheel. While Buddy 4 reports the car tilted, the follower FREEZES: it keeps the last wheel
+ *  commands and ignores the sensors. It releases as soon as the tilt is gone (no extra delay), so turns
+ *  are not slowed. Uses the raw tilt angles (faster than Buddy 4/2's terrain state) and the terrain state.
+ *  Needs the IMU; with no IMU the freeze never triggers. 0 = off. */
+#define LINE_TERRAIN_HOLD           (1u)
+#define LINE_FREEZE_ROLL_DEG        (1.5f)   /* TUNE: freeze when |roll| is above this */
+#define LINE_FREEZE_PITCH_DEG       (2.0f)   /* TUNE: freeze when |pitch| is above this */
+
+/** "+" junction (straddle mode). Both sensors over black means the car has reached a junction: it
+ *  stops, then turns left / goes straight / turns right, then carries on following the line.
+ *  The direction comes from the barcode letter (see junction_map.h: A=left, B=straight, C=right, D=left ...).
+ *  Needs LINE_SENSORS_STRADDLE and LINE_BOTH_BLACK_STOP. 0 = off (both black simply stops the car). */
+#ifndef LINE_JUNCTION
+#define LINE_JUNCTION               (1u)
+#endif
+/** 1 = use the latest barcode letter for each junction. 0 = always use LINE_JUNCTION_DEFAULT_ACTION (testing,
+ *  no barcode yet). With 1 and no new letter since the last junction, the default action is still used. */
+#ifndef LINE_JUNCTION_USE_BARCODE
+#define LINE_JUNCTION_USE_BARCODE   (0u)
+#endif
+/** Action when there is no barcode: JUNCTION_LEFT, JUNCTION_STRAIGHT or JUNCTION_RIGHT. Test = turn right. */
+#ifndef LINE_JUNCTION_DEFAULT_ACTION
+#define LINE_JUNCTION_DEFAULT_ACTION JUNCTION_RIGHT
+#endif
+/** The sensors sit ahead of the wheel axle. Before turning, drive forward this far so the car turns at the
+ *  middle of the junction. TUNE: about the distance from the axle to the sensors. 0 = turn on the spot. */
+/** Pause at the junction (car stopped) before it advances and turns. 0 = no pause. */
+#ifndef LINE_JUNCTION_PAUSE_MS
+#define LINE_JUNCTION_PAUSE_MS      (3000u)
+#endif
+#define LINE_JUNCTION_ADVANCE_CM    (8.0f)
+/** Distance driven to cross the junction when the action is STRAIGHT (past the cross bar). TUNE. */
+#define LINE_JUNCTION_CROSS_CM      (10.0f)
+#define LINE_JUNCTION_TURN_DEG      (90.0f)
+/** The turn is done in two parts. First TURN_DEG minus this margin by encoder (sensors ignored), then a slow
+ *  pivot until a sensor sees the new line. Open-loop turns are a few degrees off and the line only just fits
+ *  between the sensors, so the last part is closed on the sensors. TUNE: bigger = safer, smaller = quicker. */
+#define LINE_JUNCTION_PRETURN_MARGIN_DEG (20.0f)
+/** Wheel speed (one forward, one backward) of the slow pivot that looks for the new line. */
+#define LINE_JUNCTION_SEARCH_SPEED_CM_S (4.0f)
+/** Give up looking for the new line after this long (the car stops). */
+#define LINE_JUNCTION_SEARCH_MS     (3000u)
+/** Give up on a junction step that takes longer than this (the car stops). */
+#define LINE_JUNCTION_TIMEOUT_MS    (8000u)
+
 /* ------------------------------------------------------------------ */
 /* Timing                                                              */
 /* ------------------------------------------------------------------ */
@@ -45,8 +102,8 @@
 /* Speeds (cm/s). Much slower than the Buddy 2 demo.                   */
 /* Team test used 300 counts/s straight, 120 inner (about 5 and 2 cm/s). */
 /* ------------------------------------------------------------------ */
-#define LINE_STRAIGHT_SPEED_CM_S    (1.0f)
-#define LINE_TURN_OUTER_SPEED_CM_S  (1.0f)
+#define LINE_STRAIGHT_SPEED_CM_S    (3.0f)
+#define LINE_TURN_OUTER_SPEED_CM_S  (3.0f)
 #ifndef LINE_RIGHT_OUTER_SPEED_CM_S
 #define LINE_RIGHT_OUTER_SPEED_CM_S LINE_TURN_OUTER_SPEED_CM_S
 #endif

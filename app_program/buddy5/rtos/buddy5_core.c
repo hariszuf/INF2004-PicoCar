@@ -330,6 +330,12 @@ void b5_core_update(b5_core_t *c,uint32_t now,
                 if (ab(c->profile.offset_mm)>B5_TIGHT_OFFSET_MM)
                     c->profile.offset_mm=c->profile.side*B5_TIGHT_OFFSET_MM;
 #endif
+#if B5_SIMPLE_BYPASS
+                if (c->profile.side>0 && c->profile.offset_mm<B5_MIN_BYPASS_OFFSET_MM)
+                    c->profile.offset_mm=B5_MIN_BYPASS_OFFSET_MM;
+                if (c->profile.side<0 && c->profile.offset_mm>-B5_MIN_BYPASS_OFFSET_MM)
+                    c->profile.offset_mm=-B5_MIN_BYPASS_OFFSET_MM;
+#endif
                 request(c,B5_REQ_BYPASS,now,c->profile.front_mm,c->profile.offset_mm);
             }
         }
@@ -337,11 +343,21 @@ void b5_core_update(b5_core_t *c,uint32_t now,
     }
     case B5_PROCESSING:
         if (f->completed_id==c->request.id && f->stopped) {
-            if (!f->heading_aligned || ab(f->lateral_mm-c->profile.offset_mm)>20 ||
-                ab(f->forward_mm)>20) { b5_core_fail(c,B5_FAULT_POSE,now); return; }
+            if (!f->heading_aligned || ab(f->lateral_mm-c->profile.offset_mm)>B5_ADV_TOL_Y_MM ||
+                ab(f->forward_mm)>B5_ADV_TOL_X_MM) { b5_core_fail(c,B5_FAULT_POSE,now); return; }
             c->bypass_y=f->lateral_mm; c->side_seen=false; c->clear_count=0;
             c->avoid_since_ms=now; c->phase=0;
             state(c,B5_AVOIDING,now);
+#if B5_SIMPLE_BYPASS
+            {
+                /* One long move past the whole box: front + depth + car length + margin. */
+                int32_t depth=c->profile.depth_valid ? c->profile.depth_high_mm : B5_ASSUMED_DEPTH_MM;
+                c->advance_start_x=f->forward_mm;
+                c->phase=2;
+                request(c,B5_REQ_ADVANCE,now,
+                        c->profile.front_mm+depth+B5_CAR_LENGTH_MM+B5_BYPASS_END_MARGIN_MM,c->bypass_y);
+            }
+#endif
         }
         break;
     case B5_AVOIDING:
@@ -350,11 +366,18 @@ void b5_core_update(b5_core_t *c,uint32_t now,
         }
         if (c->phase==2) {
             if (f->completed_id==c->request.id && f->stopped) {
-                if (!f->heading_aligned || ab(f->lateral_mm-c->bypass_y)>20 ||
-                    ab(f->forward_mm-c->request.forward_mm)>5 ||
+                if (!f->heading_aligned || ab(f->lateral_mm-c->bypass_y)>B5_ADV_TOL_Y_MM ||
+                    ab(f->forward_mm-c->request.forward_mm)>B5_ADV_TOL_X_MM ||
                     f->forward_mm<=c->advance_start_x) {
                     b5_core_fail(c,B5_FAULT_POSE,now); return;
                 }
+#if B5_SIMPLE_BYPASS
+                /* Past the box: head back to the line. */
+                state(c,B5_LINE_RECOVERY,now);
+                c->phase=0;
+                request(c,B5_REQ_RECOVER_LINE,now,f->forward_mm,0);
+                return;
+#endif
                 c->phase=0;
             }
             return;

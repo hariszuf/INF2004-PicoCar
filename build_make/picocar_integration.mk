@@ -45,7 +45,9 @@ B1_SRCS := $(wildcard ../app_program/buddy1/*.c)
 B2_SRCS := ../app_program/buddy2/motion_control.c \
  ../app_program/buddy2/motion_pid.c ../app_program/buddy2/motion_motor.c \
  ../app_program/buddy2/motion_encoder.c
-B3_SRCS := ../app_program/buddy3/line_follow.c ../app_program/buddy3/line_sensors.c
+B3_SRCS := ../app_program/buddy3/line_follow.c ../app_program/buddy3/line_sensors.c \
+ ../app_program/buddy3/junction_map.c \
+ ../app_program/buddy3/barcode_task.c
 ifneq ($(filter usb_cdc,$(CONSOLE))$(filter 1,$(WIFI_MQTT)),)
 B3_SRCS += ../app_program/buddy3/barcode_scan.c ../app_program/buddy3/barcode39.c
 endif
@@ -74,7 +76,28 @@ CFLAGS += -DB5_FULL_TEST=1 -UTM_CONSOLE_UART -DTM_CONSOLE_UART=0 \
  -DMOTION_MIN_DUTY=0.10f -DMOTION_BREAKAWAY_DUTY=0.22f \
  -DMOTION_FEEDFORWARD_DUTY_PER_CM_S=0.0125f \
  -DMOTION_STALL_DUTY=0.6f -DMOTION_STALL_TIME_MS=1500u \
- -DMOTION_TURN_SPEED_CM_S=7.0f
+ -DMOTION_TURN_SPEED_CM_S=7.0f \
+ -DMOTION_HUMP_DUTY_PER_G=0.0f
+NO_BARCODE ?= 0
+BARCODE_ONLY ?= 0
+ifeq ($(BARCODE_ONLY),1)
+CFLAGS += -DB3_BARCODE_ONLY=1 -DB3_NO_LINE=1
+endif
+NO_B5 ?= 0
+ifeq ($(NO_B5),1)
+CFLAGS += -DB5_DISABLED=1
+endif
+NO_LINE ?= 0
+ifeq ($(NO_LINE),1)
+CFLAGS += -DB3_NO_LINE=1
+endif
+ENC_DIAG ?= 0
+ifeq ($(ENC_DIAG),1)
+CFLAGS += -DB2_ENC_DIAG=1
+endif
+ifeq ($(NO_BARCODE),1)
+CFLAGS += -DB3_NO_BARCODE=1
+endif
 ifeq ($(HEADLESS),1)
 CFLAGS += -DB5_HEADLESS=1 -DB5_BOOT_DELAY_MS=300u -DB5_READY_DELAY_MS=300u
 endif

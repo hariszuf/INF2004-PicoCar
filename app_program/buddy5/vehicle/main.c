@@ -22,6 +22,12 @@
 #ifndef B5_HEADLESS
 #define B5_HEADLESS 0
 #endif
+#ifndef B5_DISABLED
+#define B5_DISABLED 0 /* 1 = Buddy 1-4 only: ultrasonic/servo/scan off, front always clear */
+#endif
+#ifndef B3_BARCODE_ONLY
+#define B3_BARCODE_ONLY 0 /* 1 = bench test: never auto-start, never move */
+#endif
 #ifndef B5_TIGHT_COURSE
 #define B5_TIGHT_COURSE 0
 #endif
@@ -50,6 +56,29 @@ static ER report_measurement(uint8_t source, uint8_t type, uint16_t flags,
  telemetry_message_t message={source,type,flags,first,second,sequence};
  return buddy1_telemetry_submit(&message);
 }
+#if B2_ENC_DIAG
+/* Temporary: pack encoder pin state into the type-4 flags field.
+ * bits0-3 GP4 funcsel (5=SIO ok), 4-7 GP6 funcsel, 8 GP4 level, 9 GP6 level,
+ * 10 GP4 irq enabled, 11 GP6 irq enabled, 12 NVIC13 enabled, 13 NVIC13 pending,
+ * 14 GP4 raw edge latched, 15 GP6 raw edge latched. */
+extern volatile uint32_t b5p_dbg_enc_events, b5p_dbg_cb_calls;
+static uint16_t enc_diag_flags(void)
+{
+ uint32_t f4=(*(volatile uint32_t *)0x40014024u)&0xfu;
+ uint32_t f6=(*(volatile uint32_t *)0x40014034u)&0xfu;
+ uint32_t in=*(volatile uint32_t *)0xd0000004u;
+ uint32_t en=*(volatile uint32_t *)0x40014100u;
+ uint32_t nvic_en=(*(volatile uint32_t *)0xE000E100u>>13)&1u;
+ uint32_t nvic_pend=(*(volatile uint32_t *)0xE000E200u>>13)&1u;
+ uint32_t raw=*(volatile uint32_t *)0x400140f0u;
+ return (uint16_t)(f4|(f6<<4)|(((in>>4)&1u)<<8)|(((in>>6)&1u)<<9)|
+  ((((en>>16)&12u)?1u:0u)<<10)|((((en>>24)&12u)?1u:0u)<<11)|
+  (nvic_en<<12)|(nvic_pend<<13)|((((raw>>16)&12u)?1u:0u)<<14)|((((raw>>24)&12u)?1u:0u)<<15));
+}
+#define B2_ENC_FLAGS enc_diag_flags()
+#else
+#define B2_ENC_FLAGS 0
+#endif
 #endif
 static volatile bool user_stop_pending;
 static unsigned char commands[8];
@@ -100,7 +129,17 @@ bool line_controller_request(const b5_request_t *r) {
  }
  EI(irq); return accepted;
 }
+/* Why the car last stopped itself, reported as telemetry src=5 type=57 (value_1=code, value_2=count). */
+volatile int32_t b5_halt_code; volatile int32_t b5_halt_count;
+static const char *const halt_reasons[]={"user stop","obstacle scanner heartbeat timeout",
+ "obstacle subsystem fault (see SCAN)","line lost outside recovery","request rejected","barcode turn rejected",
+ "motor scheduling delay","motor fault","forward range unavailable while moving",
+ "navigation failed/pose mismatch","motor reset failed","line follower could not start"};
 static void halt(full_nav_t *nav,auto_start_t *start,const char *why) {
+ { int32_t code=0; for(unsigned i=0;i<sizeof(halt_reasons)/sizeof(halt_reasons[0]);i++) {
+    const char *a=why,*b=halt_reasons[i]; while(*a && *a==*b) { a++; b++; }
+    if(*a==0 && *b==0) { code=(int32_t)i+1; break; } }
+   b5_halt_code=code; b5_halt_count++; }
  run_enabled=false; auto_start_stop(start); nav->active=false; nav->moving=false; nav->forward_moving=false;
  line_follow_stop(); motion_emergency_stop(); line_scan_abort(); discard_commands();
  tm_printf((UB*)"[AUTO] STOPPED: %s. Power-cycle to restart; optional R retries.\n",(UB*)why);
@@ -129,6 +168,11 @@ static void controller_task(INT stacd,void *exinf) {
  tm_printf((UB*)"[AUTO] USB optional. Obstacle trigger=200mm from car front; S/space stops.\n");
  for(;;) {
   now=buddy5_clock_ms(); line_scan_get_status(&scan);
+#if B5_DISABLED
+  /* No obstacle sensing: present a permanently clear, fresh forward reading. */
+  scan.state=B5_MONITORING; scan.fault=(b5_fault_t)0; scan.heartbeat_ms=now; scan.angle=0;
+  scan.front_valid=true; scan.front_timestamp_ms=now; scan.front_clearance_mm=B5_CLEAR_FRONT_MM;
+#endif
   int command=b5_line_take_stop()?'S':b5_line_take_command();
   if(command=='S') halt(&nav,&start,"user stop");
   if(command=='R' && !run_enabled && nav.settled>=3) {
@@ -185,7 +229,8 @@ static void controller_task(INT stacd,void *exinf) {
    barcode_seen=true;
    last_barcode_action_ms=barcode_read_ms;
    /* A scan read while stopped, turning, or avoiding an obstacle is display-only. */
-   if(run_enabled && !got && !nav.active && scan.state==B5_MONITORING && barcode_clear &&
+   /* With the "+" junction logic on, line_follow.c owns barcode-based turns. */
+   if(!LINE_JUNCTION && !B3_BARCODE_ONLY && run_enabled && !got && !nav.active && scan.state==B5_MONITORING && barcode_clear &&
       (barcode_letter=='A' || barcode_letter=='B')) {
     b5_request_t turn={.kind=barcode_letter=='A'?B5_REQ_BARCODE_LEFT:B5_REQ_BARCODE_RIGHT};
     if(!full_nav_accept(&nav,&turn,now)) halt(&nav,&start,"barcode turn rejected");
@@ -242,6 +287,9 @@ static void controller_task(INT stacd,void *exinf) {
    * filtered centre ping, skip line_follow_start(), and never retry it. */
   ready=ready && scan.angle==0 && scan.front_valid &&
         (uint32_t)(now-scan.front_timestamp_ms)<=400u;
+#endif
+#if B3_BARCODE_ONLY
+  ready=false; /* barcode-only test: the car must never start moving */
 #endif
   auto_action_t action=auto_start_update(&start,now,nav.settled>=3,ready);
   if(action==AUTO_RESET) {
@@ -332,8 +380,12 @@ static void controller_task(INT stacd,void *exinf) {
 #if TM_WIFI_MQTT
    report_measurement(TELEMETRY_SOURCE_BUDDY2,TELEMETRY_TYPE_MOTOR_SPEED,0,
        (int32_t)(motor.left_speed_cm_s*10),(int32_t)(motor.right_speed_cm_s*10),report_sequence);
-   report_measurement(2,TELEMETRY_TYPE_ENCODER,0,
+   report_measurement(2,TELEMETRY_TYPE_ENCODER,B2_ENC_FLAGS,
+#if B2_ENC_DIAG
+       (int32_t)b5p_dbg_enc_events,(int32_t)b5p_dbg_cb_calls,report_sequence);  /* DIAG: left=edges seen by IRQ, right=callback calls */
+#else
        motion_encoder_get_count(MOTION_SIDE_LEFT),motion_encoder_get_count(MOTION_SIDE_RIGHT),report_sequence);
+#endif
    report_measurement(6,57,0,line_reacquired_count,0,report_sequence);
    report_measurement(TELEMETRY_SOURCE_BUDDY2,TELEMETRY_TYPE_ODOMETRY,0,
        (int32_t)(motor.distance_cm*10),motor.fault,report_sequence);
@@ -363,8 +415,11 @@ static void controller_task(INT stacd,void *exinf) {
 EXPORT INT usermain(void) {
  T_CTSK cfg={0};
  if(b5_platform_init()<E_OK || motion_init()!=MOTION_OK) return 1;
- motion_emergency_stop(); line_follow_init(); ultrasonic_init();
+ motion_emergency_stop(); line_follow_init();
+#if !B5_DISABLED
+ ultrasonic_init();
  if(!buddy5_servo_init()) return 1;
+#endif
  ER buddy1_init_result=buddy1_init();
  if(buddy1_init_result<E_OK)
   tm_printf((UB*)"[B1] Telemetry unavailable (%d); driving continues.\n",buddy1_init_result);
@@ -375,7 +430,9 @@ EXPORT INT usermain(void) {
  cfg.tskatr=TA_HLNG|TA_RNG3; cfg.task=controller_task; cfg.itskpri=2; cfg.stksz=4096;
  ID id=tk_cre_tsk(&cfg); if(id<0) return 1;
  if(tk_sta_tsk(id,0)<0) { tk_del_tsk(id); return 1; }
+#if !B5_DISABLED
  if(line_scan_start()<E_OK) { motion_emergency_stop(); return 1; }
+#endif
  if(buddy1_init_result>=E_OK) {
   ER e=buddy1_start();
   if(e<E_OK) tm_printf((UB*)"[B1] Telemetry start failed (%d); driving continues.\n",e);
@@ -384,7 +441,7 @@ EXPORT INT usermain(void) {
   ER e=buddy4_task_start();
   if(e<E_OK) { buddy4_ready=false; tm_printf((UB*)"[B4] IMU task did not start (%d); driving continues.\n",e); }
  }
-#if TM_CONSOLE_USB_CDC || TM_WIFI_MQTT
+#if (TM_CONSOLE_USB_CDC || TM_WIFI_MQTT) && !B3_NO_BARCODE
  ER barcode_error=buddy3_barcode_start();
  if(barcode_error<E_OK)
   tm_printf((UB*)"[B3 BARCODE] Task start failed (%d); driving continues.\n",barcode_error);

@@ -66,6 +66,9 @@ bool barcode39_decode_elements(const uint32_t *w, uint8_t count, const barcode39
                                barcode39_result_t *out);
 
 /* Diagnostics: reason and count of decode attempts that looked like a barcode but failed. */
+/* Optional hook, called with the element widths of a complete-looking window that failed to decode.
+ * Weak no-op default; define a strong version to print or log it. */
+void barcode39_on_fail(const uint32_t *w, uint8_t n, uint8_t reason);
 uint8_t barcode39_last_fail(void);
 uint32_t barcode39_fail_count(void);
 

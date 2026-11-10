@@ -4,14 +4,15 @@
 #include "../../buddy2/motion_config.h"
 #include "../../buddy3/line_follow.h"
 #include "../../buddy3/line_sensors.h"
-enum { TURN=1, MOVE, CHECK_LINE };
+#include "../../buddy3/line_config.h"
+enum { TURN=1, MOVE, CHECK_LINE, SEARCH };
 #define NAV_HEADING_ALIGNED_DEG 8.0f
 #define NAV_TURN_DEADBAND_DEG 4.0f
 static float absolute(float x) { return x<0?-x:x; }
 static float corrected_heading(const motion_status_t *m) {
  return (m->heading_deg/MOTION_TURN_SCALE)*B5_TURN_ODOMETRY_CORRECTION;
 }
-static void fail(full_nav_t *n) { n->failed=true; n->active=false; n->moving=false; n->forward_moving=false; n->motion_seen=false; line_follow_stop(); motion_emergency_stop(); }
+static void fail(full_nav_t *n) { n->search_phase=0; n->failed=true; n->active=false; n->moving=false; n->forward_moving=false; n->motion_seen=false; line_follow_stop(); motion_emergency_stop(); }
 void full_nav_init(full_nav_t *n,const motion_status_t *m) {
  *n=(full_nav_t){0}; n->last_distance=m->distance_cm;
  n->last_heading=corrected_heading(m);
@@ -29,7 +30,7 @@ static void trip(full_nav_t *n,float target_y,bool check) {
 bool full_nav_accept(full_nav_t *n,const b5_request_t *r,uint32_t now) {
  if(n->failed || (n->active && r->kind!=B5_REQ_STOP)) return false;
  n->request=*r; n->active=true; n->issued=false; n->moving=false; n->forward_moving=false; n->motion_seen=false; n->recovery_stop=false;
- n->resumed=false; n->index=n->count=n->search=0; n->started=now; n->check_since=0;
+ n->resumed=false; n->search_phase=0; n->index=n->count=n->search=0; n->started=now; n->check_since=0;
  switch(r->kind) {
  case B5_REQ_STOP: line_follow_stop(); motion_stop(); n->settled=0; break;
  case B5_REQ_BYPASS: trip(n,(float)r->lateral_mm,false); break;
@@ -49,7 +50,20 @@ bool full_nav_accept(full_nav_t *n,const b5_request_t *r,uint32_t now) {
    n->actions[2]=(full_action_t){TURN,0};
   }
   break;
- case B5_REQ_RECOVER_LINE: trip(n,0,true); break;
+ case B5_REQ_RECOVER_LINE:
+  {
+   /* Back to the line, mirrored from the "+" junction turn:
+    * face the line, sweep until a sensor sees it, drive on to put the axle over it, turn most of the way
+    * back to the original heading, then pivot slowly until a sensor sees the line. */
+   float side=(n->y>0.0f)?-1.0f:1.0f;   /* +1: line is on the left */
+   n->count=5; n->acquired=false; n->search_phase=0;
+   n->actions[0]=(full_action_t){TURN,side*90.0f};
+   n->actions[1]=(full_action_t){MOVE,absolute(n->y)+B5_LINE_SWEEP_EXTRA_MM};
+   n->actions[2]=(full_action_t){MOVE,LINE_JUNCTION_ADVANCE_CM*10.0f};
+   n->actions[3]=(full_action_t){TURN,side*LINE_JUNCTION_PRETURN_MARGIN_DEG};
+   n->actions[4]=(full_action_t){SEARCH,-side};   /* pivot back toward the original heading */
+  }
+  break;
  case B5_REQ_RESUME_LINE: break;
  case B5_REQ_BARCODE_LEFT:
  case B5_REQ_BARCODE_RIGHT:
@@ -86,7 +100,7 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
   return;
  }
  if(n->request.kind==B5_REQ_RESUME_LINE) {
-  if(n->settled>=3 && guard && n->line_seen>=3 && absolute(n->heading)<=NAV_HEADING_ALIGNED_DEG) {
+  if(n->settled>=3 && guard && (n->line_seen>=3 || n->acquired) && absolute(n->heading)<=NAV_HEADING_ALIGNED_DEG) {
    if(!line_follow_start()) { fail(n); return; }
    n->completed_id=n->request.id; n->active=false; n->resumed=true;
   }
@@ -94,7 +108,7 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
  }
  /* During line recovery, stop the lateral sweep as soon as the front IR
   * sensors consistently see the line. Finish by aligning the heading. */
- if(n->request.kind==B5_REQ_RECOVER_LINE && n->issued &&
+ if(n->request.kind==B5_REQ_RECOVER_LINE && n->issued && n->index==1 &&
     n->actions[n->index].kind==MOVE && n->line_seen>=3 &&
     !n->recovery_stop) {
   motion_stop(); n->recovery_stop=true;
@@ -104,6 +118,22 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
   n->issued=false; n->moving=false; n->forward_moving=false;
   n->motion_seen=false; n->recovery_stop=false;
   n->index=2; n->check_since=0;
+ }
+ /* Slow pivot that looks for the line (last step of the recovery). */
+ if(n->search_phase && n->index<n->count) {
+  if(n->search_phase==1) {
+   bool seen=(mask&(LINE_SENSOR_LEFT|LINE_SENSOR_RIGHT))!=0;
+   /* Stop when the heading is back to the line direction, or earlier if a sensor already sees the line
+    * and the car is nearly aligned (odometry under-reports the turn). */
+   if(absolute(n->heading)<=3.0f || (seen && absolute(n->heading)<=7.0f)) {
+    n->acquired=true; motion_stop(); n->search_phase=2; n->check_since=now;
+   } else if((uint32_t)(now-n->check_since)>B5_LINE_SEARCH_MS) { fail(n); }
+   return;
+  }
+  if(n->settled>=3 && motion_is_idle()) {
+   n->search_phase=0; n->moving=false; n->issued=false; ++n->index; n->settled=3;
+  }
+  return;
  }
  if(n->issued) {
   if(!still) n->motion_seen=true;
@@ -124,11 +154,12 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
    return;
   }
   bool pose=absolute(n->heading)<=NAV_HEADING_ALIGNED_DEG;
+  if(n->request.kind==B5_REQ_RECOVER_LINE) pose=absolute(n->heading)<=12.0f;
   if(n->request.kind==B5_REQ_BYPASS)
-   pose=pose && absolute(n->x)<=20 && absolute(n->y-n->request.lateral_mm)<=20;
+   pose=pose && absolute(n->x)<=B5_ADV_TOL_X_MM && absolute(n->y-n->request.lateral_mm)<=B5_ADV_TOL_Y_MM;
   if(n->request.kind==B5_REQ_ADVANCE)
-   pose=pose && absolute(n->x-n->request.forward_mm)<=5 && absolute(n->y-n->request.lateral_mm)<=20;
-  if(n->request.kind==B5_REQ_RECOVER_LINE) pose=pose && n->line_seen>=3;
+   pose=pose && absolute(n->x-n->request.forward_mm)<=B5_ADV_TOL_X_MM && absolute(n->y-n->request.lateral_mm)<=B5_ADV_TOL_Y_MM;
+  if(n->request.kind==B5_REQ_RECOVER_LINE) pose=pose && (n->line_seen>=3 || n->acquired);
   if(!pose) { fail(n); return; }
   n->completed_id=n->request.id; n->active=false; return;
  }
@@ -152,6 +183,12 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
    * controller's angle domain. */
   error/=B5_TURN_ODOMETRY_CORRECTION;
   result=error>0?motion_turn_left(error):motion_turn_right(-error);
+ } else if(a.kind==SEARCH) {
+  float v=B5_LINE_SEARCH_SPEED_CM_S;
+  result=a.value>0?motion_drive(-v,v):motion_drive(v,-v);   /* +: pivot left */
+  if(result!=MOTION_OK) { fail(n); return; }
+  n->search_phase=1; n->moving=true; n->forward_moving=false; n->settled=0; n->check_since=now;
+  return;
  } else {
   if(!guard) return; /* only a forward translation needs clear forward sonar */
   if(a.value<4) { ++n->index; return; }
@@ -168,6 +205,6 @@ void full_nav_feedback(const full_nav_t *n,uint32_t timestamp,b5_feedback_t *f) 
  f->heading_aligned=absolute(n->heading)<=NAV_HEADING_ALIGNED_DEG;
  f->forward_mm=(int32_t)lroundf(n->x); f->lateral_mm=(int32_t)lroundf(n->y);
  f->completed_id=n->completed_id; f->request_failed=n->failed;
- f->line_acquired=n->line_seen>=3;
+ f->line_acquired=n->line_seen>=3 || n->acquired;
 }
 #endif

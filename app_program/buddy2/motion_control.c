@@ -859,6 +859,35 @@ motion_result_t motion_set_speed(float speed_cm_s)
     return MOTION_OK;
 }
 
+bool motion_get_tilt(float *p_pitch_deg, float *p_roll_deg)
+{
+    motion_terrain_input_t input;
+    bool have;
+    uint64_t stamp;
+    uint64_t now;
+    uint32_t saved;
+
+    if ((p_pitch_deg == (float *)0) || (p_roll_deg == (float *)0) || (!s_initialised))
+    {
+        return false;
+    }
+    now = now_us();
+    saved = critical_enter();
+    input = s_terrain_input;
+    have = s_terrain_have;
+    stamp = s_terrain_time_us;
+    critical_exit(saved);
+
+    if ((!have) || (!input.valid) ||
+        ((now > stamp) && ((now - stamp) > ((uint64_t)MOTION_TERRAIN_STALE_MS * US_PER_MS))))
+    {
+        return false;
+    }
+    *p_pitch_deg = input.pitch_deg;
+    *p_roll_deg = input.roll_deg;
+    return true;
+}
+
 motion_result_t motion_set_terrain(const motion_terrain_input_t *p_input)
 {
     uint32_t saved;

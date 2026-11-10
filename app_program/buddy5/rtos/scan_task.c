@@ -11,6 +11,7 @@
 #include "../../../lib/libnet/lwip/mqtt_dashboard_ready.h"
 #endif
 static b5_core_t core;
+extern volatile int32_t b5_halt_code, b5_halt_count;
 static line_scan_status_t shared;
 static bool reset_pending, abort_pending;
 static uint32_t report_sequence;
@@ -143,7 +144,7 @@ static void scan_task(INT stacd,void *exinf) {
    delivered=core.request.id;
    if(!line_controller_request(&core.request)) {
     if(core.state==B5_ERROR) delivered=0;
-    else b5_core_fail(&core,B5_FAULT_CONTROLLER,now);
+    else { b5_halt_code=20; b5_halt_count++; b5_core_fail(&core,B5_FAULT_CONTROLLER,now); } /* 20 = request not accepted */
    }
   }
   if(core.state!=previous) {
@@ -168,6 +169,7 @@ static void scan_task(INT stacd,void *exinf) {
    /* Raw echo is separate from filtered front clearance; -1 means no fresh
     * measurement. Status follows ultrasonic_status_t (0..4). */
    bool raw_fresh=raw_seen && (uint32_t)(now-last_raw_time)<=B5_RAW_REPORT_MAX_AGE_MS;
+   emit(57,b5_halt_code,b5_halt_count,seq); /* last self-halt reason; 0 = none yet */
    emit(B5_TELEM_RAW_RANGE,raw_fresh && last_raw.status==US_OK?(int32_t)last_raw.distance_mm:-1,
         raw_fresh?(int32_t)last_raw.status:-1,seq);
    last_report=now;
