@@ -11,7 +11,7 @@
 /* HC-SR04 edge/clear-space estimate uncertainty used only when deciding
  * whether a measured side is long enough; planned body clearance is retained. */
 #define B5_ROUTE_UNCERTAINTY_MM 30
-#define B5_STOP_FRONT_MM 200
+#define B5_STOP_FRONT_MM 350   /* stop this far (mm) from the box: far enough to see both box edges */
 #define B5_MAX_PROFILE_MM 1200
 #define B5_MAX_OFFSET_MM 700
 #define B5_STEP_MM 60
@@ -87,12 +87,23 @@
 #define B5_RESCAN_BACKUP_MM 150
 #endif
 #ifndef B5_MAX_RESCANS
-#define B5_MAX_RESCANS 2
+#define B5_MAX_RESCANS 0   /* no reverse on the first detection */
 #endif
 /* The straight leg past the box is B5_PASS_WIDTH_FACTOR x the measured box width (B5_UNKNOWN_WIDTH_MM if it could
  * not be measured), counted from where the car first stopped, plus B5_PASS_SAFETY_MM. A deeper box is caught by the
  * sonar check after turning toward the line (see B5_MAX_EXTENDS), which extends the leg. */
 #define B5_PASS_WIDTH_FACTOR 2
+/* Hardcoded straight leg beside the box: the axle ends this far (mm) past the box FRONT face. The sonar check
+ * after turning toward the line catches a deeper box (reverse, extend, try again). */
+#ifndef B5_PASS_BESIDE_MM
+#define B5_PASS_BESIDE_MM 300
+#endif
+#define B5_AXLE_TO_SENSOR_MM 80
+/* Once the sonar sees nothing beside the car, drive this much further (mm) so the car's tail clears the box
+ * rear when it pivots back onto the line. About the half car length (~177) plus a margin. */
+#ifndef B5_PASS_TAIL_MM
+#define B5_PASS_TAIL_MM 220
+#endif
 #define B5_UNKNOWN_WIDTH_MM 500
 #define B5_MIN_PASS_MM 400
 #ifndef B5_PASS_SAFETY_MM

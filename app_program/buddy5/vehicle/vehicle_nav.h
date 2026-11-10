@@ -11,6 +11,7 @@ typedef struct {
  bool observed,active,issued,moving,forward_moving,motion_seen,failed,resumed;
  bool recovery_stop,acquired;
  unsigned search_phase,retries;
+ bool front_ok;
  float recover_side;
  bool front_fresh;
  int32_t front_mm;

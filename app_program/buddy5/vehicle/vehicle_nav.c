@@ -35,6 +35,11 @@ static void build_recover(full_nav_t *n,float side,bool extend) {
  }
  n->actions[i++]=(full_action_t){TURN,side*90.0f};
  n->actions[i++]=(full_action_t){CHECK_FRONT,0};
+ /* Sonar saw nothing: the axle is past the box rear. Drive on far enough for the tail to swing clear
+  * when the car pivots back onto the line, then face the line again. */
+ n->actions[i++]=(full_action_t){TURN,0};
+ n->actions[i++]=(full_action_t){MOVE,B5_PASS_TAIL_MM};
+ n->actions[i++]=(full_action_t){TURN,side*90.0f};
  n->actions[i++]=(full_action_t){SWEEP,sweep};
  n->actions[i++]=(full_action_t){MOVE,B5_LINE_ADVANCE_MM};
  n->actions[i++]=(full_action_t){TURN,side*LINE_JUNCTION_PRETURN_MARGIN_DEG};
@@ -79,7 +84,7 @@ bool full_nav_accept(full_nav_t *n,const b5_request_t *r,uint32_t now) {
     * face the line, sweep until a sensor sees it, drive on to put the axle over it, turn most of the way
     * back to the original heading, then pivot slowly until a sensor sees the line. */
    float side=(n->y>0.0f)?-1.0f:1.0f;   /* +1: line is on the left */
-   n->acquired=false; n->search_phase=0; n->retries=0; n->recover_side=side;
+   n->acquired=false; n->search_phase=0; n->retries=0; n->front_ok=false; n->recover_side=side;
    build_recover(n,side,false);
   }
   break;
@@ -198,9 +203,9 @@ if(a.kind==CHECK_FRONT) {
   if(!n->check_since) n->check_since=now;
   if(!n->front_fresh) {
    if((uint32_t)(now-n->check_since)<2000u) return;   /* wait for a fresh forward reading */
-   ++n->index; n->check_since=0; return;               /* none: the forward guard still protects the sweep */
+   n->front_ok=true; ++n->index; n->check_since=0; return;               /* none: the forward guard still protects the sweep */
   }
-  if(n->front_mm>=(int32_t)absolute(n->y)) { ++n->index; n->check_since=0; return; }
+  if(n->front_mm>=(int32_t)absolute(n->y)) { n->front_ok=true; ++n->index; n->check_since=0; return; }
   if(n->retries>=B5_MAX_EXTENDS) { fail(n); return; }
   ++n->retries;
   build_recover(n,n->recover_side,true);
@@ -255,5 +260,6 @@ void full_nav_feedback(const full_nav_t *n,uint32_t timestamp,b5_feedback_t *f) 
  f->forward_mm=(int32_t)lroundf(n->x); f->lateral_mm=(int32_t)lroundf(n->y);
  f->completed_id=n->completed_id; f->request_failed=n->failed;
  f->line_acquired=n->line_seen>=3 || n->acquired;
+ f->front_ok=n->front_ok; f->extends=(uint8_t)n->retries;
 }
 #endif
