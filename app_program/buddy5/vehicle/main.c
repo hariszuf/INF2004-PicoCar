@@ -81,6 +81,10 @@ static uint16_t enc_diag_flags(void)
 #endif
 #endif
 static volatile bool user_stop_pending;
+static volatile bool remote_start_pending;   /* START intent: dashboard (MQTT) or USB R */
+static bool fault_latched;                   /* motor stall latch: cleared only by a power cycle */
+/* Execution status for telemetry src5 types 60/61 (see auto_start.h). */
+volatile int32_t b5_exec_state, b5_exec_reason, b5_start_result, b5_start_count;
 static unsigned char commands[8];
 static unsigned command_head,command_tail;
 bool line_controller_active(void) { return run_enabled; }
@@ -96,7 +100,7 @@ void b5_line_command_received(unsigned c) {
  if(c!='R' && c!='S' && c!=' ') return;
  DI(irq);
  if(c=='S' || c==' ') {
-  user_stop_pending=true; command_tail=command_head;
+  user_stop_pending=true; command_tail=command_head; remote_start_pending=false;
  } else if(b5_line_usb_connected()) {
   unsigned next=(command_head+1u)%8u;
   if(next==command_tail) { user_stop_pending=true; command_tail=command_head; }
@@ -116,6 +120,14 @@ int b5_line_take_command(void) {
   c=commands[command_tail]; command_tail=(command_tail+1u)%8u;
  }
  EI(irq); return c;
+}
+/* MQTT bridge (Buddy 1 task): non-blocking intent only, never touches the motors. 'S' = STOP, 'R' = START. */
+void b5_remote_command_intent(unsigned c) {
+ UW irq;
+ DI(irq);
+ if(c=='S') { user_stop_pending=true; command_tail=command_head; remote_start_pending=false; }
+ else if(c=='R') remote_start_pending=true;
+ EI(irq);
 }
 static void discard_commands(void) { UW irq; DI(irq); command_tail=command_head; EI(irq); }
 bool line_controller_feedback(b5_feedback_t *f) {
@@ -140,9 +152,13 @@ static void halt(full_nav_t *nav,auto_start_t *start,const char *why) {
     const char *a=why,*b=halt_reasons[i]; while(*a && *a==*b) { a++; b++; }
     if(*a==0 && *b==0) { code=(int32_t)i+1; break; } }
    b5_halt_code=code; b5_halt_count++; }
- run_enabled=false; auto_start_stop(start); nav->active=false; nav->moving=false; nav->forward_moving=false;
+ { /* Persistent (operator needed): motor stall latch or a failed motor reset. Everything else is retryable. */
+   bool persistent=(b5_halt_code==8 && fault_latched) || b5_halt_code==11;
+   auto_start_halt(start,b5_halt_code,persistent); }
+ run_enabled=false; nav->active=false; nav->moving=false; nav->forward_moving=false;
  line_follow_stop(); motion_emergency_stop(); line_scan_abort(); discard_commands();
- tm_printf((UB*)"[AUTO] STOPPED: %s. Power-cycle to restart; optional R retries.\n",(UB*)why);
+ tm_printf((UB*)"[AUTO] STOPPED: %s (code %d). %s\n",(UB*)why,(int)b5_halt_code,
+  start->phase==AUTO_FAULTED?"Operator action needed: power-cycle.":"Send START (dashboard) or R (USB) to retry.");
 }
 static void controller_task(INT stacd,void *exinf) {
  motion_status_t motor; line_scan_status_t scan;
@@ -161,7 +177,7 @@ static void controller_task(INT stacd,void *exinf) {
  uint32_t last_barcode_action_ms=0;
  bool barcode_seen=false;
 #endif
- uint8_t mask=0; bool fault_latched=false;
+ uint8_t mask=0; fault_latched=false;
  (void)stacd; (void)exinf;
  auto_start_init(&start,now);
  tm_printf((UB*)"[AUTO] Power-on automatic mode. 3s delay, then wait for line and forward observations.\n");
@@ -173,10 +189,24 @@ static void controller_task(INT stacd,void *exinf) {
   scan.state=B5_MONITORING; scan.fault=(b5_fault_t)0; scan.heartbeat_ms=now; scan.angle=0;
   scan.front_valid=true; scan.front_timestamp_ms=now; scan.front_clearance_mm=B5_CLEAR_FRONT_MM;
 #endif
-  int command=b5_line_take_stop()?'S':b5_line_take_command();
-  if(command=='S') halt(&nav,&start,"user stop");
-  if(command=='R' && !run_enabled && nav.settled>=3) {
-   auto_start_init(&start,now-3000u); discard_commands();
+  bool stop_cmd=b5_line_take_stop();
+  int command=stop_cmd?'S':b5_line_take_command();
+  if(command=='S') {
+   /* STOP always wins over a pending START. A fault is never downgraded and a repeat STOP is not re-counted. */
+   { UW sirq; DI(sirq); remote_start_pending=false; EI(sirq); }
+   if(start.phase!=AUTO_LATCHED && start.phase!=AUTO_FAULTED) halt(&nav,&start,"user stop");
+  } else {
+   if(command=='R') { UW sirq; DI(sirq); remote_start_pending=true; EI(sirq); }
+   bool want_start; { UW sirq; DI(sirq); want_start=remote_start_pending; EI(sirq); }
+   /* START is a restart request: it leaves a stop (waiting for the stop to settle first), is ignored while
+    * starting or running (never resets a running maneuver) and is rejected after a persistent fault. */
+   if(want_start && !(start.phase==AUTO_LATCHED && nav.settled<3)) {
+    { UW sirq; DI(sirq); remote_start_pending=false; EI(sirq); }
+    auto_start_result_t r=auto_start_request(&start,now);
+    if(r==START_ACCEPTED) discard_commands();
+    tm_printf((UB*)"[AUTO] START request: %s\n",(UB*)(r==START_ACCEPTED?"accepted, resetting and waiting for readiness":
+     r==START_ALREADY_ACTIVE?"ignored, already starting or running":"rejected, operator action (power-cycle) needed"));
+   }
   }
   if(run_enabled && (uint32_t)(now-scan.heartbeat_ms)>400u)
    halt(&nav,&start,"obstacle scanner heartbeat timeout");
@@ -305,7 +335,7 @@ static void controller_task(INT stacd,void *exinf) {
    if(motion_reset()!=MOTION_OK) halt(&nav,&start,"motor reset failed");
    else {
     motion_update(); motion_get_status(&motor); last_motor=now;
-    full_nav_init(&nav,&motor); nav.settled=3; fault_latched=false; line_scan_reset();
+    full_nav_init(&nav,&motor); nav.settled=3; line_scan_reset();   /* the stall latch is never cleared here */
     DI(irq); request_pending=false; EI(irq);
     tm_printf((UB*)"[AUTO] Waiting for line and fresh forward observations; no keyboard command needed.\n");
    }
@@ -321,6 +351,8 @@ static void controller_task(INT stacd,void *exinf) {
     tm_printf((UB*)"[AUTO] RUNNING automatically; front=%dmm (-1=out of range).\n",scan.front_clearance_mm==B5_CLEAR_FRONT_MM?-1:scan.front_clearance_mm);
    }
   }
+  b5_exec_state=(int32_t)auto_start_exec_state(&start); b5_exec_reason=start.reason;
+  b5_start_result=(int32_t)start.last_start; b5_start_count=(int32_t)start.start_count;
   b5_feedback_t f;
   full_nav_feedback(&nav,last_motor,&f); f.fault=fault_latched;
   DI(irq); feedback_shared=f; EI(irq);
