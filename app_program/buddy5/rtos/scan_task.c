@@ -170,6 +170,16 @@ static void scan_task(INT stacd,void *exinf) {
    emit(53,core.profile.depth_valid?core.profile.depth_low_mm:-1,core.profile.depth_valid?core.profile.depth_high_mm:-1,seq);
    emit(55,(int32_t)core.profile.obstacle_id,(int32_t)now,seq);
    emit(56,(core.profile.width_valid?1:0)|(core.profile.depth_valid?2:0)|(core.edges_seen?4:0)|(core.profile.width_estimated?8:0)|16,(int32_t)core.extends,seq);
+   if(core.profile.side_reason!=B5_WHY_NONE) {
+    /* Scan decision: value_1 = left edge (low 16 bits) and right edge (high 16 bits) in mm, signed, + = left of the
+     * car; value_2 = why the side was chosen (bits 0-3), left/right edge measured (bits 4/5), heading re-turns
+     * (bits 8-15), sonar extra turns (bits 16-23). Only sent once an obstacle has been scanned. */
+    int32_t edges=(int32_t)(((uint32_t)core.profile.left_report_mm&0xFFFFu)|(((uint32_t)core.profile.right_report_mm&0xFFFFu)<<16));
+    int32_t info=(core.profile.side_reason&15)|(core.profile.left_measured?16:0)|(core.profile.right_measured?32:0)|
+                 ((int32_t)core.turn_fixes<<8)|((int32_t)core.block_fixes<<16)|(core.alt_tried?64:0)|((int32_t)(core.rescans&15)<<24);
+    /* bit 6 = switched to the other side after the front check, bits 24-27 = rescans done */
+    emit(B5_TELEM_DECISION,edges,info,seq);
+   }
    /* Raw echo is separate from filtered front clearance; -1 means no fresh
     * measurement. Status follows ultrasonic_status_t (0..4). */
    bool raw_fresh=raw_seen && (uint32_t)(now-last_raw_time)<=B5_RAW_REPORT_MAX_AGE_MS;

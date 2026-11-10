@@ -133,6 +133,17 @@ static int32_t plane_y(int32_t front, int slot) {
 static bool hit(const b5_scan_t *s,int i,int32_t front) {
     return s->valid[i]==B5_SCAN_ECHO && ab(projected_x(s,i)-front)<=80;
 }
+/* Sideways offset (signed) needed to pass the box on the given side: edge + half car + clearance, but at least the
+ * minimum bypass offset and enough room to pivot beside the box. */
+static int32_t planned_offset(const b5_profile_t *p, int side) {
+    int32_t edge=side>0 ? p->left_edge_mm : -p->right_edge_mm;
+    int32_t mag=edge+B5_CAR_WIDTH_MM/2+B5_CLEARANCE_MM+B5_EDGE_ALLOWANCE_MM;
+    int32_t need=edge+B5_PIVOT_CLEAR_MM;
+    if (need>B5_MAX_OFFSET_MM) need=B5_MAX_OFFSET_MM;
+    if (mag<B5_MIN_BYPASS_OFFSET_MM) mag=B5_MIN_BYPASS_OFFSET_MM;
+    if (mag<need) mag=need;
+    return side>0 ? mag : -mag;
+}
 /* A local, approximately vertical-front box profile. Unknown sectors invalidate
  * edge estimates. These rays propose a side; they cannot certify swept volume. */
 static bool process(b5_core_t *c) {
@@ -172,7 +183,12 @@ static bool process(b5_core_t *c) {
         p->right_edge_mm=right_clear>=0 ? plane_y(p->front_mm,right_clear) : -side_extent(s,p->front_mm,false);
         p->left_inner_mm=p->left_edge_mm;
         p->right_inner_mm=p->right_edge_mm;
-        p->width_mm=p->left_edge_mm-p->right_edge_mm;
+        p->left_measured=left_clear>=0; p->right_measured=right_clear>=0;
+        /* Reported edges: midway between the last hit ray and the first clear ray (the outer edge overstates by up to
+         * half a scan step); an unseen edge keeps its lower-bound estimate. Planning below still uses the outer edge. */
+        p->left_report_mm=left_clear>=0 ? (plane_y(p->front_mm,left_clear)+plane_y(p->front_mm,hi))/2 : p->left_edge_mm;
+        p->right_report_mm=right_clear>=0 ? (plane_y(p->front_mm,right_clear)+plane_y(p->front_mm,lo))/2 : p->right_edge_mm;
+        p->width_mm=p->left_report_mm-p->right_report_mm;
         p->width_valid=false; p->width_estimated=p->width_mm>0;
 #else
         if (left_clear>=0) {
@@ -191,12 +207,18 @@ static bool process(b5_core_t *c) {
         int32_t extra=B5_CAR_WIDTH_MM/2+B5_CLEARANCE_MM+B5_EDGE_ALLOWANCE_MM;
         int32_t left=p->left_edge_mm+extra;
         int32_t right=p->right_edge_mm-extra;
-        if (left_clear>=0 && right_clear<0) p->side=1;
-        else if (right_clear>=0 && left_clear<0) p->side=-1;
+        if (left_clear>=0 && right_clear<0) { p->side=1; p->side_reason=B5_WHY_LEFT_EDGE_ONLY; }
+        else if (right_clear>=0 && left_clear<0) { p->side=-1; p->side_reason=B5_WHY_RIGHT_EDGE_ONLY; }
         else {
-            int32_t ld=s->valid[B5_SCAN_POINTS-1]==B5_SCAN_NO_ECHO ? 4001 : s->distance[B5_SCAN_POINTS-1];
-            int32_t rd=s->valid[0]==B5_SCAN_NO_ECHO ? 4001 : s->distance[0];
-            p->side=ld>=rd ? 1 : -1;
+            /* Neither edge is inside the scan window (or both are, at its very edge). Compare how far the two outermost
+             * rays reach ALONG the box front (d*cos a). The raw slant range cannot be compared: the window is wider
+             * to the right (-35 deg) than to the left (+25 deg), so a ray on the right is always longer. */
+            int32_t lx=s->valid[B5_SCAN_POINTS-1]==B5_SCAN_NO_ECHO ? 4001 : s->valid[B5_SCAN_POINTS-1]==B5_SCAN_ECHO ? projected_x(s,B5_SCAN_POINTS-1) : p->front_mm;
+            int32_t rx=s->valid[0]==B5_SCAN_NO_ECHO ? 4001 : s->valid[0]==B5_SCAN_ECHO ? projected_x(s,0) : p->front_mm;
+            if (ab(lx-rx)>=B5_SIDE_PREFER_MM) { p->side=lx>rx ? 1 : -1; p->side_reason=B5_WHY_FAR_RAY; }
+            /* No information either way. The right half of the window is wider (-35 deg), so the right-hand estimate is
+             * the larger lower bound and that side gets the bigger, safer offset: keep the previous default. */
+            else { p->side=-1; p->side_reason=B5_WHY_NO_EDGES; }
         }
         p->offset_mm=p->side>0 ? left : right;
         return ab(p->offset_mm)<=B5_MAX_OFFSET_MM;
@@ -207,7 +229,10 @@ static bool process(b5_core_t *c) {
     p->right_edge_mm=plane_y(p->front_mm,right_clear);
     p->left_inner_mm=plane_y(p->front_mm,hi);
     p->right_inner_mm=plane_y(p->front_mm,lo);
-    p->width_mm=p->left_edge_mm-p->right_edge_mm;
+    p->left_measured=true; p->right_measured=true;
+    p->left_report_mm=(plane_y(p->front_mm,left_clear)+plane_y(p->front_mm,hi))/2;
+    p->right_report_mm=(plane_y(p->front_mm,right_clear)+plane_y(p->front_mm,lo))/2;
+    p->width_mm=p->left_report_mm-p->right_report_mm;   /* bracket midpoints: more accurate than the outer edges */
     p->width_valid=p->width_mm>0;
     int32_t extra=B5_CAR_WIDTH_MM/2+B5_CLEARANCE_MM+B5_EDGE_ALLOWANCE_MM;
     int32_t left=p->left_edge_mm+extra, right=p->right_edge_mm-extra;
@@ -224,8 +249,14 @@ static bool process(b5_core_t *c) {
     bool r=p->width_valid && -right<=B5_MAX_OFFSET_MM &&
            right_score+B5_ROUTE_UNCERTAINTY_MM>-right+B5_CAR_LENGTH_MM+B5_CLEARANCE_MM;
     if (!l && !r) return false;
-    p->side=(l && (!r || left_score>right_score ||
-                  (left_score==right_score && left<=-right))) ? 1 : -1;
+    if (l && r) {
+        /* Take the side with the shorter detour: the box edge nearer to the car's path. (Before, the side whose
+         * far echo was longer won, which has nothing to do with where the box is.) */
+        int32_t lo_d=left, ro_d=-right;
+        if (ab(lo_d-ro_d)>=B5_SIDE_PREFER_MM) { p->side=lo_d<ro_d ? 1 : -1; p->side_reason=B5_WHY_SHORTER_DETOUR; }
+        else if (left_score!=right_score) { p->side=left_score>right_score ? 1 : -1; p->side_reason=B5_WHY_MORE_ROOM; }
+        else { p->side=lo_d<=ro_d ? 1 : -1; p->side_reason=B5_WHY_SHORTER_DETOUR; }
+    } else { p->side=l ? 1 : -1; p->side_reason=B5_WHY_ONLY_ROOM; }
     p->offset_mm=p->side>0 ? left : right;
     return true;
 }
@@ -309,6 +340,7 @@ static void side_sample(b5_core_t *c,uint32_t now,
 void b5_core_update(b5_core_t *c,uint32_t now,
                     const b5_feedback_t *f,const b5_range_t *r) {
     c->now_ms=now;
+    if (f && f->valid) { c->turn_fixes=f->turn_fixes; c->block_fixes=f->block_fixes; }
     if (c->state==B5_ERROR) return;
     if (!fresh(now,f)) { b5_core_fail(c,B5_FAULT_FEEDBACK,now); return; }
     if (f->request_failed) { b5_core_fail(c,B5_FAULT_CONTROLLER,now); return; }
@@ -336,7 +368,7 @@ void b5_core_update(b5_core_t *c,uint32_t now,
         c->front_clearance_mm=b5_front_clearance(r);
         if (c->front_clearance_mm<=B5_STOP_FRONT_MM) {
             uint32_t id=c->profile.obstacle_id+1u;
-            memset(&c->profile,0,sizeof(c->profile)); c->profile.obstacle_id=id; c->rescans=0; c->extends=0;
+            memset(&c->profile,0,sizeof(c->profile)); c->profile.obstacle_id=id; c->rescans=0; c->extends=0; c->alt_tried=false; c->route_check_since=0;
             state(c,B5_WAIT_STOP,now);
             request(c,B5_REQ_STOP,now,0,0);
         }
@@ -362,8 +394,9 @@ void b5_core_update(b5_core_t *c,uint32_t now,
             if (!process(c)) b5_core_fail(c,B5_FAULT_NO_ROUTE,now);
             else {
 #if B5_SIMPLE_BYPASS
-                if (!c->edges_seen && c->rescans<B5_MAX_RESCANS) {
-                    /* Both box edges are outside the scan window: reverse a little and measure again. */
+                if ((c->profile.side_reason==B5_WHY_NO_EDGES || c->profile.side_reason==B5_WHY_FAR_RAY) && c->rescans<B5_MAX_RESCANS) {
+                    /* Neither box edge is inside the scan window, so no side can be judged: reverse a little (the window
+                     * then covers more of the box) and measure again. */
                     c->rescans++;
                     state(c,B5_WAIT_STOP,now);
                     request(c,B5_REQ_BACKUP,now,B5_RESCAN_BACKUP_MM,0);
@@ -389,6 +422,9 @@ void b5_core_update(b5_core_t *c,uint32_t now,
                     if (ab(c->profile.offset_mm)<need) c->profile.offset_mm=c->profile.side*need;
                 }
 #endif
+                c->profile.alt_offset_mm=planned_offset(&c->profile,-c->profile.side);
+                c->profile.alt_ok=ab(c->profile.alt_offset_mm)<=B5_MAX_OFFSET_MM &&
+                                  (c->profile.left_measured || c->profile.right_measured || true);
                 request(c,B5_REQ_BYPASS,now,c->profile.front_mm,c->profile.offset_mm);
             }
         }
@@ -396,8 +432,32 @@ void b5_core_update(b5_core_t *c,uint32_t now,
     }
     case B5_PROCESSING:
         if (f->completed_id==c->request.id && f->stopped) {
+            /* After a sonar extra turn the sideways leg was deliberately re-aimed, so the forward position (which
+             * the turn tilts) is not held to the tolerance. */
             if (!f->heading_aligned || ab(f->lateral_mm-c->profile.offset_mm)>B5_ADV_TOL_Y_MM ||
-                ab(f->forward_mm)>B5_ADV_TOL_X_MM) { b5_core_fail(c,B5_FAULT_POSE,now); return; }
+                (c->block_fixes==0 && ab(f->forward_mm)>B5_ADV_TOL_X_MM)) { b5_core_fail(c,B5_FAULT_POSE,now); return; }
+#if B5_SIMPLE_BYPASS
+            {
+                /* The car now sits at the side position facing forward. Before the straight pass, the sonar must see
+                 * clear space for the whole pass (a second box next to the first one would otherwise be driven into). */
+                int32_t need=c->profile.front_mm+B5_AXLE_TO_SENSOR_MM+B5_PASS_BESIDE_MM+B5_PASS_TAIL_MM+B5_ROUTE_MARGIN_MM;
+                if (!c->route_check_since) { c->route_check_since=now; return; }
+                if ((uint32_t)(now-c->route_check_since)<B5_ROUTE_CHECK_MS) return;
+                if (c->front_clearance_mm>=0 && c->front_clearance_mm!=B5_CLEAR_FRONT_MM && c->front_clearance_mm<need) {
+                    if (!c->alt_tried && c->profile.alt_ok) {
+                        /* Blocked on this side: go to the other side of the box instead. */
+                        c->alt_tried=true;
+                        c->profile.side=(int8_t)-c->profile.side;
+                        c->profile.offset_mm=c->profile.alt_offset_mm;
+                        c->route_check_since=0;
+                        request(c,B5_REQ_BYPASS,now,c->profile.front_mm,c->profile.offset_mm);
+                        return;
+                    }
+                    b5_core_fail(c,B5_FAULT_NO_ROUTE,now); return;
+                }
+                c->route_check_since=0;
+            }
+#endif
             c->bypass_y=f->lateral_mm; c->side_seen=false; c->clear_count=0;
             c->avoid_since_ms=now; c->phase=0;
             state(c,B5_AVOIDING,now);
@@ -422,6 +482,13 @@ void b5_core_update(b5_core_t *c,uint32_t now,
             b5_core_fail(c,B5_FAULT_PROFILE,now); return;
         }
         if (c->phase==2) {
+#if B5_SIMPLE_BYPASS
+            /* Something appeared ahead during the straight pass: stop before touching it. */
+            if (f->completed_id!=c->request.id && c->front_clearance_mm>=0 &&
+                c->front_clearance_mm!=B5_CLEAR_FRONT_MM && c->front_clearance_mm<=B5_ADVANCE_STOP_MM) {
+                b5_core_fail(c,B5_FAULT_NO_ROUTE,now); return;
+            }
+#endif
             if (f->completed_id==c->request.id && f->stopped) {
                 if (!f->heading_aligned || ab(f->lateral_mm-c->bypass_y)>B5_ADV_TOL_Y_MM ||
                     ab(f->forward_mm-c->request.forward_mm)>B5_ADV_TOL_X_MM ||

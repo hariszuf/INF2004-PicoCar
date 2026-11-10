@@ -95,10 +95,11 @@
 #ifndef LINE_REJOIN_CENTRE
 #define LINE_REJOIN_CENTRE          (1)
 #endif
-#define LINE_REJOIN_CENTRE_SPEED_CM_S (2.0f)
-#define LINE_REJOIN_CENTRE_LEAD_DEG (0.8f)   /* braking allowance for the final pivot back */
-#define LINE_REJOIN_CENTRE_MS       (2500u)
-#define LINE_REJOIN_SEARCH_SPAN_DEG (40.0f)  /* rejoin search: this far one way, then back the other way */
+#define LINE_REJOIN_CENTRE_SPEED_CM_S (2.0f)   /* final approach to the middle heading */
+#define LINE_REJOIN_CENTRE_LEAD_DEG (1.0f)   /* braking allowance for the final pivot to the middle */
+#define LINE_REJOIN_SLOW_ZONE_DEG   (8.0f)   /* pivot at the search speed until this close to the middle, then slow */
+#define LINE_REJOIN_CENTRE_MS       (8000u)  /* upper limit for the pivot to the middle */
+#define LINE_REJOIN_SEARCH_SPAN_DEG (110.0f) /* each sweep may pivot this far (the second one twice this) before giving up */
 
 /* ------------------------------------------------------------------ */
 /* Timing                                                              */
