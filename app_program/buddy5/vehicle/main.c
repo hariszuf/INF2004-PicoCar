@@ -220,6 +220,13 @@ static void controller_task(INT stacd,void *exinf) {
    * the servo to face forward and acquire a new reading before ADVANCE. */
   if(nav.active && nav.request.kind==B5_REQ_ADVANCE && !nav.forward_moving &&
      !guard_fresh) guard=false;
+#if B5_BYPASS_IGNORE_GUARD
+  /* Moving back to the line after the box: the box itself can be inside the forward guard distance while the
+   * car faces the line, which used to latch an emergency stop. The sonar reading is still used by the
+   * CHECK_FRONT step (reverse/extend), only the self-halt is overridden. */
+  if(nav.active && (nav.request.kind==B5_REQ_ADVANCE || nav.request.kind==B5_REQ_RECOVER_LINE ||
+                    nav.request.kind==B5_REQ_BACKUP)) guard=true;
+#endif
 #if TM_CONSOLE_USB_CDC || TM_WIFI_MQTT
   bool barcode_clear=guard_fresh && scan.front_clearance_mm>B5_STOP_FRONT_MM;
   char barcode_letter;
