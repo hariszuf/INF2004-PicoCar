@@ -59,9 +59,18 @@ void motion_get_status(motion_status_t *s)
     s->left_speed_cm_s=(float)cur_l; s->right_speed_cm_s=(float)cur_r;
     s->distance_cm=(float)DIST_CM; s->heading_deg=(float)REP;
 }
-static int s_line_on; static int line_starts;
+static int line_starts;
+#ifdef SIM_REAL_LINE
+/* Real Buddy 3 line follower (junction-style rejoin and centring) on the simulated sensors. */
+static uint8_t read_mask(void);
+uint8_t line_sensors_read(void) { return read_mask(); }
+void line_sensors_init(void) {}
+bool motion_get_tilt(float *p,float *r) { *p=*r=0.0f; return true; }
+#else
+static int s_line_on;
 bool line_follow_start(void) { s_line_on=1; line_starts++; return true; }
 void line_follow_stop(void) { s_line_on=0; }
+#endif
 
 static void physics(double dt)
 {
@@ -156,7 +165,12 @@ int main(void)
     printf("box x %.0f..%.0f  y %.0f..%.0f (sensor starts %.0f from the front)\n",bx0,bx1,by0,by1,(double)START_GAP);
     for(int step=0; step<120*50; step++) {
         double dt=0.02; now+=20;
+#ifdef SIM_REAL_LINE
+        for(int k=0;k<4;k++) { physics(0.005); if(full_nav_rejoining(&nav)) line_follow_update(); }
+        if(nav.resumed) { line_starts++; nav.resumed=false; }
+#else
         physics(dt);
+#endif
         motion_get_status(&ms);
         double fwd=range_at(0).distance_mm;
         bool guard=(range_at(0).distance_mm==B5_NO_ECHO_MM) || (int32_t)(fwd-B5_FRONT_OVERHANG_MM)>B5_GUARD_FRONT_MM;
@@ -185,6 +199,7 @@ int main(void)
         if(core.state==B5_ERROR || nav.failed || emergency) { printf("FAILED: core fault=%d nav.failed=%d\n",core.fault,nav.failed); break; }
         if(line_starts>0 && core.state==B5_MONITORING) { ok=1; break; }
     }
+    { double sy=Y+SENSOR_AHEAD*sin(TH*PI/180); printf("sensor-pair centre %.1f mm from the tape centre, heading %.1f deg\n",sy,TH); }
     printf("\nresult: %s | line follower restarted=%d | collisions(steps)=%d | final x=%.0f y=%.0f heading=%.1f deg\n",
            ok?"BYPASS COMPLETED":"NOT COMPLETED",line_starts,collisions,X,Y,TH);
     (void)min_gap;

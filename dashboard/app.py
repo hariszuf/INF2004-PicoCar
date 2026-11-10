@@ -24,7 +24,7 @@ latest_messages = {}
 last_message_times = {}
 sensor_frames = {}
 sensor_lock = Lock()
-sensor_types = {2: {3, 4, 10}, 3: {5, 6}, 4: {7, *range(11, 20)}, 5: {*range(50, 62)}, 6: {57}}
+sensor_types = {2: {3, 4, 10}, 3: {5, 6}, 4: {7, *range(11, 20)}, 5: {*range(50, 63)}, 6: {57}}
 sensor_header = re.compile(
     r"src=([2-6]) type=([0-9]{1,2}) seq=([0-9]{1,10}) "
     r"[a-z][a-z0-9_]{0,31}=(-?[0-9]{1,10}) [a-z][a-z0-9_]{0,31}=(-?[0-9]{1,10})(?: flags=([0-9]{1,5}))?"
