@@ -5,7 +5,7 @@
 #include "../../buddy3/line_follow.h"
 #include "../../buddy3/line_sensors.h"
 #include "../../buddy3/line_config.h"
-enum { TURN=1, MOVE, CHECK_LINE, SEARCH, BACK };
+enum { TURN=1, MOVE, CHECK_LINE, SEARCH, BACK, SWEEP, CHECK_FRONT };
 #define NAV_HEADING_ALIGNED_DEG 8.0f
 #define NAV_TURN_DEADBAND_DEG 4.0f
 static float absolute(float x) { return x<0?-x:x; }
@@ -17,6 +17,29 @@ void full_nav_init(full_nav_t *n,const motion_status_t *m) {
  *n=(full_nav_t){0}; n->last_distance=m->distance_cm;
  n->last_heading=corrected_heading(m);
  n->heading_origin=n->last_heading; n->observed=true;
+}
+void full_nav_set_front(full_nav_t *n,bool fresh,int32_t clearance_mm) { n->front_fresh=fresh; n->front_mm=clearance_mm; }
+/* Return to the line. side=+1: the line is on the left. extend=true: still beside the box, so first reverse
+ * a little, face forward again and drive a bit further before facing the line. */
+/* Distance driven on after the sensors first see the line, so the axle (the pivot point) is over the line. */
+#ifndef B5_LINE_ADVANCE_MM
+#define B5_LINE_ADVANCE_MM (LINE_JUNCTION_ADVANCE_CM*10.0f)
+#endif
+static void build_recover(full_nav_t *n,float side,bool extend) {
+ unsigned i=0;
+ float sweep=absolute(n->y)+B5_LINE_SWEEP_EXTRA_MM+(extend?B5_RETURN_REVERSE_MM:0.0f);
+ if(extend) {
+  n->actions[i++]=(full_action_t){BACK,B5_RETURN_REVERSE_MM};
+  n->actions[i++]=(full_action_t){TURN,0};
+  n->actions[i++]=(full_action_t){MOVE,B5_EXTEND_MM};
+ }
+ n->actions[i++]=(full_action_t){TURN,side*90.0f};
+ n->actions[i++]=(full_action_t){CHECK_FRONT,0};
+ n->actions[i++]=(full_action_t){SWEEP,sweep};
+ n->actions[i++]=(full_action_t){MOVE,B5_LINE_ADVANCE_MM};
+ n->actions[i++]=(full_action_t){TURN,side*LINE_JUNCTION_PRETURN_MARGIN_DEG};
+ n->actions[i++]=(full_action_t){SEARCH,-side};
+ n->count=i; n->index=0; n->issued=false; n->check_since=0;
 }
 static void trip(full_nav_t *n,float target_y,bool check) {
  float delta=target_y-n->y;
@@ -56,12 +79,8 @@ bool full_nav_accept(full_nav_t *n,const b5_request_t *r,uint32_t now) {
     * face the line, sweep until a sensor sees it, drive on to put the axle over it, turn most of the way
     * back to the original heading, then pivot slowly until a sensor sees the line. */
    float side=(n->y>0.0f)?-1.0f:1.0f;   /* +1: line is on the left */
-   n->count=5; n->acquired=false; n->search_phase=0;
-   n->actions[0]=(full_action_t){TURN,side*90.0f};
-   n->actions[1]=(full_action_t){MOVE,absolute(n->y)+B5_LINE_SWEEP_EXTRA_MM};
-   n->actions[2]=(full_action_t){MOVE,LINE_JUNCTION_ADVANCE_CM*10.0f};
-   n->actions[3]=(full_action_t){TURN,side*LINE_JUNCTION_PRETURN_MARGIN_DEG};
-   n->actions[4]=(full_action_t){SEARCH,-side};   /* pivot back toward the original heading */
+   n->acquired=false; n->search_phase=0; n->retries=0; n->recover_side=side;
+   build_recover(n,side,false);
   }
   break;
  case B5_REQ_RESUME_LINE: break;
@@ -113,8 +132,8 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
  }
  /* During line recovery, stop the lateral sweep as soon as the front IR
   * sensors consistently see the line. Finish by aligning the heading. */
- if(n->request.kind==B5_REQ_RECOVER_LINE && n->issued && n->index==1 &&
-    n->actions[n->index].kind==MOVE && n->line_seen>=3 &&
+ if(n->request.kind==B5_REQ_RECOVER_LINE && n->issued && n->index<n->count &&
+    n->actions[n->index].kind==SWEEP && n->line_seen>=1 &&
     !n->recovery_stop) {
   motion_stop(); n->recovery_stop=true;
  }
@@ -122,7 +141,7 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
   if(n->settled<3) return;
   n->issued=false; n->moving=false; n->forward_moving=false;
   n->motion_seen=false; n->recovery_stop=false;
-  n->index=2; n->check_since=0;
+  ++n->index; n->check_since=0;
  }
  /* Slow pivot that looks for the line (last step of the recovery). */
  if(n->search_phase && n->index<n->count) {
@@ -175,6 +194,18 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
  }
  if(n->settled<3) return;
  full_action_t a=n->actions[n->index];
+if(a.kind==CHECK_FRONT) {
+  if(!n->check_since) n->check_since=now;
+  if(!n->front_fresh) {
+   if((uint32_t)(now-n->check_since)<2000u) return;   /* wait for a fresh forward reading */
+   ++n->index; n->check_since=0; return;               /* none: the forward guard still protects the sweep */
+  }
+  if(n->front_mm>=(int32_t)absolute(n->y)) { ++n->index; n->check_since=0; return; }
+  if(n->retries>=B5_MAX_EXTENDS) { fail(n); return; }
+  ++n->retries;
+  build_recover(n,n->recover_side,true);
+  return;
+ }
  if(a.kind==CHECK_LINE) {
   if(!n->check_since) n->check_since=now;
   if(n->line_seen>=3 && absolute(n->heading)<=NAV_HEADING_ALIGNED_DEG) { ++n->index; return; }
@@ -214,7 +245,7 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
   result=motion_move_forward(a.value/10.0f);
  }
  if(result!=MOTION_OK) { fail(n); return; }
- n->issued=true; n->moving=true; n->forward_moving=(a.kind==MOVE); n->motion_seen=false;
+ n->issued=true; n->moving=true; n->forward_moving=(a.kind==MOVE || a.kind==SWEEP); n->motion_seen=false;
  n->settled=0; n->check_since=now;
 }
 void full_nav_feedback(const full_nav_t *n,uint32_t timestamp,b5_feedback_t *f) {

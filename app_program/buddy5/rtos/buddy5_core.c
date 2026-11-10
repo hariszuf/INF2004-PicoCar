@@ -362,11 +362,14 @@ void b5_core_update(b5_core_t *c,uint32_t now,
 #if B5_SIMPLE_BYPASS
             {
                 /* One long move past the whole box: front + depth + car length + margin. */
-                int32_t depth=c->profile.depth_valid ? c->profile.depth_high_mm : B5_ASSUMED_DEPTH_MM;
+                /* Pass: factor x the measured width from the first stop point. */
+                int32_t width=c->profile.width_valid ? c->profile.width_mm : B5_UNKNOWN_WIDTH_MM;
+                int32_t pass=B5_PASS_WIDTH_FACTOR*width;
+                if (pass<B5_MIN_PASS_MM) pass=B5_MIN_PASS_MM;
                 c->advance_start_x=f->forward_mm;
                 c->phase=2;
-                request(c,B5_REQ_ADVANCE,now,
-                        c->profile.front_mm+depth+B5_CAR_LENGTH_MM+B5_BYPASS_END_MARGIN_MM,c->bypass_y);
+                /* The origin moved back by every rescan reverse, so add those back. */
+                request(c,B5_REQ_ADVANCE,now,f->forward_mm+(int32_t)c->rescans*B5_RESCAN_BACKUP_MM+pass+B5_PASS_SAFETY_MM,c->bypass_y);
             }
 #endif
         }
