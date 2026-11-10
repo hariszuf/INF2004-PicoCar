@@ -131,6 +131,10 @@ motion_result_t motion_set_speed(float speed_cm_s);
  */
 motion_result_t motion_set_terrain(const motion_terrain_input_t *p_input);
 
+/** Latest tilt from Buddy 4 (unfiltered by the terrain hysteresis). Returns true only if the
+ *  report is valid and fresh (younger than MOTION_TERRAIN_STALE_MS). Safe from any task. */
+bool motion_get_tilt(float *p_pitch_deg, float *p_roll_deg);
+
 /** Controlled stop: brake and return to IDLE. */
 void motion_stop(void);
 

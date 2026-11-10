@@ -18,8 +18,10 @@ typedef enum
     LINE_STATE_STEER_LEFT,   /* only the left sensor on the line */
     LINE_STATE_STEER_RIGHT,  /* only the right sensor on the line */
     LINE_STATE_RECOVERING,   /* line just lost, turning toward the last side */
-    LINE_STATE_STOPPED,      /* no line, motors stopped (resumes if the line returns) */
-    LINE_STATE_FAULT         /* Motion Control reported an error */
+    LINE_STATE_STOPPED,      /* no line, or both sensors on black in straddle mode; motors stopped (resumes) */
+    LINE_STATE_FAULT,        /* Motion Control reported an error */
+    LINE_STATE_FROZEN,       /* tilted on a hump/slope: sensors ignored, last commands kept */
+    LINE_STATE_JUNCTION      /* "+" junction: stopped, then turning/crossing (see line_config.h) */
 } line_state_t;
 
 typedef struct

@@ -6,7 +6,9 @@
 #include "compat/hardware/gpio.h"
 #include "compat/hardware/pwm.h"
 #define REG(a) (*(volatile uint32_t *)(uintptr_t)(a))
+extern void motion_encoder_irq_handler(unsigned int gpio, uint32_t events);
 static b5_gpio_callback_t encoder_callback;
+volatile uint32_t b5p_dbg_enc_events, b5p_dbg_cb_calls; /* diagnostic counters */
 uint64_t b5p_time_us_64(void) {
  uint32_t h,l,h2;
  do { h=REG(0x40054024u); l=REG(0x40054028u); h2=REG(0x40054024u); } while(h!=h2);
@@ -63,7 +65,9 @@ static void gpio_dispatch(UINT intno) {
   uint32_t events=(status>>(p*4u))&12u;
   if(events) {
    REG(0x400140f0u)=events<<(p*4u);
-   if(encoder_callback) encoder_callback(p,events);
+   ++b5p_dbg_enc_events;
+   /* Call Buddy 2 directly: the registered callback was never invoked in this build. */
+   ++b5p_dbg_cb_calls; motion_encoder_irq_handler((unsigned int)p,events);
   }
  }
 }

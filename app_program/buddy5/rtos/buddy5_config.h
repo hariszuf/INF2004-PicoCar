@@ -22,7 +22,7 @@
 #define B5_FEEDBACK_MAX_AGE_MS 250u
 #define B5_REQUEST_TIMEOUT_MS 90000u
 #define B5_SCAN_TIMEOUT_MS 30000u
-#define B5_AVOID_TIMEOUT_MS 30000u
+#define B5_AVOID_TIMEOUT_MS 120000u /* long open-loop bypass + line recovery */
 /* STATIONARY demonstration; motor power off. No motor commands issued.
  * Set 0 only with registered, tested Vehicle Controller callbacks. */
 #ifndef B5_BENCH_MODE
@@ -60,8 +60,41 @@
 /* After a full scan has selected a side, allow the initial lateral bypass to
  * approach the obstacle edge more closely; the normal forward guard remains. */
 #define B5_BYPASS_GUARD_FRONT_MM 80
-/* Hardware calibration: a requested/reported 90-degree odometry turn was
- * observed as approximately one full physical rotation. */
-#define B5_TURN_ODOMETRY_CORRECTION 4.0f
+/* Turn calibration. The old value 4.0 compensated the encoders under-counting before the Buddy 2 encoder fix
+ * (a requested 90-degree turn was a full rotation). With correct counts Buddy 2 turns accurately, so 1.0.
+ * If bypass turns come out too small/large, TUNE this (-DB5_TURN_ODOMETRY_CORRECTION=..). */
+#ifndef B5_TURN_ODOMETRY_CORRECTION
+#define B5_TURN_ODOMETRY_CORRECTION 1.0f
+#endif
+
+/* Simple bypass: after the scan picks a side, drive sideways, pass the box in ONE move (assumed depth),
+ * come back to the line and find it with the IR sensors. 0 = the original step-by-step side-wall sampling. */
+#ifndef B5_SIMPLE_BYPASS
+#define B5_SIMPLE_BYPASS 1
+#endif
+/* TUNE: depth of the box along the line (mm) when the scan could not measure it. Bigger = safer. */
+#ifndef B5_ASSUMED_DEPTH_MM
+#define B5_ASSUMED_DEPTH_MM 500
+#endif
+/* The scan only sees about +/-35 degrees, so a wide box's edges can be out of view and its width underestimated.
+ * Always keep the car at least this far (mm) from the line while passing. TUNE: >= half the widest box + 85 + 50. */
+#ifndef B5_MIN_BYPASS_OFFSET_MM
+#define B5_MIN_BYPASS_OFFSET_MM 420
+#endif
+/* Extra distance past the box rear so the car's tail clears it before turning back (mm). */
+#define B5_BYPASS_END_MARGIN_MM 60
+/* A long open-loop forward move drifts a little: allowed end-position error (mm). */
+#if B5_SIMPLE_BYPASS
+#define B5_ADV_TOL_X_MM 60
+#define B5_ADV_TOL_Y_MM 80
+#else
+#define B5_ADV_TOL_X_MM 5
+#define B5_ADV_TOL_Y_MM 20
+#endif
+/* Sideways sweep back to the line: how far past the expected line position to keep looking (mm). */
+#define B5_LINE_SWEEP_EXTRA_MM 150
+/* Slow pivot that finds the line after the return turn: speed (cm/s) and timeout (ms). */
+#define B5_LINE_SEARCH_SPEED_CM_S 4.0f
+#define B5_LINE_SEARCH_MS 4000u
 
 #endif

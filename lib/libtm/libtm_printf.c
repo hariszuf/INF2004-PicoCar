@@ -369,6 +369,12 @@ LOCAL	void	out_cons( UB *str, INT len,  OutPar *par )
 
 EXPORT INT	tm_printf( const UB *format, ... )
 {
+#if defined(B3_BARCODE_ONLY) && (B3_BARCODE_ONLY != 0)
+	/* Barcode bench test: print only "[B3 BARCODE]" lines. */
+	if(!(format[0]=='[' && format[1]=='B' && format[2]=='3' && format[3]==' ' && format[4]=='B')) {
+		return 0;
+	}
+#endif
 	va_list	ap;
 	INT	result;
 #if TM_CONSOLE_USB_CDC

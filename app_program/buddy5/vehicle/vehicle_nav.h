@@ -5,14 +5,16 @@
 #include "../rtos/buddy5_core.h"
 #include "../../buddy2/motion_control.h"
 typedef struct { unsigned kind; float value; } full_action_t;
+#define FULL_NAV_MAX_ACTIONS 6
 typedef struct {
  float x,y,heading,last_distance,last_heading,heading_origin;
  bool observed,active,issued,moving,forward_moving,motion_seen,failed,resumed;
- bool recovery_stop;
+ bool recovery_stop,acquired;
+ unsigned search_phase;
  unsigned settled,line_seen,index,count,search;
  uint32_t completed_id,started,check_since;
  b5_request_t request;
- full_action_t actions[4];
+ full_action_t actions[FULL_NAV_MAX_ACTIONS];
 } full_nav_t;
 void full_nav_init(full_nav_t *n,const motion_status_t *m);
 bool full_nav_accept(full_nav_t *n,const b5_request_t *r,uint32_t now);

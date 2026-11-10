@@ -152,7 +152,9 @@
 /** Gravity feed-forward: extra duty per g of slope (x sin(pitch)), both wheels. */
 #define MOTION_GRADE_DUTY_PER_G         (0.8f)    /* TUNE */
 /** Hump assist: extra duty on the RAISED wheel per sin(|roll|). */
+#ifndef MOTION_HUMP_DUTY_PER_G
 #define MOTION_HUMP_DUTY_PER_G          (0.8f)    /* TUNE */
+#endif
 /** Limits on the terrain duty assist and how fast it may change. */
 #define MOTION_TERRAIN_DUTY_MAX         (0.30f)
 #define MOTION_TERRAIN_DUTY_RATE_PER_S  (1.5f)

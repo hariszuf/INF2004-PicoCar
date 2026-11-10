@@ -309,6 +309,7 @@ const telemetryValueKeys = {
     "5/55": ["obstacle_id", "report_uptime_ms"],
     "5/56": ["obstacle_validity_mask", "telemetry_drops"],
     "5/58": ["raw_range_mm", "raw_range_status"],
+    "5/57": ["halt_reason_code", "halt_count"],
     "2/4": ["left_encoder_ticks", "right_encoder_ticks"],
     "4/11": ["sample_age_ms", "imu_errors"],
     "4/12": ["clipped_samples", "unsuitable_samples"],
@@ -451,7 +452,7 @@ function updateMeasurements() {
         measured("ir-centre", mask & 4 ? "Black" : "White", line);
         measured("ir-right", mask & 2 ? "Black" : "White", line);
         measured("line-detection", ["Both white", "Left black", "Right black", "Both black"][mask & 3], line);
-        const states = ["Idle", "Straight", "Steer left", "Steer right", "Recovering", "Stopped", "Fault"];
+        const states = ["Idle", "Straight", "Steer left", "Steer right", "Recovering", "Stopped", "Fault", "Frozen (tilt)", "Junction"];
         measured("tracking-state", states[state] ?? "Unknown", line);
     }
     const barcode = sensorObservations.get("3/6");
@@ -564,6 +565,7 @@ const telemetryValueLabels = {
     "5/55": ["Obstacle ID", "Report uptime (ms)"],
     "5/56": ["Obstacle validity bitmask", "Telemetry drops"],
     "5/58": ["Raw ultrasonic range (mm)", "Ultrasonic status code"],
+    "5/57": ["Last self-halt reason code", "Self-halt count"],
     "2/4": ["Left encoder ticks", "Right encoder ticks"],
     "4/11": ["Sample age (ms)", "IMU errors"],
     "4/12": ["Clipped samples", "Unsuitable samples"],

@@ -155,6 +155,13 @@ bool barcode39_decode_elements(const uint32_t *w, uint8_t count, const barcode39
     return false;
 }
 
+__attribute__((weak)) void barcode39_on_fail(const uint32_t *w, uint8_t n, uint8_t reason)
+{
+    (void)w;
+    (void)n;
+    (void)reason;
+}
+
 uint8_t barcode39_last_fail(void) { return s_last_fail; }
 uint32_t barcode39_fail_count(void) { return s_fail_count; }
 
@@ -209,6 +216,7 @@ bool barcode39_feed(barcode39_t *d, bool is_black, uint32_t width, barcode39_res
                 d->n = 0;
                 return true;
             }
+            barcode39_on_fail(d->w, d->n, barcode39_last_fail());
             drop2(d);
             continue;
         }
