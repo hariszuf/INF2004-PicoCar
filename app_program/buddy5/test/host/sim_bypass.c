@@ -36,7 +36,7 @@ static double X, Y, TH, REP, DIST_CM;          /* axle position, physical headin
 static enum { IDLE, TURN, MOVE, DRIVE, STOPPING } mode;
 static double rem;                              /* remaining deg / mm */
 static double dl, dr;                           /* DRIVE wheel speeds cm/s */
-static double move_speed = 60.0;                /* mm/s */
+static double move_speed = 80.0;                /* mm/s */
 static int stop_ms;
 static int pending; static int p_type; static double p_val, p_l, p_r;
 enum { P_STOP=1, P_TURN, P_MOVE, P_DRIVE };
