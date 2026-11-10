@@ -301,7 +301,7 @@ void b5_core_update(b5_core_t *c,uint32_t now,
         c->front_clearance_mm=b5_front_clearance(r);
         if (c->front_clearance_mm<=B5_STOP_FRONT_MM) {
             uint32_t id=c->profile.obstacle_id+1u;
-            memset(&c->profile,0,sizeof(c->profile)); c->profile.obstacle_id=id; c->rescans=0;
+            memset(&c->profile,0,sizeof(c->profile)); c->profile.obstacle_id=id; c->rescans=0; c->extends=0;
             state(c,B5_WAIT_STOP,now);
             request(c,B5_REQ_STOP,now,0,0);
         }
@@ -369,7 +369,8 @@ void b5_core_update(b5_core_t *c,uint32_t now,
                 c->advance_start_x=f->forward_mm;
                 c->phase=2;
                 /* The origin moved back by every rescan reverse, so add those back. */
-                request(c,B5_REQ_ADVANCE,now,f->forward_mm+(int32_t)c->rescans*B5_RESCAN_BACKUP_MM+pass+B5_PASS_SAFETY_MM,c->bypass_y);
+                (void)pass;
+                request(c,B5_REQ_ADVANCE,now,f->forward_mm+(int32_t)c->rescans*B5_RESCAN_BACKUP_MM+c->profile.front_mm+B5_AXLE_TO_SENSOR_MM+B5_PASS_BESIDE_MM,c->bypass_y);
             }
 #endif
         }
@@ -413,6 +414,14 @@ void b5_core_update(b5_core_t *c,uint32_t now,
         } else side_sample(c,now,f,r);
         break;
     case B5_LINE_RECOVERY:
+        c->extends=f->extends;
+        if (f->front_ok && !c->profile.depth_valid) {
+            /* Sonar saw nothing beside the box after k extends: box depth is between the previous and this axle position. */
+            int32_t gain=B5_EXTEND_MM-B5_RETURN_REVERSE_MM, k=f->extends;
+            c->profile.depth_high_mm=B5_PASS_BESIDE_MM+k*gain;
+            c->profile.depth_low_mm=k>0 ? B5_PASS_BESIDE_MM+(k-1)*gain : 0;
+            c->profile.depth_valid=true;
+        }
         if (f->completed_id==c->request.id) {
             if (!c->phase) {
                 if (!f->stopped || !f->line_acquired || !f->heading_aligned) {
