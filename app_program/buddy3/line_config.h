@@ -64,7 +64,7 @@
 /** 1 = use the latest barcode letter for each junction. 0 = always use LINE_JUNCTION_DEFAULT_ACTION (testing,
  *  no barcode yet). With 1 and no new letter since the last junction, the default action is still used. */
 #ifndef LINE_JUNCTION_USE_BARCODE
-#define LINE_JUNCTION_USE_BARCODE   (0u)
+#define LINE_JUNCTION_USE_BARCODE   (1u)
 #endif
 /** Action when there is no barcode: JUNCTION_LEFT, JUNCTION_STRAIGHT or JUNCTION_RIGHT. Test = turn right. */
 #ifndef LINE_JUNCTION_DEFAULT_ACTION
