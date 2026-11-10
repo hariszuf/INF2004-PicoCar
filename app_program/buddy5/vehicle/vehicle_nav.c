@@ -18,7 +18,7 @@ void full_nav_init(full_nav_t *n,const motion_status_t *m) {
  n->last_heading=corrected_heading(m);
  n->heading_origin=n->last_heading; n->observed=true;
 }
-void full_nav_set_front(full_nav_t *n,bool fresh,int32_t clearance_mm) { n->front_fresh=fresh; n->front_mm=clearance_mm; }
+void full_nav_set_front(full_nav_t *n,bool fresh,int32_t clearance_mm,int angle_deg) { n->front_fresh=fresh; n->front_mm=clearance_mm; n->front_angle=angle_deg; }
 /* Return to the line. side=+1: the line is on the left. extend=true: still beside the box, so first reverse
  * a little, face forward again and drive a bit further before facing the line. */
 /* Distance driven on after the sensors first see the line, so the axle (the pivot point) is over the line. */
@@ -35,11 +35,8 @@ static void build_recover(full_nav_t *n,float side,bool extend) {
  }
  n->actions[i++]=(full_action_t){TURN,side*90.0f};
  n->actions[i++]=(full_action_t){CHECK_FRONT,0};
- /* Sonar saw nothing: the axle is past the box rear. Drive on far enough for the tail to swing clear
-  * when the car pivots back onto the line, then face the line again. */
- n->actions[i++]=(full_action_t){TURN,0};
- n->actions[i++]=(full_action_t){MOVE,B5_PASS_TAIL_MM};
- n->actions[i++]=(full_action_t){TURN,side*90.0f};
+ /* No extra turns once the check is clear: the sonar looks back toward the box (B5_RECOVERY_LOOK_BACK),
+  * so "clear" already means the car's tail will swing past the box rear at the line. */
  n->actions[i++]=(full_action_t){SWEEP,sweep};
 #if LINE_JUNCTION
  /* Exactly the "+" junction turn (advance, turn, slow search), then centre the tape between the sensors. */
@@ -136,7 +133,8 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
   return;
  }
  if(n->request.kind==B5_REQ_RESUME_LINE) {
-  if(n->settled>=3 && guard && (n->line_seen>=3 || n->acquired)) {   /* heading not checked: like the junction, the line follower centres the car */
+  /* No forward-guard wait here: line following detects (and stops for) anything ahead within B5_STOP_FRONT_MM. */
+  if(n->settled>=3 && (guard || B5_BYPASS_IGNORE_GUARD) && (n->line_seen>=3 || n->acquired)) {   /* heading not checked: like the junction, the line follower centres the car */
    if(!line_follow_start()) { fail(n); return; }
    n->completed_id=n->request.id; n->active=false; n->resumed=true;
   }
@@ -222,6 +220,8 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
   if(n->request.kind==B5_REQ_ADVANCE)
    pose=pose && absolute(n->x-n->request.forward_mm)<=B5_ADV_TOL_X_MM && absolute(n->y-n->request.lateral_mm)<=B5_ADV_TOL_Y_MM;
   if(n->request.kind==B5_REQ_RECOVER_LINE) pose=pose && (n->line_seen>=3 || n->acquired);
+  /* Found by the line sensors (junction-style hand-back): they are the truth, encoder heading drift is not. */
+  if(n->request.kind==B5_REQ_RECOVER_LINE && n->acquired) pose=true;
   if(!pose) { fail(n); return; }
   n->completed_id=n->request.id; n->active=false; return;
  }
@@ -237,7 +237,13 @@ if(a.kind==CHECK_FRONT) {
   if((uint32_t)(now-n->check_since)<B5_CHECK_SETTLE_MS) return;
   /* Blocked only by something between the sonar and the line (the sonar is B5_AXLE_TO_SENSOR_MM ahead of
    * the axle). Anything farther is beyond the line and is not the box: no reverse. */
-  if(n->front_mm>=(int32_t)absolute(n->y)-B5_AXLE_TO_SENSOR_MM-B5_CHECK_MARGIN_MM) { n->front_ok=true; ++n->index; n->check_since=0; return; }
+  {
+   /* Sonar range to the line along the current servo angle; with the look-back angle, echoes a little past
+    * the line still belong to the box. */
+   float to_line=absolute(n->y)-B5_AXLE_TO_SENSOR_MM-B5_CHECK_MARGIN_MM+(n->front_angle?B5_CHECK_BEYOND_MM:0);
+   float c=cosf((float)n->front_angle*0.01745329252f);
+   if((float)n->front_mm>=to_line/(c>0.5f?c:0.5f)) { n->front_ok=true; ++n->index; n->check_since=0; return; }
+  }
   if(n->retries>=B5_MAX_EXTENDS) { fail(n); return; }
   ++n->retries;
   build_recover(n,n->recover_side,true);

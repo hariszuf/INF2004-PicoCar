@@ -98,7 +98,8 @@ static void scan_task(INT stacd,void *exinf) {
      last_bad=now;
     }
     (void)line_controller_feedback(&feedback);
-    if(forward) { front_valid=filtered.valid; front_time=now; }
+    /* During the return to the line the reading at the look-back angle is published too (with its angle). */
+    if(forward || guard_mode) { front_valid=filtered.valid; front_time=now; }
     if(core.state==B5_SCANNING)
      tm_printf((UB*)"[SCAN] angle=%d echo=%d mm=%d\n",angle,filtered.valid && !b5_range_no_echo(&filtered),b5_range_no_echo(&filtered)?-1:(int)filtered.distance_mm);
     if(core.state==B5_MONITORING && !line_controller_active()) {
@@ -114,7 +115,9 @@ static void scan_task(INT stacd,void *exinf) {
       * close return still stops immediately. */
      if(filtered.valid) {
       core.front_clearance_mm=b5_front_clearance(&filtered);
-      if(core.front_clearance_mm<=B5_GUARD_FRONT_MM)
+      /* With B5_BYPASS_IGNORE_GUARD the close return is still reported (the sonar check uses it) but no
+       * longer faults the return to the line: people standing beside the track triggered it. */
+      if(core.front_clearance_mm<=B5_GUARD_FRONT_MM && !B5_BYPASS_IGNORE_GUARD)
        b5_core_fail(&core,B5_FAULT_NO_ROUTE,now);
      }
     } else {

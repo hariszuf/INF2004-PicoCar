@@ -70,6 +70,11 @@ b5_range_t b5_filter(const b5_range_t samples[B5_SAMPLE_COUNT]) {
 int b5_core_angle(const b5_core_t *c) {
     if (c->state==B5_SCANNING) return (int)c->scan.slot*5+B5_SCAN_MIN_DEG;
     if (c->state==B5_AVOIDING && c->phase==1) return c->profile.side>0 ? B5_SCAN_MIN_DEG : B5_SCAN_MAX_DEG;
+#if B5_RECOVERY_LOOK_BACK
+    /* Returning to the line: aim the sonar back toward the box so the check after turning sees a box rear
+     * that is still level with the car's tail, not only one level with the axle. */
+    if (c->state==B5_LINE_RECOVERY && c->phase==0) return c->profile.side>0 ? B5_SCAN_MIN_DEG : B5_SCAN_MAX_DEG;
+#endif
     return 0;
 }
 bool b5_core_wants_range(const b5_core_t *c) {
@@ -399,7 +404,7 @@ void b5_core_update(b5_core_t *c,uint32_t now,
                 c->phase=2;
                 /* The origin moved back by every rescan reverse, so add those back. */
                 (void)pass;
-                request(c,B5_REQ_ADVANCE,now,f->forward_mm+(int32_t)c->rescans*B5_RESCAN_BACKUP_MM+c->profile.front_mm+B5_AXLE_TO_SENSOR_MM+B5_PASS_BESIDE_MM,c->bypass_y);
+                request(c,B5_REQ_ADVANCE,now,f->forward_mm+(int32_t)c->rescans*B5_RESCAN_BACKUP_MM+c->profile.front_mm+B5_AXLE_TO_SENSOR_MM+B5_PASS_BESIDE_MM+B5_PASS_TAIL_MM,c->bypass_y);
             }
 #endif
         }
@@ -447,8 +452,9 @@ void b5_core_update(b5_core_t *c,uint32_t now,
         if (f->front_ok && !c->profile.depth_valid) {
             /* Sonar saw nothing beside the box after k extends: box depth is between the previous and this axle position. */
             int32_t gain=B5_EXTEND_MM-B5_RETURN_REVERSE_MM, k=f->extends;
-            c->profile.depth_high_mm=B5_PASS_BESIDE_MM+k*gain;
-            c->profile.depth_low_mm=k>0 ? B5_PASS_BESIDE_MM+(k-1)*gain : 0;
+            int32_t first=B5_PASS_BESIDE_MM+B5_PASS_TAIL_MM;   /* where the first sonar check happens */
+            c->profile.depth_high_mm=first+k*gain;
+            c->profile.depth_low_mm=k>0 ? first+(k-1)*gain : 0;
             c->profile.depth_valid=true;
         }
         if (f->completed_id==c->request.id) {
