@@ -102,6 +102,8 @@
 /* Sonar check after turning toward the line: wait this long (ms) for post-turn pings, then the box counts as
  * still beside the car only if it is at least this far (mm) short of the line. */
 #define B5_CHECK_SETTLE_MS 500u
+/* While sweeping back across the line: black longer than this (mm) is not the tape edge-to-edge. */
+#define B5_TAPE_MAX_MM 40.0f
 /* Lateral room (mm) from the box edge to the axle so a 90 degree pivot beside the box cannot clip it:
  * corner radius sqrt(177^2+85^2) = 196 plus a margin. */
 #define B5_PIVOT_CLEAR_MM 220

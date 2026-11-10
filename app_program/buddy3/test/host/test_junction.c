@@ -26,6 +26,7 @@ bool motion_is_idle(void) { return s_idle; }
 void motion_stop(void) { s_stop_calls++; }
 motion_result_t motion_drive(float l, float r) { (void)l; (void)r; s_drive_calls++; return MOTION_OK; }
 motion_result_t motion_move_forward(float d) { s_forward_calls++; s_last_forward = d; s_idle = false; return MOTION_OK; }
+motion_result_t motion_move_backward(float d) { (void)d; s_idle = false; return MOTION_OK; }
 motion_result_t motion_turn_left(float a) { s_left_calls++; s_last_turn = a; s_idle = false; return MOTION_OK; }
 motion_result_t motion_turn_right(float a) { s_right_calls++; s_last_turn = a; s_idle = false; return MOTION_OK; }
 

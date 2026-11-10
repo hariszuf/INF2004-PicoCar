@@ -311,9 +311,7 @@ const telemetryValueKeys = {
     "5/58": ["raw_range_mm", "raw_range_status"],
     "5/57": ["halt_reason_code", "halt_count"],
     "5/59": ["box_front_gap_mm", "advance_target_mm"],
-    "5/60": ["exec_state", "exec_reason"],
-    "5/61": ["start_result", "start_count"],
-    "5/62": ["auto_restarts", "reserved"],
+    "5/60": ["exec_state_and_start_result", "stop_reason_and_auto_restarts"],
     "2/4": ["left_encoder_ticks", "right_encoder_ticks"],
     "4/11": ["sample_age_ms", "imu_errors"],
     "4/12": ["clipped_samples", "unsuitable_samples"],
@@ -450,20 +448,21 @@ function updateMeasurements() {
         measured("motor-status", faults[fault] ?? `Unknown fault (${fault})`, odometry, fault ? "fault" : "neutral");
     }
     {
-        const exec = sensorObservations.get("5/60"), start = sensorObservations.get("5/61"), retries = sensorObservations.get("5/62");
+        const exec = sensorObservations.get("5/60");
         const states = ["Startup: waiting for boot delay", "Startup: waiting for readiness", "Running", "Stopped", "Restart requested: waiting for readiness", "Faulted: operator action needed (power-cycle)"];
         const reasons = ["none", "user stop", "obstacle scanner heartbeat timeout", "obstacle subsystem fault", "line lost outside recovery", "request rejected", "barcode turn rejected", "motor scheduling delay", "motor fault / stall", "forward range unavailable while moving", "navigation failed / pose mismatch", "motor reset failed", "line follower could not start"];
         const startResults = ["no START received", "START accepted", "START ignored: already starting or running", "START rejected: persistent fault"];
         const state = byId("exec-state"), detail = byId("exec-detail");
         if (exec && state && detail) {
-            const code = exec.fields.value1, reason = exec.fields.value2;
+            const code = exec.fields.value1 & 15, startResult = (exec.fields.value1 >> 4) & 15;
+            const reason = exec.fields.value2 & 255, autoRestarts = exec.fields.value2 >>> 8;
             const stale = Date.now() - exec.at >= 3000;
             state.firstChild.textContent = `${states[code] ?? `Unknown (${code})`}${stale ? " (stale)" : ""}`;
             state.dataset.tone = code === 5 ? "fault" : "neutral";
             const parts = [];
             if ((code === 3 || code === 5 || code === 4) && reason) parts.push(`last stop: ${reasons[reason] ?? `code ${reason}`}`);
-            if (retries && retries.fields.value1 > 0) parts.push(`automatic restarts: ${retries.fields.value1}`);
-            if (start) parts.push(`${startResults[start.fields.value1] ?? "START result unknown"} (${start.fields.value2} received)`);
+            if (autoRestarts > 0) parts.push(`automatic restarts: ${autoRestarts}`);
+            if (startResult) parts.push(startResults[startResult] ?? "START result unknown");
             detail.textContent = parts.join(" · ") || "Reported by the vehicle controller";
         }
     }
@@ -591,9 +590,7 @@ const telemetryValueLabels = {
     "5/58": ["Raw ultrasonic range (mm)", "Ultrasonic status code"],
     "5/57": ["Last self-halt reason code", "Self-halt count"],
     "5/59": ["Distance to box front (mm)", "Straight-leg target (mm)"],
-    "5/60": ["Vehicle execution state", "Last stop reason code"],
-    "5/61": ["Last START result", "START requests received"],
-    "5/62": ["Automatic restarts", "Reserved"],
+    "5/60": ["Execution state (bits 0-3) + last START result (bits 4-7)", "Last stop reason (bits 0-7) + automatic restarts (bits 8+)"],
     "2/4": ["Left encoder ticks", "Right encoder ticks"],
     "4/11": ["Sample age (ms)", "IMU errors"],
     "4/12": ["Clipped samples", "Unsuitable samples"],

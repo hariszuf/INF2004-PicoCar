@@ -38,9 +38,9 @@ bool line_follow_start(void);
 void line_follow_stop(void);
 void line_follow_update(void);
 /* Obstacle-bypass hand-back: the car is stopped facing across the line with a sensor on it. Runs the "+"
- * junction turn (advance, turn, slow search; direction +1 left / -1 right), then centres the tape between
+ * junction turn (advance advance_cm to put the axle on the tape, turn, slow search; direction +1 left / -1 right), then centres the tape between
  * the two sensors and stops. Keep calling line_follow_update(). Status: 0 running, 1 done, -1 failed. */
-bool line_follow_rejoin(int direction);
+bool line_follow_rejoin(int direction, float advance_cm);
 int line_follow_rejoin_status(void);
 void line_follow_get_status(line_status_t *p_status);
 

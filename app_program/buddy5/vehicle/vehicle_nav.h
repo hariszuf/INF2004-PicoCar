@@ -12,7 +12,9 @@ typedef struct {
  bool recovery_stop,acquired;
  unsigned search_phase,retries;
  bool front_ok;
- bool rejoining;   /* line follower is running the junction-style hand-back */
+ bool rejoining;
+ bool tape_entered, tape_measured;   /* line crossing measured during the sweep back */
+ float tape_enter_y, tape_line_y;   /* line follower is running the junction-style hand-back */
  float recover_side;
  bool front_fresh;
  int32_t front_mm;

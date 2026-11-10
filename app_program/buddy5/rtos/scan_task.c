@@ -167,14 +167,13 @@ static void scan_task(INT stacd,void *exinf) {
    emit(53,core.profile.depth_valid?core.profile.depth_low_mm:-1,core.profile.depth_valid?core.profile.depth_high_mm:-1,seq);
    emit(55,(int32_t)core.profile.obstacle_id,(int32_t)now,seq);
    emit(56,(core.profile.width_valid?1:0)|(core.profile.depth_valid?2:0)|(core.edges_seen?4:0)|(core.profile.width_estimated?8:0)|16,(int32_t)core.extends,seq);
-   emit(59,core.profile.front_mm,(int32_t)core.request.forward_mm,seq); /* box front gap, current ADVANCE target */
    /* Raw echo is separate from filtered front clearance; -1 means no fresh
     * measurement. Status follows ultrasonic_status_t (0..4). */
    bool raw_fresh=raw_seen && (uint32_t)(now-last_raw_time)<=B5_RAW_REPORT_MAX_AGE_MS;
-   emit(60,b5_exec_state,b5_exec_reason,seq);   /* vehicle execution state + reason (not the MQTT publish status) */
-   emit(61,b5_start_result,b5_start_count,seq); /* last START result + START count */
-   emit(62,b5_auto_retries,0,seq);              /* automatic restarts after uncommanded stops */
-   emit(57,b5_halt_code,b5_halt_count,seq); /* last self-halt reason; 0 = none yet */
+   /* One packet for the vehicle execution status, kept small so the shared telemetry queue does not drop the
+    * obstacle profile packets above. value_1 = state | last START result << 4,
+    * value_2 = last stop reason | automatic restarts << 8. */
+   emit(60,(b5_exec_state&15)|((b5_start_result&15)<<4),(b5_exec_reason&255)|(b5_auto_retries<<8),seq);
    emit(B5_TELEM_RAW_RANGE,raw_fresh && last_raw.status==US_OK?(int32_t)last_raw.distance_mm:-1,
         raw_fresh?(int32_t)last_raw.status:-1,seq);
    last_report=now;
