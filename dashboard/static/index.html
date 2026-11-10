@@ -52,7 +52,7 @@
             <button class="command-button start-button" type="button" id="start-command" disabled><svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7z"/></svg>START</button>
             <button class="command-button stop-button" type="button" id="stop-command" disabled><svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>STOP</button>
         </div>
-        <div class="command-feedback"><p id="command-result" role="status" aria-live="polite">No command sent. Execution unconfirmed.</p><p id="command-disclaimer">MQTT publishing only. Execution is not acknowledged.</p></div>
+        <div class="command-feedback"><p id="command-result" role="status" aria-live="polite">No command sent. Execution unconfirmed.</p><p id="command-disclaimer">START also restarts the car after a stop (clears recoverable stops, then waits for readiness). A queued publication does not prove the car accepted it: see "Execution state".</p></div>
     </section>
     <main id="main" tabindex="-1">
         <div class="page-heading"><div><h1 id="view-title">Overview</h1><p id="view-description">Connection evidence and subsystem coverage for vehicle1.</p></div><button class="quiet-button" id="refresh-button" type="button">Refresh telemetry</button></div>
@@ -61,7 +61,7 @@
         <section class="view" id="view-overview" aria-label="General telemetry">
             <div class="overview-lead">
                 <div><h2 id="connection-headline">Establishing the telemetry link</h2><p id="connection-explanation">Checking the dashboard API, broker connection and vehicle heartbeat.</p><a class="text-link" href="#safety">Review controller &amp; safety</a></div>
-                <dl class="lead-facts"><div><dt>Operating mode</dt><dd>Future implementation</dd></div><div><dt>Execution state</dt><dd>Unconfirmed<span>No command acknowledgement</span></dd></div></dl>
+                <dl class="lead-facts"><div><dt>Operating mode</dt><dd>Future implementation</dd></div><div><dt>Execution state</dt><dd id="exec-state">Unconfirmed<span id="exec-detail">No vehicle execution report yet</span></dd></div></dl>
             </div>
             <div class="section-heading"><h2>Subsystem coverage</h2><span class="muted">Evidence, not a readiness verdict</span></div>
             <div class="subsystem-table" role="region" aria-label="Subsystem telemetry coverage">

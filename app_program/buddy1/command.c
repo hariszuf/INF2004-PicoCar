@@ -208,6 +208,13 @@ static uint8_t command_text_matches(
  * Convert a command string into command_message_t
  * and submit it using the existing non-blocking API.
  */
+/*
+ * Integrated vehicle only: non-blocking START/STOP intent for the single controller task. Weak, so profiles
+ * without the vehicle controller still link (the pointer is then NULL). It only sets flags: MQTT code never
+ * calls a motor API, and it bypasses the diagnostic message buffer below so a full buffer cannot drop a STOP.
+ */
+extern void b5_remote_command_intent(unsigned command) __attribute__((weak));
+
 int32_t buddy1_mqtt_command_ingest(
     const char *payload,
     uint16_t payload_length)
@@ -242,6 +249,16 @@ int32_t buddy1_mqtt_command_ingest(
      * Source 1 represents Wi-Fi/Buddy 1.
      * No motor action is performed at this stage.
      */
+    if (b5_remote_command_intent != NULL) {
+        if (message.type == COMMAND_TYPE_STOP) {
+            b5_remote_command_intent((unsigned)'S');
+        }
+        else if (message.type == COMMAND_TYPE_START) {
+            b5_remote_command_intent((unsigned)'R');
+        }
+        /* PAUSE / RESUME stay parsed and logged only. */
+    }
+
     message.source = 1U;
     message.flags = 0U;
     message.value = 0;

@@ -261,7 +261,7 @@ function updateCommandButtons() {
     byId("start-command").disabled = !statusAvailable || !brokerConnected || pendingCommands.size > 0;
     // STOP remains independent of an in-flight START and can be attempted when connection evidence is unknown.
     byId("stop-command").disabled = pendingCommands.has("STOP") || (statusAvailable && !brokerConnected);
-    byId("start-command").title = statusAvailable && brokerConnected ? "Publish START; execution remains unconfirmed" : "START requires a confirmed dashboard-to-broker connection";
+    byId("start-command").title = statusAvailable && brokerConnected ? "Publish START (also restarts after a stop); see Execution state for the vehicle result" : "START requires a confirmed dashboard-to-broker connection";
     byId("stop-command").title = statusAvailable && !brokerConnected ? "MQTT broker disconnected" : "Publish STOP; this is not a hardware emergency stop";
 }
 
@@ -445,6 +445,23 @@ function updateMeasurements() {
         const fault = odometry.fields.value2;
         const faults = ["No fault reported", "Stopped by controller (see halt reason 5/57)", "Motor stall"];
         measured("motor-status", faults[fault] ?? `Unknown fault (${fault})`, odometry, fault ? "fault" : "neutral");
+    }
+    {
+        const exec = sensorObservations.get("5/60"), start = sensorObservations.get("5/61");
+        const states = ["Startup: waiting for boot delay", "Startup: waiting for readiness", "Running", "Stopped", "Restart requested: waiting for readiness", "Faulted: operator action needed (power-cycle)"];
+        const reasons = ["none", "user stop", "obstacle scanner heartbeat timeout", "obstacle subsystem fault", "line lost outside recovery", "request rejected", "barcode turn rejected", "motor scheduling delay", "motor fault / stall", "forward range unavailable while moving", "navigation failed / pose mismatch", "motor reset failed", "line follower could not start"];
+        const startResults = ["no START received", "START accepted", "START ignored: already starting or running", "START rejected: persistent fault"];
+        const state = byId("exec-state"), detail = byId("exec-detail");
+        if (exec && state && detail) {
+            const code = exec.fields.value1, reason = exec.fields.value2;
+            const stale = Date.now() - exec.at >= 3000;
+            state.firstChild.textContent = `${states[code] ?? `Unknown (${code})`}${stale ? " (stale)" : ""}`;
+            state.dataset.tone = code === 5 ? "fault" : "neutral";
+            const parts = [];
+            if ((code === 3 || code === 5 || code === 4) && reason) parts.push(`last stop: ${reasons[reason] ?? `code ${reason}`}`);
+            if (start) parts.push(`${startResults[start.fields.value1] ?? "START result unknown"} (${start.fields.value2} received)`);
+            detail.textContent = parts.join(" · ") || "Reported by the vehicle controller";
+        }
     }
     const line = sensorObservations.get("3/5");
     if (line) {
