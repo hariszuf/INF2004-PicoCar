@@ -59,6 +59,8 @@ static int8_t s_rejoin_result;         /* 0 running / not started, 1 done (centr
 static uint8_t s_centre_first;         /* the sensor that saw the line first */
 static bool s_centre_have_exit, s_centre_have_enter;
 static float s_centre_exit_deg, s_centre_enter_deg, s_centre_target_deg, s_centre_dir;
+static float s_search_start_deg;       /* rejoin: heading where the slow search began */
+static bool s_search_reversed;         /* rejoin: line not found turning one way, now searching back */
 #if LINE_JUNCTION_USE_BARCODE
 extern bool buddy3_barcode_latest(char *letter, uint32_t *read_ms);   /* barcode_task.c */
 static bool s_barcode_used;
@@ -170,6 +172,11 @@ static void junction_start_search(void)
     s_left_cmd = (s_junction_action == JUNCTION_LEFT) ? -v : v;
     s_right_cmd = -s_left_cmd;
     (void)motion_drive(s_left_cmd, s_right_cmd);
+    if (s_rejoin)
+    {
+        s_search_start_deg = reported_heading();
+        s_search_reversed = false;
+    }
 }
 
 static void junction_start_turn(void)
@@ -225,6 +232,26 @@ static void junction_step(void)
             s_state = LINE_STATE_STRAIGHT;
             s_lost_ms = 0u;
             s_side_ms = 0u;
+        }
+        else if (s_rejoin)
+        {
+            /* Rejoin: if the line is not found within LINE_REJOIN_SEARCH_SPAN_DEG, pivot back the other way
+               (the turn may have overshot it) before giving up. */
+            float travelled = reported_heading() - s_search_start_deg;
+            float dir = (s_junction_action == JUNCTION_LEFT) ? 1.0f : -1.0f;   /* sign of the first search */
+            travelled *= dir;
+            if (!s_search_reversed && ((travelled > LINE_REJOIN_SEARCH_SPAN_DEG) || (s_junction_ms > LINE_JUNCTION_SEARCH_MS)))
+            {
+                s_search_reversed = true;
+                s_left_cmd = -s_left_cmd;
+                s_right_cmd = -s_right_cmd;
+                (void)motion_drive(s_left_cmd, s_right_cmd);
+                s_junction_ms = 0u;
+            }
+            else if (s_search_reversed && ((travelled < -LINE_REJOIN_SEARCH_SPAN_DEG) || (s_junction_ms > 2u * LINE_JUNCTION_SEARCH_MS)))
+            {
+                junction_abort();
+            }
         }
         else if (s_junction_ms > LINE_JUNCTION_SEARCH_MS)
         {

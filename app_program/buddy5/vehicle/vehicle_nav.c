@@ -228,22 +228,27 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
  if(n->settled<3) return;
  full_action_t a=n->actions[n->index];
 if(a.kind==CHECK_FRONT) {
-  if(!n->check_since) n->check_since=now;
-  if(!n->front_fresh) {
-   if((uint32_t)(now-n->check_since)<2000u) return;   /* wait for a fresh forward reading */
-   n->front_ok=true; ++n->index; n->check_since=0; return;               /* none: the forward guard still protects the sweep */
-  }
+  if(!n->check_since) { n->check_since=now; n->look[0]=n->look[1]=n->look[2]=0; }
   /* Judge only readings taken after the turn has finished: a ping from mid-turn can see the box corner. */
   if((uint32_t)(now-n->check_since)<B5_CHECK_SETTLE_MS) return;
-  /* Blocked only by something between the sonar and the line (the sonar is B5_AXLE_TO_SENSOR_MM ahead of
-   * the axle). Anything farther is beyond the line and is not the box: no reverse. */
-  {
-   /* Sonar range to the line along the current servo angle; with the look-back angle, echoes a little past
-    * the line still belong to the box. */
+  /* Three looks (core.c): ahead, half back, fully back toward the box. 1 = clear, 2 = blocked. All clear to go. */
+  if(n->front_fresh) {
    float to_line=absolute(n->y)-B5_AXLE_TO_SENSOR_MM-B5_CHECK_MARGIN_MM+(n->front_angle?B5_CHECK_BEYOND_MM:0);
    float c=cosf((float)n->front_angle*0.01745329252f);
-   if((float)n->front_mm>=to_line/(c>0.5f?c:0.5f)) { n->front_ok=true; ++n->index; n->check_since=0; return; }
+   uint8_t v=((float)n->front_mm>=to_line/(c>0.5f?c:0.5f))?1u:2u;
+   int a=n->front_angle<0?-n->front_angle:n->front_angle;
+   unsigned k=a==0?0u:a<=20?1u:2u;
+   if(n->look[k]!=2u) n->look[k]=v;
   }
+  bool blocked=n->look[0]==2u || n->look[1]==2u || n->look[2]==2u;
+  bool done=n->look[0] && n->look[1] && n->look[2];
+  if(!blocked && !done) {
+   if((uint32_t)(now-n->check_since)<B5_CHECK_SETTLE_MS+4u*B5_LOOK_PERIOD_MS) return;
+   /* A look never came (sonar silent): count it as clear. */
+  }
+  if(!blocked) { n->front_ok=true; ++n->index; n->check_since=0; return; }
+  /* Blocked only by something between the sonar and the line (the sonar is B5_AXLE_TO_SENSOR_MM ahead of
+   * the axle). Anything farther is beyond the line and is not the box: no reverse. */
   if(n->retries>=B5_MAX_EXTENDS) { fail(n); return; }
   ++n->retries;
   build_recover(n,n->recover_side,true);

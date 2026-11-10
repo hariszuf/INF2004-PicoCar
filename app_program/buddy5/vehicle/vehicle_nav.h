@@ -12,7 +12,8 @@ typedef struct {
  bool recovery_stop,acquired;
  unsigned search_phase,retries;
  bool front_ok;
- int front_angle;   /* servo angle of the last range reading */
+ int front_angle;
+ uint8_t look[3];   /* sonar check after facing the line (ahead, half back, back): 0 none yet, 1 clear, 2 blocked */   /* servo angle of the last range reading */
  bool rejoining;
  bool tape_entered, tape_measured;   /* line crossing measured during the sweep back */
  float tape_enter_y, tape_line_y;   /* line follower is running the junction-style hand-back */

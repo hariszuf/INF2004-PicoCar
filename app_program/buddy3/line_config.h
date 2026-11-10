@@ -98,6 +98,7 @@
 #define LINE_REJOIN_CENTRE_SPEED_CM_S (2.0f)
 #define LINE_REJOIN_CENTRE_LEAD_DEG (0.8f)   /* braking allowance for the final pivot back */
 #define LINE_REJOIN_CENTRE_MS       (2500u)
+#define LINE_REJOIN_SEARCH_SPAN_DEG (40.0f)  /* rejoin search: this far one way, then back the other way */
 
 /* ------------------------------------------------------------------ */
 /* Timing                                                              */

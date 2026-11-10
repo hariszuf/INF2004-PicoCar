@@ -96,7 +96,7 @@
 /* Straight leg beside the box, one move: the axle ends B5_PASS_BESIDE_MM + B5_PASS_TAIL_MM past the box FRONT face,
  * then the car turns toward the line once. The sonar check there catches a deeper box (reverse, extend, try again). */
 #ifndef B5_PASS_BESIDE_MM
-#define B5_PASS_BESIDE_MM 300
+#define B5_PASS_BESIDE_MM 100   /* a few cm past the box front, then face the line and check */
 #endif
 #define B5_AXLE_TO_SENSOR_MM 80
 /* Sonar check after turning toward the line: wait this long (ms) for post-turn pings, then the box counts as
@@ -114,6 +114,7 @@
 #define B5_RECOVERY_LOOK_BACK 1
 #endif
 #define B5_CHECK_BEYOND_MM 100
+#define B5_LOOK_PERIOD_MS 800u   /* servo dwell per look direction during the return */
 /* 1 = the forward-range self-halt ("emergency stop") is overridden during ADVANCE / RECOVER_LINE / BACKUP. */
 #ifndef B5_BYPASS_IGNORE_GUARD
 #define B5_BYPASS_IGNORE_GUARD 1
@@ -121,7 +122,7 @@
 /* Once the sonar sees nothing beside the car, drive this much further (mm) so the car's tail clears the box
  * rear when it pivots back onto the line. About the half car length (~177) plus a margin. */
 #ifndef B5_PASS_TAIL_MM
-#define B5_PASS_TAIL_MM 220
+#define B5_PASS_TAIL_MM 0
 #endif
 #define B5_UNKNOWN_WIDTH_MM 500
 #define B5_MIN_PASS_MM 400
@@ -132,8 +133,8 @@
  * line, the car is still beside the box. It reverses a little, faces forward, drives a little further and
  * tries again (up to B5_MAX_EXTENDS times). */
 #define B5_RETURN_REVERSE_MM 60
-#define B5_EXTEND_MM 150
-#define B5_MAX_EXTENDS 6
+#define B5_EXTEND_MM 200
+#define B5_MAX_EXTENDS 10
 /* Extra distance past the box rear so the car's tail clears it before turning back (mm). */
 #define B5_BYPASS_END_MARGIN_MM 40
 /* A long open-loop forward move drifts a little: allowed end-position error (mm). */

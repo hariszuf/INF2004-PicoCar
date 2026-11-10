@@ -175,6 +175,8 @@ int main(void)
         motion_get_status(&ms);
         double fwd=range_at(0).distance_mm;
         bool guard=(range_at(0).distance_mm==B5_NO_ECHO_MM) || (int32_t)(fwd-B5_FRONT_OVERHANG_MM)>B5_GUARD_FRONT_MM;
+        /* main.c: B5_BYPASS_IGNORE_GUARD during the return */
+        if(B5_BYPASS_IGNORE_GUARD && nav.active && (nav.request.kind==B5_REQ_ADVANCE || nav.request.kind==B5_REQ_RECOVER_LINE || nav.request.kind==B5_REQ_BACKUP)) guard=true;
         { int a=b5_core_angle(&core); b5_range_t fr=range_at(a); full_nav_set_front(&nav,true,b5_range_no_echo(&fr)?B5_CLEAR_FRONT_MM:(int32_t)fr.distance_mm-B5_FRONT_OVERHANG_MM,a); }
         full_nav_update(&nav,now,&ms,read_mask(),guard);
         full_nav_feedback(&nav,now,&fb);

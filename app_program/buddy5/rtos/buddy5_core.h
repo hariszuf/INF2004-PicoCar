@@ -76,7 +76,8 @@ typedef struct {
  int32_t last_hit_x, last_hit_pose_x, first_clear_x, last_clear_pose_x;
  int32_t bypass_y, advance_start_x, wall_range_mm;
  uint8_t clear_count, phase;
- uint8_t rescans, extends;   /* backups done to see both box edges */
+ uint8_t rescans, extends;
+ uint32_t now_ms;            /* time of the last update (servo look pattern) */   /* backups done to see both box edges */
  bool edges_seen;   /* the last scan saw both edges, so the width is measured, not assumed */
  bool side_seen;
 } b5_core_t;
