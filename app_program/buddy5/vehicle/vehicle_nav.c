@@ -5,14 +5,14 @@
 #include "../../buddy3/line_follow.h"
 #include "../../buddy3/line_sensors.h"
 #include "../../buddy3/line_config.h"
-enum { TURN=1, MOVE, CHECK_LINE, SEARCH, BACK, SWEEP, CHECK_FRONT };
+enum { TURN=1, MOVE, CHECK_LINE, SEARCH, BACK, SWEEP, CHECK_FRONT, REJOIN };
 #define NAV_HEADING_ALIGNED_DEG 8.0f
 #define NAV_TURN_DEADBAND_DEG 4.0f
 static float absolute(float x) { return x<0?-x:x; }
 static float corrected_heading(const motion_status_t *m) {
  return (m->heading_deg/MOTION_TURN_SCALE)*B5_TURN_ODOMETRY_CORRECTION;
 }
-static void fail(full_nav_t *n) { n->search_phase=0; n->failed=true; n->active=false; n->moving=false; n->forward_moving=false; n->motion_seen=false; line_follow_stop(); motion_emergency_stop(); }
+static void fail(full_nav_t *n) { n->rejoining=false; n->search_phase=0; n->failed=true; n->active=false; n->moving=false; n->forward_moving=false; n->motion_seen=false; line_follow_stop(); motion_emergency_stop(); }
 void full_nav_init(full_nav_t *n,const motion_status_t *m) {
  *n=(full_nav_t){0}; n->last_distance=m->distance_cm;
  n->last_heading=corrected_heading(m);
@@ -41,9 +41,14 @@ static void build_recover(full_nav_t *n,float side,bool extend) {
  n->actions[i++]=(full_action_t){MOVE,B5_PASS_TAIL_MM};
  n->actions[i++]=(full_action_t){TURN,side*90.0f};
  n->actions[i++]=(full_action_t){SWEEP,sweep};
+#if LINE_JUNCTION
+ /* Exactly the "+" junction turn (advance, turn, slow search), then centre the tape between the sensors. */
+ n->actions[i++]=(full_action_t){REJOIN,-side};
+#else
  n->actions[i++]=(full_action_t){MOVE,B5_LINE_ADVANCE_MM};
  n->actions[i++]=(full_action_t){TURN,side*LINE_JUNCTION_PRETURN_MARGIN_DEG};
  n->actions[i++]=(full_action_t){SEARCH,-side};
+#endif
  n->count=i; n->index=0; n->issued=false; n->check_since=0;
 }
 static void trip(full_nav_t *n,float target_y,bool check) {
@@ -58,7 +63,7 @@ static void trip(full_nav_t *n,float target_y,bool check) {
 bool full_nav_accept(full_nav_t *n,const b5_request_t *r,uint32_t now) {
  if(n->failed || (n->active && r->kind!=B5_REQ_STOP)) return false;
  n->request=*r; n->active=true; n->issued=false; n->moving=false; n->forward_moving=false; n->motion_seen=false; n->recovery_stop=false;
- n->resumed=false; n->search_phase=0; n->index=n->count=n->search=0; n->started=now; n->check_since=0;
+ n->resumed=false; n->rejoining=false; n->search_phase=0; n->index=n->count=n->search=0; n->started=now; n->check_since=0;
  switch(r->kind) {
  case B5_REQ_STOP: line_follow_stop(); motion_stop(); n->settled=0; break;
  case B5_REQ_BYPASS: trip(n,(float)r->lateral_mm,false); break;
@@ -105,6 +110,7 @@ bool full_nav_accept(full_nav_t *n,const b5_request_t *r,uint32_t now) {
  }
  return true;
 }
+bool full_nav_rejoining(const full_nav_t *n) { return n->active && n->rejoining; }
 bool full_nav_barcode_turn_active(const full_nav_t *n) {
  return n->active && (n->request.kind==B5_REQ_BARCODE_LEFT || n->request.kind==B5_REQ_BARCODE_RIGHT);
 }
@@ -147,6 +153,19 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
   n->issued=false; n->moving=false; n->forward_moving=false;
   n->motion_seen=false; n->recovery_stop=false;
   ++n->index; n->check_since=0;
+ }
+ if(n->rejoining) {
+  /* The line follower runs the junction turn; main.c calls line_follow_update() meanwhile. */
+#if LINE_JUNCTION
+  int r=line_follow_rejoin_status();
+#else
+  int r=-1;
+#endif
+  if(r<0) { fail(n); return; }
+  if(r>0 && n->settled>=3 && motion_is_idle()) {
+   n->rejoining=false; n->acquired=true; n->moving=false; n->issued=false; ++n->index; n->check_since=0;
+  }
+  return;
  }
  /* Slow pivot that looks for the line (last step of the recovery). */
  if(n->search_phase && n->index<n->count) {
@@ -241,6 +260,14 @@ if(a.kind==CHECK_FRONT) {
   if(result!=MOTION_OK) { fail(n); return; }
   n->issued=true; n->moving=true; n->forward_moving=false; n->motion_seen=false;
   n->settled=0; n->check_since=now;
+  return;
+ } else if(a.kind==REJOIN) {
+#if LINE_JUNCTION
+  if(!line_follow_rejoin(a.value>0?1:-1)) { fail(n); return; }
+#else
+  fail(n); return;
+#endif
+  n->rejoining=true; n->moving=true; n->forward_moving=false; n->settled=0; n->check_since=now;
   return;
  } else if(a.kind==SEARCH) {
   float v=B5_LINE_SEARCH_SPEED_CM_S;

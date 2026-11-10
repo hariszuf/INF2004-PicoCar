@@ -84,7 +84,7 @@ static volatile bool user_stop_pending;
 static volatile bool remote_start_pending;   /* START intent: dashboard (MQTT) or USB R */
 static bool fault_latched;                   /* motor stall latch: cleared only by a power cycle */
 /* Execution status for telemetry src5 types 60/61 (see auto_start.h). */
-volatile int32_t b5_exec_state, b5_exec_reason, b5_start_result, b5_start_count;
+volatile int32_t b5_exec_state, b5_exec_reason, b5_start_result, b5_start_count, b5_auto_retries;
 static unsigned char commands[8];
 static unsigned command_head,command_tail;
 bool line_controller_active(void) { return run_enabled; }
@@ -154,11 +154,12 @@ static void halt(full_nav_t *nav,auto_start_t *start,const char *why) {
    b5_halt_code=code; b5_halt_count++; }
  { /* Persistent (operator needed): motor stall latch or a failed motor reset. Everything else is retryable. */
    bool persistent=(b5_halt_code==8 && fault_latched) || b5_halt_code==11;
-   auto_start_halt(start,b5_halt_code,persistent); }
+   auto_start_halt(start,b5_halt_code,persistent,buddy5_clock_ms()); }
  run_enabled=false; nav->active=false; nav->moving=false; nav->forward_moving=false;
  line_follow_stop(); motion_emergency_stop(); line_scan_abort(); discard_commands();
  tm_printf((UB*)"[AUTO] STOPPED: %s (code %d). %s\n",(UB*)why,(int)b5_halt_code,
-  start->phase==AUTO_FAULTED?"Operator action needed: power-cycle.":"Send START (dashboard) or R (USB) to retry.");
+  start->phase==AUTO_FAULTED?"Operator action needed: power-cycle.":
+  b5_halt_code==1?"Send START (dashboard) or R (USB) to restart.":"Restarting the whole process automatically.");
 }
 static void controller_task(INT stacd,void *exinf) {
  motion_status_t motor; line_scan_status_t scan;
@@ -222,7 +223,11 @@ static void controller_task(INT stacd,void *exinf) {
     if(run_enabled) {
      line_follow_update();
     }
-   } else lost_since=0;
+   } else {
+    lost_since=0;
+    /* Bypass hand-back: the line follower runs the junction turn and centring at its normal 5 ms rate. */
+    if(run_enabled && full_nav_rejoining(&nav)) line_follow_update();
+   }
   }
   UW irq; bool got; b5_request_t request={0};
   DI(irq); got=request_pending; if(got) { request=pending_request; request_pending=false; } EI(irq);
@@ -351,6 +356,11 @@ static void controller_task(INT stacd,void *exinf) {
     tm_printf((UB*)"[AUTO] RUNNING automatically; front=%dmm (-1=out of range).\n",scan.front_clearance_mm==B5_CLEAR_FRONT_MM?-1:scan.front_clearance_mm);
    }
   }
+  if(auto_start_auto_retry(&start,now,nav.settled>=3)) {
+   discard_commands();
+   tm_printf((UB*)"[AUTO] Automatic restart #%u after stop code %d.\n",(unsigned)start.auto_retries,(int)start.reason);
+  }
+  b5_auto_retries=(int32_t)start.auto_retries;
   b5_exec_state=(int32_t)auto_start_exec_state(&start); b5_exec_reason=start.reason;
   b5_start_result=(int32_t)start.last_start; b5_start_count=(int32_t)start.start_count;
   b5_feedback_t f;

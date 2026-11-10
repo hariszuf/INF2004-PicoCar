@@ -91,6 +91,12 @@
 #define LINE_JUNCTION_SEARCH_MS     (3000u)
 /** Give up on a junction step that takes longer than this (the car stops). */
 #define LINE_JUNCTION_TIMEOUT_MS    (8000u)
+/* Bypass hand-back: after the junction-style search, centre the tape between the two IR sensors. */
+#ifndef LINE_REJOIN_CENTRE
+#define LINE_REJOIN_CENTRE          (1)
+#endif
+#define LINE_REJOIN_CENTRE_SPEED_CM_S (3.0f)
+#define LINE_REJOIN_CENTRE_MS       (2500u)
 
 /* ------------------------------------------------------------------ */
 /* Timing                                                              */

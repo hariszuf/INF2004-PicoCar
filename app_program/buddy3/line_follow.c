@@ -43,7 +43,9 @@ typedef enum
     J_ADVANCING,   /* driving forward to the middle of the junction */
     J_TURNING,     /* open-loop first part of the turn */
     J_SEARCHING,   /* slow pivot until a sensor sees the new line */
-    J_CROSSING     /* driving straight across */
+    J_CROSSING,    /* driving straight across */
+    J_CENTRING,    /* rejoin only: keep pivoting until the line is between the sensors */
+    J_CENTRE_BACK  /* rejoin only: pivot back to the middle of the two sensor crossings */
 } junction_phase_t;
 
 static junction_phase_t s_junction;
@@ -51,6 +53,12 @@ static bool s_junction_armed = true;   /* false while still on the bar we just h
 static bool s_junction_halted;         /* stopped at a junction with no barcode letter: stay put */
 static junction_action_t s_junction_action;
 static uint32_t s_junction_ms;         /* time in the current junction step, for the timeout */
+/* Rejoin: the same junction turn, used by the obstacle bypass to get back onto the line. */
+static bool s_rejoin;
+static int8_t s_rejoin_result;         /* 0 running / not started, 1 done (centred, stopped), -1 failed */
+static uint8_t s_centre_first;         /* the sensor that saw the line first */
+static bool s_centre_have_exit, s_centre_have_enter;
+static float s_centre_exit_deg, s_centre_enter_deg, s_centre_target_deg, s_centre_dir;
 #if LINE_JUNCTION_USE_BARCODE
 extern bool buddy3_barcode_latest(char *letter, uint32_t *read_ms);   /* barcode_task.c */
 static bool s_barcode_used;
@@ -119,8 +127,32 @@ static void junction_begin(void)
     s_junction = J_STOPPING;
 }
 
+static void rejoin_finish(int8_t result)
+{
+    s_rejoin = false;
+    s_rejoin_result = result;
+    s_active = false;   /* hold still; the bypass restarts normal following with line_follow_start() */
+    s_junction = J_NONE;
+    s_state = LINE_STATE_STOPPED;
+    s_left_cmd = 0.0f;
+    s_right_cmd = 0.0f;
+    motion_stop();
+}
+
+static float reported_heading(void)
+{
+    motion_status_t m;
+    motion_get_status(&m);
+    return m.heading_deg;
+}
+
 static void junction_abort(void)
 {
+    if (s_rejoin)
+    {
+        rejoin_finish(-1);
+        return;
+    }
     s_junction = J_NONE;
     s_state = LINE_STATE_STOPPED;
     s_left_cmd = 0.0f;
@@ -172,7 +204,21 @@ static void junction_step(void)
     }
     if (s_junction == J_SEARCHING)
     {
-        if ((s_mask & (LINE_SENSOR_LEFT | LINE_SENSOR_RIGHT)) != 0u)
+        if (((s_mask & (LINE_SENSOR_LEFT | LINE_SENSOR_RIGHT)) != 0u) && s_rejoin)
+        {
+#if LINE_REJOIN_CENTRE
+            /* Keep pivoting: note the heading where the first sensor leaves the tape and where the other
+               sensor reaches it. The middle of those two headings puts the tape midway between the sensors. */
+            s_centre_first = (s_mask & LINE_SENSOR_LEFT) ? LINE_SENSOR_LEFT : LINE_SENSOR_RIGHT;
+            s_centre_have_exit = false;
+            s_centre_have_enter = false;
+            s_junction = J_CENTRING;
+            s_junction_ms = 0u;
+#else
+            rejoin_finish(1);
+#endif
+        }
+        else if ((s_mask & (LINE_SENSOR_LEFT | LINE_SENSOR_RIGHT)) != 0u)
         {
             /* Found the new line: hand over to normal line following, which centres it. */
             s_junction = J_NONE;
@@ -183,6 +229,49 @@ static void junction_step(void)
         else if (s_junction_ms > LINE_JUNCTION_SEARCH_MS)
         {
             junction_abort();
+        }
+        return;
+    }
+    if (s_junction == J_CENTRING)
+    {
+        uint8_t other = (uint8_t)((LINE_SENSOR_LEFT | LINE_SENSOR_RIGHT) & ~s_centre_first);
+        float h = reported_heading();
+
+        if (!s_centre_have_enter && ((s_mask & other) != 0u))
+        {
+            s_centre_have_enter = true;
+            s_centre_enter_deg = h;
+        }
+        if (!s_centre_have_exit && ((s_mask & s_centre_first) == 0u))
+        {
+            s_centre_have_exit = true;
+            s_centre_exit_deg = h;
+        }
+        if (s_centre_have_enter && s_centre_have_exit)
+        {
+            s_centre_target_deg = 0.5f * (s_centre_enter_deg + s_centre_exit_deg);
+            s_centre_dir = (s_centre_target_deg > h) ? 1.0f : -1.0f;   /* +: heading must increase (left) */
+            s_left_cmd = -s_centre_dir * LINE_REJOIN_CENTRE_SPEED_CM_S;
+            s_right_cmd = s_centre_dir * LINE_REJOIN_CENTRE_SPEED_CM_S;
+            (void)motion_drive(s_left_cmd, s_right_cmd);
+            s_junction = J_CENTRE_BACK;
+            s_junction_ms = 0u;
+        }
+        else if (s_junction_ms > LINE_REJOIN_CENTRE_MS)
+        {
+            rejoin_finish(1);   /* tape already between the sensors, the other edge was not reached */
+        }
+        return;
+    }
+    if (s_junction == J_CENTRE_BACK)
+    {
+        float h = reported_heading();
+
+        if (((s_centre_dir > 0.0f) && (h >= s_centre_target_deg)) ||
+            ((s_centre_dir < 0.0f) && (h <= s_centre_target_deg)) ||
+            (s_junction_ms > LINE_REJOIN_CENTRE_MS))
+        {
+            rejoin_finish(1);
         }
         return;
     }
@@ -300,9 +389,44 @@ void line_follow_stop(void)
 #if LINE_JUNCTION
     s_junction = J_NONE;
     s_junction_halted = false;
+    s_rejoin = false;
 #endif
     motion_stop();
 }
+
+#if LINE_JUNCTION
+bool line_follow_rejoin(int direction)
+{
+    if (!line_follow_start())
+    {
+        return false;
+    }
+    s_junction_action = (direction > 0) ? JUNCTION_LEFT : JUNCTION_RIGHT;
+    s_rejoin = true;
+    s_rejoin_result = 0;
+    s_junction_ms = 0u;
+    s_state = LINE_STATE_JUNCTION;
+    if (LINE_JUNCTION_ADVANCE_CM > 0.0f)
+    {
+        if (motion_move_forward(LINE_JUNCTION_ADVANCE_CM) != MOTION_OK)
+        {
+            rejoin_finish(-1);
+            return false;
+        }
+        s_junction = J_ADVANCING;
+    }
+    else
+    {
+        junction_start_turn();
+    }
+    return true;
+}
+
+int line_follow_rejoin_status(void)
+{
+    return s_rejoin_result;
+}
+#endif
 
 void line_follow_update(void)
 {
