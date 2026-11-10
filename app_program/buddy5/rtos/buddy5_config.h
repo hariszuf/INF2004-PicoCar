@@ -99,6 +99,13 @@
 #define B5_PASS_BESIDE_MM 300
 #endif
 #define B5_AXLE_TO_SENSOR_MM 80
+/* Sonar check after turning toward the line: wait this long (ms) for post-turn pings, then the box counts as
+ * still beside the car only if it is at least this far (mm) short of the line. */
+#define B5_CHECK_SETTLE_MS 500u
+/* Lateral room (mm) from the box edge to the axle so a 90 degree pivot beside the box cannot clip it:
+ * corner radius sqrt(177^2+85^2) = 196 plus a margin. */
+#define B5_PIVOT_CLEAR_MM 220
+#define B5_CHECK_MARGIN_MM 30
 /* 1 = the forward-range self-halt ("emergency stop") is overridden during ADVANCE / RECOVER_LINE / BACKUP. */
 #ifndef B5_BYPASS_IGNORE_GUARD
 #define B5_BYPASS_IGNORE_GUARD 1

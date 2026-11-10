@@ -57,6 +57,7 @@ typedef struct {
 } b5_scan_t;
 typedef struct {
  bool width_valid, depth_valid;
+ bool width_estimated; /* box wider than the scan window: width estimated from the outermost echoes */
  int32_t front_mm, right_edge_mm, left_edge_mm, width_mm;
  int32_t depth_low_mm, depth_high_mm;
  int32_t left_inner_mm, right_inner_mm;

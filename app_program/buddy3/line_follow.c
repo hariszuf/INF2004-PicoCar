@@ -285,7 +285,9 @@ bool line_follow_start(void)
     s_state = LINE_STATE_STOPPED;
 #if LINE_JUNCTION
     s_junction = J_NONE;
-    s_junction_armed = true;
+    /* Armed only once both sensors read white. A (re)start with both sensors on the tape, e.g. when the
+       obstacle bypass hands back to the line across it, must not be taken as a "+" junction. */
+    s_junction_armed = false;
     s_junction_halted = false;
 #endif
     return true;

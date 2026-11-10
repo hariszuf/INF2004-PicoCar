@@ -178,7 +178,7 @@ int main(void)
         if((int)core.state!=last_state) {
             last_state=core.state;
             printf("[%6.1fs] state=%s fault=%d  pos x=%.0f y=%.0f th=%.0f  width=%d side=%d offset=%d\n",(now-1000)/1000.0,
-                   b5_state_name(core.state),core.fault,X,Y,TH,core.profile.width_valid?core.profile.width_mm:-1,core.profile.side,core.profile.offset_mm);
+                   b5_state_name(core.state),core.fault,X,Y,TH,(core.profile.width_valid||core.profile.width_estimated)?core.profile.width_mm:-1,core.profile.side,core.profile.offset_mm);
         }
         if(collides()) { collisions++; }
         if(step%100==0) printf("   t=%5.1f x=%6.0f y=%6.0f th=%6.1f mode=%d\n",(now-1000)/1000.0,X,Y,TH,mode);
