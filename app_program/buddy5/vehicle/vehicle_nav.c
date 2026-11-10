@@ -5,7 +5,7 @@
 #include "../../buddy3/line_follow.h"
 #include "../../buddy3/line_sensors.h"
 #include "../../buddy3/line_config.h"
-enum { TURN=1, MOVE, CHECK_LINE, SEARCH };
+enum { TURN=1, MOVE, CHECK_LINE, SEARCH, BACK };
 #define NAV_HEADING_ALIGNED_DEG 8.0f
 #define NAV_TURN_DEADBAND_DEG 4.0f
 static float absolute(float x) { return x<0?-x:x; }
@@ -65,6 +65,11 @@ bool full_nav_accept(full_nav_t *n,const b5_request_t *r,uint32_t now) {
   }
   break;
  case B5_REQ_RESUME_LINE: break;
+ case B5_REQ_BACKUP:
+  line_follow_stop();
+  n->settled=0; n->count=1;
+  n->actions[0]=(full_action_t){BACK,(float)r->forward_mm};
+  break;
  case B5_REQ_BARCODE_LEFT:
  case B5_REQ_BARCODE_RIGHT:
   line_follow_stop();
@@ -153,6 +158,11 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
    n->active=false;
    return;
   }
+  if(n->request.kind==B5_REQ_BACKUP) {
+   /* Like STOP: the new position becomes the origin for the next scan. */
+   n->x=n->y=n->heading=0; n->heading_origin=heading;
+   n->completed_id=n->request.id; n->active=false; return;
+  }
   bool pose=absolute(n->heading)<=NAV_HEADING_ALIGNED_DEG;
   if(n->request.kind==B5_REQ_RECOVER_LINE) pose=absolute(n->heading)<=12.0f;
   if(n->request.kind==B5_REQ_BYPASS)
@@ -183,6 +193,14 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
    * controller's angle domain. */
   error/=B5_TURN_ODOMETRY_CORRECTION;
   result=error>0?motion_turn_left(error):motion_turn_right(-error);
+ } else if(a.kind==BACK) {
+  if(a.value<4) { ++n->index; return; }
+  if(motion_set_speed(6.0f)!=MOTION_OK) { fail(n); return; }
+  result=motion_move_backward(a.value/10.0f);
+  if(result!=MOTION_OK) { fail(n); return; }
+  n->issued=true; n->moving=true; n->forward_moving=false; n->motion_seen=false;
+  n->settled=0; n->check_since=now;
+  return;
  } else if(a.kind==SEARCH) {
   float v=B5_LINE_SEARCH_SPEED_CM_S;
   result=a.value>0?motion_drive(-v,v):motion_drive(v,-v);   /* +: pivot left */

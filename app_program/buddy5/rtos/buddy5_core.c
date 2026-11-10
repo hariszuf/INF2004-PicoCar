@@ -116,6 +116,7 @@ static bool process(b5_core_t *c) {
     b5_scan_t *s=&c->scan;
     b5_profile_t *p=&c->profile;
     int lo=B5_SCAN_ZERO_SLOT,hi=B5_SCAN_ZERO_SLOT,left_clear=-1,right_clear=-1;
+    c->edges_seen=false;
     if (s->valid[B5_SCAN_ZERO_SLOT]!=B5_SCAN_ECHO) return false;
     p->front_mm=s->distance[B5_SCAN_ZERO_SLOT];
     for (int i=B5_SCAN_ZERO_SLOT+1;i<B5_SCAN_POINTS;++i) if (s->sampled[i]) {
@@ -152,7 +153,7 @@ static bool process(b5_core_t *c) {
         }
         p->left_inner_mm=p->left_edge_mm;
         p->right_inner_mm=p->right_edge_mm;
-        p->width_mm=2*half; p->width_valid=true;
+        p->width_mm=2*half; p->width_valid=!B5_SIMPLE_BYPASS;   /* a guess, not a measurement */
         int32_t extra=B5_CAR_WIDTH_MM/2+B5_CLEARANCE_MM+B5_EDGE_ALLOWANCE_MM;
         int32_t left=p->left_edge_mm+extra;
         int32_t right=p->right_edge_mm-extra;
@@ -167,6 +168,7 @@ static bool process(b5_core_t *c) {
         return ab(p->offset_mm)<=B5_MAX_OFFSET_MM;
     }
     /* Outer edge of observed hit/clear angular bracket, enclosing estimate. */
+    c->edges_seen=true;
     p->left_edge_mm=plane_y(p->front_mm,left_clear);
     p->right_edge_mm=plane_y(p->front_mm,right_clear);
     p->left_inner_mm=plane_y(p->front_mm,hi);
@@ -299,7 +301,7 @@ void b5_core_update(b5_core_t *c,uint32_t now,
         c->front_clearance_mm=b5_front_clearance(r);
         if (c->front_clearance_mm<=B5_STOP_FRONT_MM) {
             uint32_t id=c->profile.obstacle_id+1u;
-            memset(&c->profile,0,sizeof(c->profile)); c->profile.obstacle_id=id;
+            memset(&c->profile,0,sizeof(c->profile)); c->profile.obstacle_id=id; c->rescans=0;
             state(c,B5_WAIT_STOP,now);
             request(c,B5_REQ_STOP,now,0,0);
         }
@@ -324,6 +326,15 @@ void b5_core_update(b5_core_t *c,uint32_t now,
             state(c,B5_PROCESSING,now);
             if (!process(c)) b5_core_fail(c,B5_FAULT_NO_ROUTE,now);
             else {
+#if B5_SIMPLE_BYPASS
+                if (!c->edges_seen && c->rescans<B5_MAX_RESCANS) {
+                    /* Both box edges are outside the scan window: reverse a little and measure again. */
+                    c->rescans++;
+                    state(c,B5_WAIT_STOP,now);
+                    request(c,B5_REQ_BACKUP,now,B5_RESCAN_BACKUP_MM,0);
+                    return;
+                }
+#endif
 #if B5_TIGHT_COURSE
                 /* Preliminary 10 cm obstacle / narrow-board demonstration.
                  * This is deliberately not the final 20 cm safety profile. */
