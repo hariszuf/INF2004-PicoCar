@@ -46,6 +46,7 @@ static int emergency;
 motion_result_t motion_turn_left(float a)  { pending=1; p_type=P_TURN; p_val=a; return MOTION_OK; }
 motion_result_t motion_turn_right(float a) { pending=1; p_type=P_TURN; p_val=-a; return MOTION_OK; }
 motion_result_t motion_move_forward(float cm) { pending=1; p_type=P_MOVE; p_val=cm*10.0; return MOTION_OK; }
+motion_result_t motion_move_backward(float cm) { pending=1; p_type=P_MOVE; p_val=-cm*10.0; return MOTION_OK; }
 motion_result_t motion_set_speed(float s) { move_speed=s*10.0; return MOTION_OK; }
 motion_result_t motion_drive(float l, float r) { pending=1; p_type=P_DRIVE; p_l=l; p_r=r; return MOTION_OK; }
 void motion_stop(void) { pending=1; p_type=P_STOP; }

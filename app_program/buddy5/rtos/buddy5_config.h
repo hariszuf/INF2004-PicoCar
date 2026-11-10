@@ -81,6 +81,14 @@
 #ifndef B5_MIN_BYPASS_OFFSET_MM
 #define B5_MIN_BYPASS_OFFSET_MM 350
 #endif
+/* Measuring the real box width: if the box fills the +/-35 degree scan window the edges cannot be seen, so the car
+ * reverses this far (mm) and scans again, up to B5_MAX_RESCANS times. Needs free space behind the car. */
+#ifndef B5_RESCAN_BACKUP_MM
+#define B5_RESCAN_BACKUP_MM 150
+#endif
+#ifndef B5_MAX_RESCANS
+#define B5_MAX_RESCANS 2
+#endif
 /* Extra distance past the box rear so the car's tail clears it before turning back (mm). */
 #define B5_BYPASS_END_MARGIN_MM 40
 /* A long open-loop forward move drifts a little: allowed end-position error (mm). */

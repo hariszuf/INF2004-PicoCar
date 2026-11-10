@@ -15,7 +15,8 @@ typedef enum {
 } b5_fault_t;
 typedef enum {
  B5_REQ_NONE, B5_REQ_STOP, B5_REQ_BYPASS, B5_REQ_ADVANCE,
- B5_REQ_RECOVER_LINE, B5_REQ_RESUME_LINE, B5_REQ_BARCODE_LEFT, B5_REQ_BARCODE_RIGHT
+ B5_REQ_RECOVER_LINE, B5_REQ_RESUME_LINE, B5_REQ_BARCODE_LEFT, B5_REQ_BARCODE_RIGHT,
+ B5_REQ_BACKUP /* reverse forward_mm millimetres, then re-zero the origin (re-scan from farther away) */
 } b5_request_kind_t;
 typedef struct {
  b5_request_kind_t kind;
@@ -72,6 +73,8 @@ typedef struct {
  int32_t last_hit_x, last_hit_pose_x, first_clear_x, last_clear_pose_x;
  int32_t bypass_y, advance_start_x, wall_range_mm;
  uint8_t clear_count, phase;
+ uint8_t rescans;   /* backups done to see both box edges */
+ bool edges_seen;   /* the last scan saw both edges, so the width is measured, not assumed */
  bool side_seen;
 } b5_core_t;
 void b5_core_init(b5_core_t *c, uint32_t now_ms);
