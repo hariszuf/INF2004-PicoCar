@@ -15,7 +15,8 @@ typedef enum
     JUNCTION_NONE = 0,     /* not a letter A-Z: no instruction */
     JUNCTION_LEFT,
     JUNCTION_STRAIGHT,
-    JUNCTION_RIGHT
+    JUNCTION_RIGHT,
+    JUNCTION_UTURN
 } junction_action_t;
 
 /** Action for a barcode letter. Upper or lower case A-Z; anything else gives JUNCTION_NONE. */

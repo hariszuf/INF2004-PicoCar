@@ -284,7 +284,9 @@ static void junction_start_search(void)
 
 static void junction_start_turn(void)
 {
-    float first_deg = LINE_JUNCTION_TURN_DEG - LINE_JUNCTION_PRETURN_MARGIN_DEG;
+    float turn_deg = (s_junction_action == JUNCTION_UTURN)
+                   ? 180.0f : LINE_JUNCTION_TURN_DEG;
+    float first_deg = turn_deg - LINE_JUNCTION_PRETURN_MARGIN_DEG;
     motion_result_t result;
 
     if (first_deg < 2.0f)

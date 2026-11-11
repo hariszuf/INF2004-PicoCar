@@ -35,6 +35,7 @@ static void emit(uint8_t type,int32_t a,int32_t b,uint32_t seq) {
 }
 static void scan_task(INT stacd,void *exinf) {
  uint32_t settled=0,last_ping=0,last_report=0,delivered=0,front_time=0,last_bad=0;
+ uint8_t last_fault=0,last_fault_state=0,last_ok_state=0;   /* kept for telemetry after the fault clears */
  b5_state_t previous=(b5_state_t)99;
  b5_range_t readings[B5_SAMPLE_COUNT];
  unsigned count=0;
@@ -151,6 +152,8 @@ static void scan_task(INT stacd,void *exinf) {
     else { b5_halt_code=20; b5_halt_count++; b5_core_fail(&core,B5_FAULT_CONTROLLER,now); } /* 20 = request not accepted */
    }
   }
+  if(core.state==B5_ERROR) { if(core.fault) { last_fault=(uint8_t)core.fault; last_fault_state=last_ok_state; } }
+  else last_ok_state=(uint8_t)core.state;
   if(core.state!=previous) {
    tm_printf((UB*)"[SCAN] state=%s fault=%d width=%d side=%d offset=%d\n",
       (UB*)b5_state_name(core.state),core.fault,
@@ -169,7 +172,10 @@ static void scan_task(INT stacd,void *exinf) {
    emit(54,core.front_clearance_mm==B5_CLEAR_FRONT_MM?-1:core.front_clearance_mm,angle,seq);
    emit(53,core.profile.depth_valid?core.profile.depth_low_mm:-1,core.profile.depth_valid?core.profile.depth_high_mm:-1,seq);
    emit(55,(int32_t)core.profile.obstacle_id,(int32_t)now,seq);
-   emit(56,(core.profile.width_valid?1:0)|(core.profile.depth_valid?2:0)|(core.edges_seen?4:0)|(core.profile.width_estimated?8:0)|16,(int32_t)core.extends,seq);
+   /* value_2: extends (bits 0-7), the last obstacle fault (bits 8-15) and the state it happened in (bits 16-23).
+    * These two stay after the fault is cleared, so a sudden stop can still be read from the log afterwards. */
+   emit(56,(core.profile.width_valid?1:0)|(core.profile.depth_valid?2:0)|(core.edges_seen?4:0)|(core.profile.width_estimated?8:0)|16,
+        (int32_t)core.extends|((int32_t)last_fault<<8)|((int32_t)last_fault_state<<16),seq);
    if(core.profile.side_reason!=B5_WHY_NONE) {
     /* Scan decision: value_1 = left edge (low 16 bits) and right edge (high 16 bits) in mm, signed, + = left of the
      * car; value_2 = why the side was chosen (bits 0-3), left/right edge measured (bits 4/5), heading re-turns
@@ -187,6 +193,26 @@ static void scan_task(INT stacd,void *exinf) {
     * obstacle profile packets above. value_1 = state | last START result << 4,
     * value_2 = last stop reason | automatic restarts << 8. */
    emit(60,(b5_exec_state&15)|((b5_start_result&15)<<4),(b5_exec_reason&255)|(b5_auto_retries<<8),seq);
+   if(core.profile.side_reason!=B5_WHY_NONE && seq%3u!=0u) {
+    /* What the sonar saw at each scan angle, for diagnosing a wrong side choice. One byte per angle, -35 deg first,
+     * 5 deg steps: 0 = not sampled, 1 = unusable reading, 255 = no echo, otherwise range in units of 4 mm.
+     * 5/61 = angles -35..0 (value_1 = -35..-20, value_2 = -15..0), 5/62 = +5..+25 and the two looks taken by
+     * pivoting the car (value_2 bytes 1-3, see below). Takes the raw-range packet's place in
+     * two of every three reports so the number of packets stays the same. */
+    uint32_t b[16]={0};
+    for(unsigned i=0;i<B5_SCAN_POINTS;++i) if(core.scan.sampled[i]) {
+     uint32_t q=core.scan.distance[i]/4u;
+     b[i]=core.scan.valid[i]==B5_SCAN_NO_ECHO?255u:core.scan.valid[i]==B5_SCAN_ECHO?(q>254u?254u:q<2u?2u:q):1u;
+    }
+    /* Pivot looks: edge angle of each side in 15-degree units (left in the low 4 bits, right in the high 4:
+     * 2 = 30 ... 5 = 75, 6 = still in view, 0 = not done / no reading), then the farthest box echo on each side. */
+    b[13]=(((uint32_t)core.probe_left_deg+7u)/15u)|((((uint32_t)core.probe_right_deg+7u)/15u)<<4);
+    b[14]=core.probe_left_reach/4u>254u?254u:core.probe_left_reach/4u;
+    b[15]=core.probe_right_reach/4u>254u?254u:core.probe_right_reach/4u;
+    unsigned o=seq%3u==1u?0u:8u;
+    emit(seq%3u==1u?61:62,(int32_t)(b[o]|(b[o+1]<<8)|(b[o+2]<<16)|(b[o+3]<<24)),
+         (int32_t)(b[o+4]|(b[o+5]<<8)|(b[o+6]<<16)|(b[o+7]<<24)),seq);
+   } else
    emit(B5_TELEM_RAW_RANGE,raw_fresh && last_raw.status==US_OK?(int32_t)last_raw.distance_mm:-1,
         raw_fresh?(int32_t)last_raw.status:-1,seq);
    last_report=now;

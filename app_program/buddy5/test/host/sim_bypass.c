@@ -6,6 +6,7 @@
  * Extra: -DSIM_BLOCK_UNTIL_DEG=80 -DTSLIP=0.8 tests the sonar-triggered extra turn when the car under-turns.
  * With the real line follower (junction-style hand-back): add -DSIM_REAL_LINE=1 -DLINE_JUNCTION_USE_BARCODE=0 and
  *   ../../../buddy3/line_follow.c ../../../buddy3/junction_map.c to the source list.
+ * Wide sonar beam (a flat face answers at its nearest point inside the cone, like a real HC-SR04): -DSIM_BEAM_DEG=15
  * Optional: -DSENSOR_HALF=55 -DMSLIP=0.95 -DTSLIP=1.05 -DBOX_W=350 -DBOX_D=300 -DBOX_Y=0 -DSTART_GAP=220
  */
 #include <stdio.h>
@@ -160,19 +161,64 @@ static uint8_t read_mask(void)
     uint8_t m=0; double x,y;
     sensor_xy(+1,&x,&y); if(fabs(y)<TAPE_HALF) m|=LINE_SENSOR_LEFT;
     sensor_xy(-1,&x,&y); if(fabs(y)<TAPE_HALF) m|=LINE_SENSOR_RIGHT;
+#ifdef SIM_EDGE_BLIP
+    /* The edge of the white paper strip (105 mm from the line) reads black for a few mm (-DSIM_EDGE_BLIP=4). */
+    sensor_xy(+1,&x,&y); if(fabs(fabs(y)-105.0)<SIM_EDGE_BLIP/2.0) m|=LINE_SENSOR_LEFT;
+    sensor_xy(-1,&x,&y); if(fabs(fabs(y)-105.0)<SIM_EDGE_BLIP/2.0) m|=LINE_SENSOR_RIGHT;
+#endif
     return m;
 }
+#ifdef SIM_FLAT_SCAN
+static int sim_scanning;   /* set while the core is in B5_SCANNING */
+#endif
 static b5_range_t range_at(double servo_deg)
 {
+#ifdef SIM_FLAT_SCAN
+    /* Worst case seen on the real tubs: during the scan every ray that meets the box answers with the straight-ahead
+     * range, so no edge is found and the width comes out far too small (-DSIM_FLAT_SCAN=1). */
+    if(sim_scanning && servo_deg!=0) { sim_scanning=0; b5_range_t s=range_at(servo_deg), f=range_at(0); sim_scanning=1;
+        return (s.distance_mm==B5_NO_ECHO_MM || f.distance_mm==B5_NO_ECHO_MM) ? s : f; }
+#endif
     double ox=X+SENSOR_AHEAD*cos(TH*PI/180), oy=Y+SENSOR_AHEAD*sin(TH*PI/180); int hit;
     double d=ray_to_box(ox,oy,TH+servo_deg,&hit);
-    if(!hit || d>4000.0) return (b5_range_t){true,B5_NO_ECHO_MM};
+#ifdef SIM_BEAM_DEG
+    /* The nearest point of each box (the foot of the perpendicular on a face, or a corner) answers when it lies inside
+     * the cone, even though the axis of the beam points elsewhere. */
+    for(int k=0;k<NBOX;k++) {
+        double px=ox<BXa[k]?BXa[k]:ox>BXb[k]?BXb[k]:ox, py=oy<BYa[k]?BYa[k]:oy>BYb[k]?BYb[k]:oy;
+        double e=hypot(px-ox,py-oy), be=atan2(py-oy,px-ox)*180/PI-(TH+servo_deg);
+        while(be>180) be-=360; while(be<-180) be+=360;
+        if(e>1 && fabs(be)<=SIM_BEAM_DEG && (!hit || e<d)) { d=e; hit=1; }
+    }
+#ifdef SIM_BEAM_DIFFUSE
+    /* Rough (non-mirror-like) surface: any part of the box inside the cone answers, not only its nearest point. */
+    for(double b=-SIM_BEAM_DEG;b<=SIM_BEAM_DEG;b+=1.0) {
+        int h; double an=(TH+servo_deg+b)*PI/180, e=ray_to_box(ox,oy,TH+servo_deg+b,&h);
+        if(!h) continue;
+        /* ...but not a face met at a grazing angle (more than 50 degrees from square-on): that sound never returns. */
+        double hx=ox+e*cos(an), hy=oy+e*sin(an); int ok=0;
+        for(int k=0;k<NBOX;k++) {
+            if((fabs(hx-BXa[k])<1||fabs(hx-BXb[k])<1) && fabs(cos(an))>=0.643) ok=1;
+            if((fabs(hy-BYa[k])<1||fabs(hy-BYb[k])<1) && fabs(sin(an))>=0.643) ok=1;
+        }
+        if(ok && (!hit || e<d)) { d=e; hit=1; }
+    }
+#endif
+#endif
+    /* range_policy.h: an echo nearer than the 90 mm dead zone is reported as "no echo". */
+    if(!hit || d>4000.0 || d<90.0) return (b5_range_t){true,B5_NO_ECHO_MM};
     return (b5_range_t){true,(uint32_t)lround(d)};
 }
 static int collides1(void)
 {
     double a=TH*PI/180, c=cos(a), s=sin(a);
-    for(double u=-177.5;u<=177.5;u+=10) for(double v=-85;v<=85;v+=10) {
+#ifndef CAR_FRONT
+#define CAR_FRONT 177.5   /* axle to the front / rear of the body, mm (-DCAR_FRONT=108 -DCAR_REAR=120 for a short car) */
+#endif
+#ifndef CAR_REAR
+#define CAR_REAR 177.5
+#endif
+    for(double u=-CAR_REAR;u<=CAR_FRONT;u+=10) for(double v=-85;v<=85;v+=10) {
         double px=X+u*c-v*s, py=Y+u*s+v*c;
         if(px>bx0&&px<bx1&&py>by0&&py<by1) return 1;
     }
@@ -193,7 +239,10 @@ int main(void)
     bx0=SENSOR_AHEAD+START_GAP; bx1=bx0+BOX_D; by0=BOX_Y-BOX_W/2; by1=BOX_Y+BOX_W/2;
     BXa[0]=bx0; BXb[0]=bx1; BYa[0]=by0; BYb[0]=by1;
 #ifdef BOX2_W
-    BXa[1]=bx0; BXb[1]=bx1; BYa[1]=BOX2_Y-BOX2_W/2.0; BYb[1]=BOX2_Y+BOX2_W/2.0; NBOX=2;
+#ifndef BOX2_X
+#define BOX2_X 0.0   /* second box nearer (-) or further (+) than the first */
+#endif
+    BXa[1]=bx0+BOX2_X; BXb[1]=bx1+BOX2_X; BYa[1]=BOX2_Y-BOX2_W/2.0; BYb[1]=BOX2_Y+BOX2_W/2.0; NBOX=2;
 #endif
 #ifdef BOX3_W
     BXa[2]=bx0; BXb[2]=bx1; BYa[2]=BOX3_Y-BOX3_W/2.0; BYb[2]=BOX3_Y+BOX3_W/2.0; NBOX=3;
@@ -205,7 +254,7 @@ int main(void)
     for(int step=0; step<120*50; step++) {
         double dt=0.02; now+=20;
 #ifdef SIM_REAL_LINE
-        for(int k=0;k<4;k++) { physics(0.005); if(full_nav_rejoining(&nav)) line_follow_update(); }
+        for(int k=0;k<4;k++) { physics(0.005); if(full_nav_rejoining(&nav) || (line_starts>0 && core.state==B5_MONITORING && !nav.active)) line_follow_update();   /* as main.c */ }
         if(nav.resumed) { line_starts++; nav.resumed=false; }
 #else
         physics(dt);
@@ -231,12 +280,19 @@ int main(void)
         if(ang!=servo) { servo=ang; servo_set=now; }
         b5_range_t r; b5_range_t *rp=NULL;
         if(core.state==B5_MONITORING) want=1;
+#ifdef SIM_FLAT_SCAN
+        sim_scanning=core.state==B5_SCANNING;
+#endif
         if(want && now-servo_set>=300 && now-last_range>=100) { r=range_at(servo); rp=&r; last_range=now; }
+#ifdef SIM_FLAT_SCAN
+        sim_scanning=0;
+#endif
         b5_core_update(&core,now,&fb,rp);
         if(core.request.id && core.request.id!=delivered) {
             delivered=core.request.id;
-            static const char *k[]={"NONE","STOP","BYPASS","ADVANCE","RECOVER_LINE","RESUME_LINE","BC_L","BC_R","BACKUP"};
+            static const char *k[]={"NONE","STOP","BYPASS","ADVANCE","RECOVER_LINE","RESUME_LINE","BC_L","BC_R","BACKUP","LOOK"};
             printf("[%6.1fs] request %s fwd=%d lat=%d\n",(now-1000)/1000.0,k[core.request.kind],core.request.forward_mm,core.request.lateral_mm);
+            if(core.request.kind==B5_REQ_BYPASS) printf("          pivot looks: box out of view at left=%d right=%d deg (0 = not done, 90 = still in view), reason=%d\n",(int)core.probe_left_deg,(int)core.probe_right_deg,(int)core.profile.side_reason);
             if(!full_nav_accept(&nav,&core.request,now)) printf("  nav rejected\n");
         }
         if((int)core.state!=last_state) {
@@ -247,7 +303,19 @@ int main(void)
         if(collides()) { collisions++; }
         if(step%100==0) printf("   t=%5.1f x=%6.0f y=%6.0f th=%6.1f mode=%d\n",(now-1000)/1000.0,X,Y,TH,mode);
         if(core.state==B5_ERROR || nav.failed || emergency) { printf("FAILED: core fault=%d nav.failed=%d\n",core.fault,nav.failed); break; }
-        if(line_starts>0 && core.state==B5_MONITORING) { ok=1; break; }
+        if(line_starts>0 && core.state==B5_MONITORING) {
+            /* Keep going for a few seconds: the line follower must now drive on along the tape, tape between the
+             * two sensors (neither sensor on black for long). */
+            static uint32_t t_ok; static double x_ok, worst; static int black_steps, steps_after;
+            if(!ok) { ok=1; t_ok=now; x_ok=X; }
+            { double sy=Y+SENSOR_AHEAD*sin(TH*PI/180); if(fabs(sy)>worst) worst=fabs(sy); }
+            steps_after++; if(read_mask()) black_steps++;
+            if(now-t_ok>=4000u) {
+                printf("after the hand-back: followed the line %.0f mm further in 4 s, sensor-pair centre at most %.1f mm off the tape, a sensor on black %d%% of the time\n",
+                       X-x_ok,worst,100*black_steps/steps_after);
+                break;
+            }
+        }
     }
     { double sy=Y+SENSOR_AHEAD*sin(TH*PI/180); printf("sensor-pair centre %.1f mm from the tape centre, heading %.1f deg\n",sy,TH); }
     printf("\nturn re-checks=%d  sonar extra turns=%d\n",(int)nav.turn_fixes_total,(int)nav.block_fixes_total);

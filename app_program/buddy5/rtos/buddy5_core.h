@@ -16,7 +16,8 @@ typedef enum {
 typedef enum {
  B5_REQ_NONE, B5_REQ_STOP, B5_REQ_BYPASS, B5_REQ_ADVANCE,
  B5_REQ_RECOVER_LINE, B5_REQ_RESUME_LINE, B5_REQ_BARCODE_LEFT, B5_REQ_BARCODE_RIGHT,
- B5_REQ_BACKUP /* reverse forward_mm millimetres, then re-zero the origin (re-scan from farther away) */
+ B5_REQ_BACKUP, /* reverse forward_mm millimetres, then re-zero the origin (re-scan from farther away) */
+ B5_REQ_LOOK    /* pivot on the spot to heading lateral_mm (degrees, + = left); the position is kept */
 } b5_request_kind_t;
 typedef struct {
  b5_request_kind_t kind;
@@ -30,8 +31,10 @@ typedef struct {
 #define B5_WHY_RIGHT_EDGE_ONLY 2
 #define B5_WHY_SHORTER_DETOUR 3   /* both edges seen: the side whose edge is closer to the car's path */
 #define B5_WHY_MORE_ROOM 4        /* edges about equal: the side with more free space beyond the box */
-#define B5_WHY_NO_EDGES 5         /* box fills the scan: no side can be measured, default right (safer: larger offset) */
+#define B5_WHY_NO_EDGES 5         /* box fills the scan: no side can be measured by the scan (right unless the pivot looks decide) */
 #define B5_WHY_ONLY_ROOM 6        /* only one side has enough free space */
+#define B5_WHY_NEARER_OBJECT 8    /* something sits nearer than the box front on the other side */
+#define B5_WHY_PROBE 9            /* the car turned left and right to look: the box edge on this side is nearer */
 #define B5_WHY_FAR_RAY 7          /* box fills the scan: a ray on one side reaches clearly further */
 typedef struct {
  bool valid, stopped, fault, request_failed;
@@ -92,6 +95,13 @@ typedef struct {
  uint8_t clear_count, phase;
  uint8_t rescans, extends;
  uint8_t turn_fixes, block_fixes;
+ uint8_t probe;              /* side check by pivoting: 0 off, 1 turning to a look, 2 pinging, 3 turning back */
+ uint8_t probe_idx;          /* which look on the current side */
+ int8_t probe_side;          /* +1 looking left, -1 looking right */
+ uint16_t probe_left_reach, probe_right_reach;   /* farthest range (mm) at which a look on that side still saw the box */
+ uint8_t probe_left_deg, probe_right_deg;   /* angle where the box left the view: 0 not done, 1 no reading, 90 still in view at the last look */
+ uint32_t probe_since;
+ bool recover_checked;       /* returning to the line: the check after the turn passed, the sonar now looks straight ahead */
  bool alt_tried;             /* the first side was blocked ahead, so the other side was taken */
  uint32_t route_check_since;
  uint32_t now_ms;            /* time of the last update (servo look pattern) */   /* backups done to see both box edges */

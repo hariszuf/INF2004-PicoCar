@@ -75,6 +75,7 @@ int b5_core_angle(const b5_core_t *c) {
      * that is still level with the car's tail, not only one level with the axle. */
     /* Alternate: straight ahead (box still level with the axle) and back toward the box (box level with the tail). */
     if (c->state==B5_LINE_RECOVERY && c->phase==0) {
+        if (c->recover_checked) return 0;   /* driving to the line: watch straight ahead the whole way */
         /* Three looks in turn: ahead, half-way back, fully back toward the box. Together they cover the box
          * from level with the axle to well behind the car's tail. */
         unsigned k=(c->now_ms/B5_LOOK_PERIOD_MS)%3u;
@@ -85,6 +86,7 @@ int b5_core_angle(const b5_core_t *c) {
     return 0;
 }
 bool b5_core_wants_range(const b5_core_t *c) {
+    if (c->state==B5_WAIT_STOP && c->probe==2) return true;
     return c->state==B5_MONITORING || c->state==B5_SCANNING ||
            c->state==B5_PROCESSING ||
            (c->state==B5_AVOIDING && c->phase<2);
@@ -130,15 +132,22 @@ static int32_t plane_y(int32_t front, int slot) {
     int32_t y=front*sn[a]/cs[a];
     return k<0 ? -y : y;
 }
-static bool hit(const b5_scan_t *s,int i,int32_t front) {
-    return s->valid[i]==B5_SCAN_ECHO && ab(projected_x(s,i)-front)<=80;
+/* What one scan ray says about the box front, 0 = clear beside the box, 1 = on the box front, 2 = something nearer
+ * than the box front. The sonar beam is wide: aimed at an angle at a flat face it often reports the nearest point of
+ * that face (range ~ front) and not the point on its axis (range = front/cos a). Both count as the box front, so any
+ * range from front-80 up to (front+80)/cos a is a hit. Judging by d*cos a alone called such a ray a nearer object
+ * as soon as the car stood more than ~440 mm away, which is exactly where it stands after a rescan reverse. */
+static int ray_class(const b5_scan_t *s,int i,int32_t front) {
+    if (s->valid[i]!=B5_SCAN_ECHO) return 0;
+    if (projected_x(s,i)>front+80) return 0;
+    return (int32_t)s->distance[i]<front-80 ? 2 : 1;
 }
 /* Sideways offset (signed) needed to pass the box on the given side: edge + half car + clearance, but at least the
  * minimum bypass offset and enough room to pivot beside the box. */
 static int32_t planned_offset(const b5_profile_t *p, int side) {
     int32_t edge=side>0 ? p->left_edge_mm : -p->right_edge_mm;
-    int32_t mag=edge+B5_CAR_WIDTH_MM/2+B5_CLEARANCE_MM+B5_EDGE_ALLOWANCE_MM;
-    int32_t need=edge+B5_PIVOT_CLEAR_MM;
+    int32_t mag=(p->width_mm>0 ? p->width_mm : 0)+B5_SIDE_EXTRA_MM;   /* box size + a few cm */
+    int32_t need=edge+B5_PIVOT_CLEAR_MM+((side>0 ? p->left_measured : p->right_measured) ? 0 : B5_UNSEEN_EDGE_EXTRA_MM);
     if (need>B5_MAX_OFFSET_MM) need=B5_MAX_OFFSET_MM;
     if (mag<B5_MIN_BYPASS_OFFSET_MM) mag=B5_MIN_BYPASS_OFFSET_MM;
     if (mag<need) mag=need;
@@ -150,6 +159,7 @@ static bool process(b5_core_t *c) {
     b5_scan_t *s=&c->scan;
     b5_profile_t *p=&c->profile;
     int lo=B5_SCAN_ZERO_SLOT,hi=B5_SCAN_ZERO_SLOT,left_clear=-1,right_clear=-1;
+    bool left_near=false,right_near=false;
     c->edges_seen=false;
     if (s->valid[B5_SCAN_ZERO_SLOT]!=B5_SCAN_ECHO) return false;
     p->front_mm=s->distance[B5_SCAN_ZERO_SLOT];
@@ -157,18 +167,16 @@ static bool process(b5_core_t *c) {
         /* An isolated noisy ray must not discard valid hit/clear brackets
          * established by the neighbouring scan angles. */
         if (!s->valid[i]) continue;
-        if (!hit(s,i,p->front_mm)) {
-            if (s->valid[i]==B5_SCAN_ECHO && projected_x(s,i)<=p->front_mm+80) return false;
-            left_clear=i; break;
-        }
+        int k=ray_class(s,i,p->front_mm);
+        if (!k) { left_clear=i; break; }
+        if (k==2) left_near=true;   /* blocked nearer on this side: counts as box, and the other side is preferred */
         hi=i;
     }
     for (int i=B5_SCAN_ZERO_SLOT-1;i>=0;--i) if (s->sampled[i]) {
         if (!s->valid[i]) continue;
-        if (!hit(s,i,p->front_mm)) {
-            if (s->valid[i]==B5_SCAN_ECHO && projected_x(s,i)<=p->front_mm+80) return false;
-            right_clear=i; break;
-        }
+        int k=ray_class(s,i,p->front_mm);
+        if (!k) { right_clear=i; break; }
+        if (k==2) right_near=true;
         lo=i;
     }
     if (left_clear<0 || right_clear<0 || hi==B5_SCAN_POINTS-1 || lo==0) {
@@ -181,6 +189,10 @@ static bool process(b5_core_t *c) {
         (void)half;
         p->left_edge_mm=left_clear>=0 ? plane_y(p->front_mm,left_clear) : side_extent(s,p->front_mm,true);
         p->right_edge_mm=right_clear>=0 ? plane_y(p->front_mm,right_clear) : -side_extent(s,p->front_mm,false);
+        /* An unseen edge is at least half-way to the outermost ray that still met the box (the wide beam makes
+         * the range-based estimate above collapse toward zero on a flat face). */
+        if (left_clear<0) p->left_edge_mm=mx(p->left_edge_mm,plane_y(p->front_mm,hi)/2);
+        if (right_clear<0) p->right_edge_mm=mn(p->right_edge_mm,plane_y(p->front_mm,lo)/2);
         p->left_inner_mm=p->left_edge_mm;
         p->right_inner_mm=p->right_edge_mm;
         p->left_measured=left_clear>=0; p->right_measured=right_clear>=0;
@@ -207,7 +219,8 @@ static bool process(b5_core_t *c) {
         int32_t extra=B5_CAR_WIDTH_MM/2+B5_CLEARANCE_MM+B5_EDGE_ALLOWANCE_MM;
         int32_t left=p->left_edge_mm+extra;
         int32_t right=p->right_edge_mm-extra;
-        if (left_clear>=0 && right_clear<0) { p->side=1; p->side_reason=B5_WHY_LEFT_EDGE_ONLY; }
+        if (left_near!=right_near) { p->side=left_near ? -1 : 1; p->side_reason=B5_WHY_NEARER_OBJECT; }
+        else if (left_clear>=0 && right_clear<0) { p->side=1; p->side_reason=B5_WHY_LEFT_EDGE_ONLY; }
         else if (right_clear>=0 && left_clear<0) { p->side=-1; p->side_reason=B5_WHY_RIGHT_EDGE_ONLY; }
         else {
             /* Neither edge is inside the scan window (or both are, at its very edge). Compare how far the two outermost
@@ -218,10 +231,14 @@ static bool process(b5_core_t *c) {
             if (ab(lx-rx)>=B5_SIDE_PREFER_MM) { p->side=lx>rx ? 1 : -1; p->side_reason=B5_WHY_FAR_RAY; }
             /* No information either way. The right half of the window is wider (-35 deg), so the right-hand estimate is
              * the larger lower bound and that side gets the bigger, safer offset: keep the previous default. */
-            else { p->side=-1; p->side_reason=B5_WHY_NO_EDGES; }
+            else { p->side=-1; p->side_reason=B5_WHY_NO_EDGES; }   /* nothing to go on from the scan; the pivot looks decide (probe_step) */
         }
         p->offset_mm=p->side>0 ? left : right;
-        return ab(p->offset_mm)<=B5_MAX_OFFSET_MM;
+        /* The edge here is only an estimate, so an over-long one is capped and not treated as "no route": the
+         * forward check before the straight pass decides whether the side is really free. */
+        if (p->offset_mm>B5_MAX_OFFSET_MM) p->offset_mm=B5_MAX_OFFSET_MM;
+        if (p->offset_mm<-B5_MAX_OFFSET_MM) p->offset_mm=-B5_MAX_OFFSET_MM;
+        return true;
     }
     /* Outer edge of observed hit/clear angular bracket, enclosing estimate. */
     c->edges_seen=true;
@@ -249,7 +266,8 @@ static bool process(b5_core_t *c) {
     bool r=p->width_valid && -right<=B5_MAX_OFFSET_MM &&
            right_score+B5_ROUTE_UNCERTAINTY_MM>-right+B5_CAR_LENGTH_MM+B5_CLEARANCE_MM;
     if (!l && !r) return false;
-    if (l && r) {
+    if (l && r && left_near!=right_near) { p->side=left_near ? -1 : 1; p->side_reason=B5_WHY_NEARER_OBJECT; }
+    else if (l && r) {
         /* Take the side with the shorter detour: the box edge nearer to the car's path. (Before, the side whose
          * far echo was longer won, which has nothing to do with where the box is.) */
         int32_t lo_d=left, ro_d=-right;
@@ -337,6 +355,71 @@ static void side_sample(b5_core_t *c,uint32_t now,
         advance(c,now,f);
     }
 }
+/* The scan has picked a side and an edge estimate: send the sideways leg. */
+static void start_bypass(b5_core_t *c,uint32_t now) {
+#if B5_TIGHT_COURSE
+    /* Preliminary 10 cm obstacle / narrow-board demonstration.
+     * This is deliberately not the final 20 cm safety profile. */
+    if (ab(c->profile.offset_mm)>B5_TIGHT_OFFSET_MM)
+        c->profile.offset_mm=c->profile.side*B5_TIGHT_OFFSET_MM;
+#endif
+#if B5_SIMPLE_BYPASS
+    /* Sideways leg: box width + a few cm, with room to pivot beside the box (see planned_offset). */
+    c->profile.offset_mm=planned_offset(&c->profile,c->profile.side);
+#endif
+    c->profile.alt_offset_mm=planned_offset(&c->profile,-c->profile.side);
+    c->profile.alt_ok=ab(c->profile.alt_offset_mm)<=B5_MAX_OFFSET_MM;
+    request(c,B5_REQ_BYPASS,now,c->profile.front_mm,c->profile.offset_mm);
+}
+#if B5_PROBE_DEG>0
+/* Side check by pivoting the car (see B5_PROBE_DEG). Runs in B5_WAIT_STOP.
+ * The car looks left at B5_PROBE_DEG, then B5_PROBE_STEP_DEG further each time, until the box is no longer in view;
+ * then the same to the right. The angle where the box drops out of view is that side's edge angle. The sonar beam
+ * blurs both edges by the same amount, so the smaller angle is the nearer edge, and the car passes on that side. */
+static void probe_look(b5_core_t *c,uint32_t now) {
+    c->probe=1;
+    request(c,B5_REQ_LOOK,now,0,c->probe_side*(B5_PROBE_DEG+(int32_t)c->probe_idx*B5_PROBE_STEP_DEG));
+}
+static void probe_step(b5_core_t *c,uint32_t now,const b5_feedback_t *f,const b5_range_t *r) {
+    bool done=f->completed_id==c->request.id && f->stopped;
+    if (c->probe==1) {
+        if (done) { c->probe=2; c->probe_since=now; }
+    } else if (c->probe==2) {
+        /* "Box in view" = an echo no further than a box at this distance could give when seen at an angle. */
+        int32_t near=mn(2*c->profile.front_mm+100,900);
+        int seen=-1, edge;
+        if ((uint32_t)(now-c->probe_since)<B5_PROBE_SETTLE_MS) return;
+        if (r && b5_range_no_echo(r)) seen=0;
+        else if (r && good(r)) seen=(int32_t)r->distance_mm<=near;
+        else if ((uint32_t)(now-c->probe_since)<B5_PROBE_TIMEOUT_MS) return;
+        if (seen>0) {
+            /* The farthest echo still belonging to the box on this side: the further the box reaches, the larger. */
+            uint16_t *reach=c->probe_side>0 ? &c->probe_left_reach : &c->probe_right_reach;
+            if (r->distance_mm>*reach) *reach=(uint16_t)r->distance_mm;
+        }
+        if (seen>0 && c->probe_idx+1u<B5_PROBE_LOOKS) { c->probe_idx++; probe_look(c,now); return; }
+        /* Edge angle of this side: where the box dropped out of view (90 = still in view at the last look, 1 = no reading). */
+        edge=seen<0 ? 1 : seen ? 90 : B5_PROBE_DEG+(int32_t)c->probe_idx*B5_PROBE_STEP_DEG;
+        if (c->probe_side>0) { c->probe_left_deg=(uint8_t)edge; c->probe_side=-1; c->probe_idx=0; probe_look(c,now); }
+        else { c->probe_right_deg=(uint8_t)edge; c->probe=3; request(c,B5_REQ_LOOK,now,0,0); }
+    } else {
+        if (!done) return;
+        if (!f->heading_aligned) { b5_core_fail(c,B5_FAULT_POSE,now); return; }
+        if (c->probe_left_deg>1 && c->probe_right_deg>1 && c->probe_left_deg!=c->probe_right_deg) {
+            c->profile.side=c->probe_left_deg<c->probe_right_deg ? 1 : -1;   /* pass on the side of the nearer edge */
+            c->profile.side_reason=B5_WHY_PROBE;
+        } else if (c->probe_left_deg>1 && c->probe_left_deg==c->probe_right_deg &&
+                   ab((int32_t)c->probe_left_reach-(int32_t)c->probe_right_reach)>=30) {
+            /* Out of view at the same angle on both sides: the side whose last echoes were nearer has the nearer edge. */
+            c->profile.side=c->probe_left_reach<c->probe_right_reach ? 1 : -1;
+            c->profile.side_reason=B5_WHY_PROBE;
+        }
+        c->probe=0;
+        state(c,B5_PROCESSING,now);
+        start_bypass(c,now);
+    }
+}
+#endif
 void b5_core_update(b5_core_t *c,uint32_t now,
                     const b5_feedback_t *f,const b5_range_t *r) {
     c->now_ms=now;
@@ -368,12 +451,15 @@ void b5_core_update(b5_core_t *c,uint32_t now,
         c->front_clearance_mm=b5_front_clearance(r);
         if (c->front_clearance_mm<=B5_STOP_FRONT_MM) {
             uint32_t id=c->profile.obstacle_id+1u;
-            memset(&c->profile,0,sizeof(c->profile)); c->profile.obstacle_id=id; c->rescans=0; c->extends=0; c->alt_tried=false; c->route_check_since=0;
+            memset(&c->profile,0,sizeof(c->profile)); c->profile.obstacle_id=id; c->rescans=0; c->extends=0; c->alt_tried=false; c->route_check_since=0; c->probe=0;
             state(c,B5_WAIT_STOP,now);
             request(c,B5_REQ_STOP,now,0,0);
         }
         break;
     case B5_WAIT_STOP:
+#if B5_PROBE_DEG>0
+        if (c->probe) { probe_step(c,now,f,r); break; }
+#endif
         if (f->completed_id==c->request.id && f->stopped) {
             if (!f->heading_aligned || ab(f->forward_mm)>5 || ab(f->lateral_mm)>5)
                 b5_core_fail(c,B5_FAULT_POSE,now);
@@ -393,8 +479,8 @@ void b5_core_update(b5_core_t *c,uint32_t now,
             state(c,B5_PROCESSING,now);
             if (!process(c)) b5_core_fail(c,B5_FAULT_NO_ROUTE,now);
             else {
-#if B5_SIMPLE_BYPASS
-                if ((c->profile.side_reason==B5_WHY_NO_EDGES || c->profile.side_reason==B5_WHY_FAR_RAY) && c->rescans<B5_MAX_RESCANS) {
+#if B5_SIMPLE_BYPASS && B5_MAX_RESCANS>0
+                if ((c->profile.side_reason==B5_WHY_NO_EDGES || c->profile.side_reason==B5_WHY_FAR_RAY) && (int)c->rescans<(int)B5_MAX_RESCANS) {
                     /* Neither box edge is inside the scan window, so no side can be judged: reverse a little (the window
                      * then covers more of the box) and measure again. */
                     c->rescans++;
@@ -403,29 +489,16 @@ void b5_core_update(b5_core_t *c,uint32_t now,
                     return;
                 }
 #endif
-#if B5_TIGHT_COURSE
-                /* Preliminary 10 cm obstacle / narrow-board demonstration.
-                 * This is deliberately not the final 20 cm safety profile. */
-                if (ab(c->profile.offset_mm)>B5_TIGHT_OFFSET_MM)
-                    c->profile.offset_mm=c->profile.side*B5_TIGHT_OFFSET_MM;
-#endif
-#if B5_SIMPLE_BYPASS
-                if (c->profile.side>0 && c->profile.offset_mm<B5_MIN_BYPASS_OFFSET_MM)
-                    c->profile.offset_mm=B5_MIN_BYPASS_OFFSET_MM;
-                if (c->profile.side<0 && c->profile.offset_mm>-B5_MIN_BYPASS_OFFSET_MM)
-                    c->profile.offset_mm=-B5_MIN_BYPASS_OFFSET_MM;
-                {
-                    /* Room to pivot 90 degrees beside the box: the car's corner swings out ~196 mm. */
-                    int32_t edge=c->profile.side>0 ? c->profile.left_edge_mm : -c->profile.right_edge_mm;
-                    int32_t need=edge+B5_PIVOT_CLEAR_MM;
-                    if (need>B5_MAX_OFFSET_MM) need=B5_MAX_OFFSET_MM;
-                    if (ab(c->profile.offset_mm)<need) c->profile.offset_mm=c->profile.side*need;
+#if B5_SIMPLE_BYPASS && B5_PROBE_DEG>0
+                if (!c->edges_seen) {
+                    /* Not both edges measured: turn the car left and right to see which side the box extends to. */
+                    c->probe_left_deg=c->probe_right_deg=0; c->probe_left_reach=c->probe_right_reach=0; c->probe_side=1; c->probe_idx=0;
+                    state(c,B5_WAIT_STOP,now);
+                    probe_look(c,now);
+                    return;
                 }
 #endif
-                c->profile.alt_offset_mm=planned_offset(&c->profile,-c->profile.side);
-                c->profile.alt_ok=ab(c->profile.alt_offset_mm)<=B5_MAX_OFFSET_MM &&
-                                  (c->profile.left_measured || c->profile.right_measured || true);
-                request(c,B5_REQ_BYPASS,now,c->profile.front_mm,c->profile.offset_mm);
+                start_bypass(c,now);
             }
         }
         break;
@@ -441,6 +514,15 @@ void b5_core_update(b5_core_t *c,uint32_t now,
                 /* The car now sits at the side position facing forward. Before the straight pass, the sonar must see
                  * clear space for the whole pass (a second box next to the first one would otherwise be driven into). */
                 int32_t need=c->profile.front_mm+B5_AXLE_TO_SENSOR_MM+B5_PASS_BESIDE_MM+B5_PASS_TAIL_MM+B5_ROUTE_MARGIN_MM;
+                {
+                    /* The wide sonar beam also hears the corner of the box being passed, which is beside the path, not
+                     * in it. That corner is hypot(front, gap) away, clearly more than the box-front distance;
+                     * something really in the path next to the box (a second box) answers at about the box-front
+                     * distance. Only that kind blocks the side. Anything further back is caught during the pass
+                     * (B5_ADVANCE_STOP_MM). */
+                    int32_t inpath=c->profile.front_mm+B5_ROUTE_CORNER_MARGIN_MM-B5_FRONT_OVERHANG_MM;
+                    if (inpath<need) need=inpath;
+                }
                 if (!c->route_check_since) { c->route_check_since=now; return; }
                 if ((uint32_t)(now-c->route_check_since)<B5_ROUTE_CHECK_MS) return;
                 if (c->front_clearance_mm>=0 && c->front_clearance_mm!=B5_CLEAR_FRONT_MM && c->front_clearance_mm<need) {
@@ -498,7 +580,7 @@ void b5_core_update(b5_core_t *c,uint32_t now,
 #if B5_SIMPLE_BYPASS
                 /* Past the box: head back to the line. */
                 state(c,B5_LINE_RECOVERY,now);
-                c->phase=0;
+                c->phase=0; c->recover_checked=false;
                 request(c,B5_REQ_RECOVER_LINE,now,f->forward_mm,0);
                 return;
 #endif
@@ -523,10 +605,10 @@ void b5_core_update(b5_core_t *c,uint32_t now,
         } else side_sample(c,now,f,r);
         break;
     case B5_LINE_RECOVERY:
-        c->extends=f->extends;
+        c->extends=f->extends; c->recover_checked=f->front_ok;
         if (f->front_ok && !c->profile.depth_valid) {
             /* Sonar saw nothing beside the box after k extends: box depth is between the previous and this axle position. */
-            int32_t gain=B5_EXTEND_MM-B5_RETURN_REVERSE_MM, k=f->extends;
+            int32_t gain=B5_EXTEND_MM, k=f->extends;
             int32_t first=B5_PASS_BESIDE_MM+B5_PASS_TAIL_MM;   /* where the first sonar check happens */
             c->profile.depth_high_mm=first+k*gain;
             c->profile.depth_low_mm=k>0 ? first+(k-1)*gain : 0;

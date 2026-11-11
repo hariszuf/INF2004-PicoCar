@@ -25,15 +25,20 @@ void full_nav_set_front(full_nav_t *n,bool fresh,int32_t clearance_mm,int angle_
 #ifndef B5_LINE_ADVANCE_MM
 #define B5_LINE_ADVANCE_MM (LINE_JUNCTION_ADVANCE_CM*10.0f)
 #endif
-static void build_recover(full_nav_t *n,float side,bool extend) {
+/* back_first: reverse this far (mm) first (the car stopped part-way to the line and goes back out). */
+static void build_recover(full_nav_t *n,float side,bool extend,float back_first) {
  unsigned i=0;
- float sweep=absolute(n->y)+B5_LINE_SWEEP_EXTRA_MM+(extend?B5_RETURN_REVERSE_MM:0.0f);
+ float sweep=absolute(n->y)+back_first+B5_LINE_SWEEP_EXTRA_MM+(extend?0.0f:(float)B5_CHECK_BACK_MM);
+ if(back_first>=4.0f) n->actions[i++]=(full_action_t){BACK,back_first};
  if(extend) {
-  n->actions[i++]=(full_action_t){BACK,B5_RETURN_REVERSE_MM};
+  /* The car is already B5_CHECK_BACK_MM further from the line (first attempt), so it can face forward safely. */
   n->actions[i++]=(full_action_t){TURN,0};
   n->actions[i++]=(full_action_t){MOVE,B5_EXTEND_MM};
  }
  n->actions[i++]=(full_action_t){TURN,side*90.0f};
+ /* Facing the line the box may sit inside the sonar's 90 mm dead zone, which reads as "nothing there": step back
+  * first so that a box still beside the car gives a real echo. */
+ if(!extend) n->actions[i++]=(full_action_t){BACK,B5_CHECK_BACK_MM};
  n->actions[i++]=(full_action_t){CHECK_FRONT,0};
  /* No extra turns once the check is clear: the sonar looks back toward the box (B5_RECOVERY_LOOK_BACK),
   * so "clear" already means the car's tail will swing past the box rear at the line. */
@@ -47,7 +52,7 @@ static void build_recover(full_nav_t *n,float side,bool extend) {
  n->actions[i++]=(full_action_t){SEARCH,-side};
 #endif
  n->count=i; n->index=0; n->issued=false; n->check_since=0;
- n->tape_entered=false; n->tape_measured=false;
+ n->tape_entered=false; n->tape_measured=false; n->cand_valid=false;
 }
 static void trip(full_nav_t *n,float target_y,bool check) {
  float delta=target_y-n->y;
@@ -90,7 +95,8 @@ bool full_nav_accept(full_nav_t *n,const b5_request_t *r,uint32_t now) {
     * back to the original heading, then pivot slowly until a sensor sees the line. */
    float side=(n->y>0.0f)?-1.0f:1.0f;   /* +1: line is on the left */
    n->acquired=false; n->search_phase=0; n->retries=0; n->front_ok=false; n->recover_side=side;
-   build_recover(n,side,false);
+   n->sweep_block=false; n->check_y=0;
+   build_recover(n,side,false,0.0f);
   }
   break;
  case B5_REQ_RESUME_LINE: break;
@@ -98,6 +104,12 @@ bool full_nav_accept(full_nav_t *n,const b5_request_t *r,uint32_t now) {
   line_follow_stop();
   n->settled=0; n->count=1;
   n->actions[0]=(full_action_t){BACK,(float)r->forward_mm};
+  break;
+ case B5_REQ_LOOK:
+  /* Pivot on the spot to look past the box (lateral_mm = heading in degrees); the origin is kept. */
+  line_follow_stop();
+  n->settled=0; n->count=1;
+  n->actions[0]=(full_action_t){TURN,(float)r->lateral_mm};
   break;
  case B5_REQ_BARCODE_LEFT:
  case B5_REQ_BARCODE_RIGHT:
@@ -145,12 +157,40 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
  /* During line recovery, stop the lateral sweep as soon as the front IR
   * sensors consistently see the line. Finish by aligning the heading. */
  if(n->request.kind==B5_REQ_RECOVER_LINE && n->issued && n->index<n->count &&
+    n->actions[n->index].kind==SWEEP && !n->recovery_stop && !n->sweep_block) {
+  /* Sonar watch on the way to the line: an echo that is close and clearly short of the line is the box (or
+   * something else in the way). Stop before touching it. */
+  if(!n->tape_entered && n->front_fresh && n->front_angle==0 && n->front_mm!=B5_CLEAR_FRONT_MM && n->front_mm>=0) {
+   float remain=absolute(n->y+B5_AXLE_TO_SENSOR_MM*sinf(n->heading*0.01745329252f));
+   if((float)n->front_mm<remain-B5_CHECK_MARGIN_MM && n->front_mm<=B5_SWEEP_STOP_MM) { motion_stop(); n->sweep_block=true; }
+  }
+ }
+ if(n->sweep_block) {
+  if(n->settled<3) return;
+  n->sweep_block=false; n->issued=false; n->moving=false; n->forward_moving=false; n->motion_seen=false;
+  n->front_ok=false;
+  if(n->retries>=B5_MAX_EXTENDS) { fail(n); return; }
+  ++n->retries;
+  {
+   float back=n->check_y-absolute(n->y);
+   build_recover(n,n->recover_side,true,back>0.0f?back:0.0f);
+  }
+  return;
+ }
+ if(n->request.kind==B5_REQ_RECOVER_LINE && n->issued && n->index<n->count &&
     n->actions[n->index].kind==SWEEP && !n->recovery_stop) {
   /* Drive across the tape and note where the sensors enter and leave it: the middle of the two is the
    * line centre. Stop once past it; the hand-back then drives exactly onto the line. */
   bool black=(mask&(LINE_SENSOR_LEFT|LINE_SENSOR_RIGHT))!=0;
   float sy=n->y+B5_AXLE_TO_SENSOR_MM*sinf(n->heading*0.01745329252f);
   if(black && !n->tape_entered) { n->tape_entered=true; n->tape_enter_y=sy; }
+  else if(n->tape_entered && !black && absolute(sy-n->tape_enter_y)<B5_TAPE_MIN_MM) {
+   /* Too narrow to be the tape: keep going, but remember it. If the real tape is never found, the candidate
+    * nearest to where the line should be is used (the car reverses onto it). */
+   float mid=0.5f*(n->tape_enter_y+sy);
+   if(!n->cand_valid || absolute(mid)<absolute(n->cand_y)) { n->cand_y=mid; n->cand_valid=true; }
+   n->tape_entered=false;
+  }
   else if(n->tape_entered && (!black || absolute(sy-n->tape_enter_y)>=B5_TAPE_MAX_MM)) {
    n->tape_line_y=0.5f*(n->tape_enter_y+sy); n->tape_measured=true;
    motion_stop(); n->recovery_stop=true;
@@ -220,6 +260,7 @@ void full_nav_update(full_nav_t *n,uint32_t now,const motion_status_t *m,uint8_t
   }
   bool pose=absolute(n->heading)<=NAV_HEADING_ALIGNED_DEG;
   if(n->request.kind==B5_REQ_RECOVER_LINE) pose=absolute(n->heading)<=30.0f;
+  if(n->request.kind==B5_REQ_LOOK) pose=absolute(n->heading-(float)n->request.lateral_mm)<=NAV_HEADING_ALIGNED_DEG+4.0f;
   if(n->request.kind==B5_REQ_BYPASS)
    pose=pose && (n->block_fixes_total>0 || absolute(n->x)<=B5_ADV_TOL_X_MM) && absolute(n->y-n->request.lateral_mm)<=B5_ADV_TOL_Y_MM;
   if(n->request.kind==B5_REQ_ADVANCE)
@@ -249,14 +290,16 @@ if(a.kind==CHECK_FRONT) {
   bool done=n->look[0] && n->look[1] && n->look[2];
   if(!blocked && !done) {
    if((uint32_t)(now-n->check_since)<B5_CHECK_SETTLE_MS+4u*B5_LOOK_PERIOD_MS) return;
-   /* A look never came (sonar silent): count it as clear. */
+   /* A look back never came: count it as clear. The look straight ahead is the one that matters: without it
+    * nothing is known about the path to the line, so that counts as blocked. */
+   if(!n->look[0]) blocked=true;
   }
-  if(!blocked) { n->front_ok=true; ++n->index; n->check_since=0; return; }
+  if(!blocked) { n->front_ok=true; n->check_y=absolute(n->y); ++n->index; n->check_since=0; return; }
   /* Blocked only by something between the sonar and the line (the sonar is B5_AXLE_TO_SENSOR_MM ahead of
    * the axle). Anything farther is beyond the line and is not the box: no reverse. */
   if(n->retries>=B5_MAX_EXTENDS) { fail(n); return; }
   ++n->retries;
-  build_recover(n,n->recover_side,true);
+  build_recover(n,n->recover_side,true,0.0f);
   return;
  }
  if(a.kind==CHECK_LINE) {
@@ -299,9 +342,11 @@ if(a.kind==CHECK_FRONT) {
   {
    /* Distance along the heading that puts the axle on the measured line centre. */
    float s=sinf(n->heading*0.01745329252f);
+   /* The drive ran out without crossing a full-width tape: fall back to the best short black that was seen. */
+   if(!n->tape_measured && n->cand_valid) { n->tape_line_y=n->cand_y; n->tape_measured=true; }
    if(n->tape_measured && absolute(s)>0.5f) adv=(n->tape_line_y-n->y)/s;
    if(adv>B5_LINE_ADVANCE_MM+80.0f) adv=B5_LINE_ADVANCE_MM+80.0f;
-   if(adv< -80.0f) adv=-80.0f;
+   if(adv< -(B5_LINE_SWEEP_EXTRA_MM+150.0f)) adv=-(B5_LINE_SWEEP_EXTRA_MM+150.0f);
   }
   if(!line_follow_rejoin(a.value>0?1:-1,adv/10.0f)) { fail(n); return; }
 #else

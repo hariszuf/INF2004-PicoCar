@@ -19,6 +19,9 @@ typedef struct {
  float tape_enter_y, tape_line_y;   /* line follower is running the junction-style hand-back */
  float recover_side;
  bool front_fresh;
+ bool sweep_block;   /* the sonar saw something ahead while driving to the line: stopping, then drive further past */
+ bool cand_valid; float cand_y;   /* short black seen on the way to the line (not accepted as the tape): the one nearest the expected line */
+ float check_y;      /* distance from the line where the last sonar check passed */
  /* Turn / blocked-front corrections */
  uint8_t turn_fixes_total, block_fixes_total;   /* since the last STOP (telemetry 5/59) */
  uint8_t turn_tries, block_fixes;               /* current action / current request */
