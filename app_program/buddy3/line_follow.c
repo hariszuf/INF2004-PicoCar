@@ -720,6 +720,27 @@ void line_follow_update(void)
     }
 }
 
+bool line_follow_restart_required(void)
+{
+#if LINE_JUNCTION
+    return s_junction_halted;
+#else
+    return false;
+#endif
+}
+
+void line_follow_discard_barcode(void)
+{
+#if LINE_JUNCTION && LINE_JUNCTION_USE_BARCODE
+    char letter;
+    uint32_t read_ms;
+    if (buddy3_barcode_latest(&letter, &read_ms)) {
+        s_barcode_used = true;
+        s_barcode_used_ms = read_ms;
+    }
+#endif
+}
+
 void line_follow_get_status(line_status_t *p_status)
 {
     if (p_status != 0)

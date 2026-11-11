@@ -164,6 +164,7 @@ int main(void)
     tick(BOTH);
     line_follow_get_status(&st);
     CHECK(st.state == LINE_STATE_JUNCTION && s_stop_calls == 1, "no new barcode -> stops at the junction");
+    CHECK(line_follow_restart_required(), "controller can detect a junction waiting for a barcode");
     int moved = 0;
     for (int i = 0; i < 2000; i++)
     {
@@ -173,6 +174,14 @@ int main(void)
     }
     line_follow_get_status(&st);
     CHECK(!moved && st.state == LINE_STATE_JUNCTION, "no barcode -> stays stopped (10 s), sends no motion commands");
+    line_follow_stop();
+    s_letter = 'A';
+    ++s_letter_ms;
+    line_follow_discard_barcode();
+    CHECK(line_follow_start(), "controller restart accepted");
+    tick(0u);
+    tick(BOTH);
+    CHECK(line_follow_restart_required(), "restart does not replay the last decoded barcode");
 #endif
     printf("%s\n", s_failures == 0 ? "ALL PASSED" : "SOME FAILED");
     return s_failures == 0 ? 0 : 1;

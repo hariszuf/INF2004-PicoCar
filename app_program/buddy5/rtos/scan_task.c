@@ -2,6 +2,7 @@
 #include <tk/tkernel.h>
 #include <tm/tmonitor.h>
 #include "scan_link.h"
+#include "vehicle_controller.h"
 #include "platform.h"
 #include "range_policy.h"
 #include "buddy5_servo.h"
@@ -11,8 +12,6 @@
 #include "../../../lib/libnet/lwip/mqtt_dashboard_ready.h"
 #endif
 static b5_core_t core;
-extern volatile int32_t b5_halt_code, b5_halt_count;
-extern volatile int32_t b5_exec_state, b5_exec_reason, b5_start_result, b5_start_count, b5_auto_retries;
 static line_scan_status_t shared;
 static bool reset_pending, abort_pending;
 static uint32_t report_sequence;
@@ -148,7 +147,7 @@ static void scan_task(INT stacd,void *exinf) {
    delivered=core.request.id;
    if(!line_controller_request(&core.request)) {
     if(core.state==B5_ERROR) delivered=0;
-    else { b5_halt_code=20; b5_halt_count++; b5_core_fail(&core,B5_FAULT_CONTROLLER,now); } /* 20 = request not accepted */
+    else b5_core_fail(&core,B5_FAULT_CONTROLLER,now);
    }
   }
   if(core.state!=previous) {
@@ -186,7 +185,9 @@ static void scan_task(INT stacd,void *exinf) {
    /* One packet for the vehicle execution status, kept small so the shared telemetry queue does not drop the
     * obstacle profile packets above. value_1 = state | last START result << 4,
     * value_2 = last stop reason | automatic restarts << 8. */
-   emit(60,(b5_exec_state&15)|((b5_start_result&15)<<4),(b5_exec_reason&255)|(b5_auto_retries<<8),seq);
+   int32_t execution_state,execution_reason;
+   vehicle_controller_execution_status(&execution_state,&execution_reason);
+   emit(60,execution_state,execution_reason,seq);
    emit(B5_TELEM_RAW_RANGE,raw_fresh && last_raw.status==US_OK?(int32_t)last_raw.distance_mm:-1,
         raw_fresh?(int32_t)last_raw.status:-1,seq);
    last_report=now;
