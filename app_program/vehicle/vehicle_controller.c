@@ -1,23 +1,22 @@
 #ifdef B5_FULL_TEST
 #include <tk/tkernel.h>
 #include <tm/tmonitor.h>
+#include "vehicle_controller.h"
 #include "platform.h"
 #include "barcode_task.h"
 #include "scan_link.h"
 #include "vehicle_nav.h"
 #include "auto_start.h"
-#include "../../buddy1/buddy1.h"
-#include "../../buddy1/telemetry.h"
-#include "../../buddy2/motion_encoder.h"
-#include "buddy5_servo.h"
-#include "../../buddy5/ultrasonic.h"
-#include "../../buddy2/motion_control.h"
-#include "../../buddy3/line_follow.h"
-#include "../../buddy3/line_sensors.h"
-#include "../../buddy3/line_config.h"
-#include "../../buddy4/rtos/buddy4_task.h"
+#include "../buddy1/telemetry.h"
+#include "../buddy2/motion_encoder.h"
+#include "../buddy5/rtos/buddy5_servo.h"
+#include "../buddy2/motion_control.h"
+#include "../buddy3/line_follow.h"
+#include "../buddy3/line_sensors.h"
+#include "../buddy3/line_config.h"
+#include "../buddy4/rtos/buddy4_task.h"
 #if TM_WIFI_MQTT
-#include "../../../lib/libnet/lwip/mqtt_dashboard_ready.h"
+#include "../../lib/libnet/lwip/mqtt_dashboard_ready.h"
 #endif
 #ifndef B5_HEADLESS
 #define B5_HEADLESS 0
@@ -31,15 +30,6 @@
 #ifndef B5_TIGHT_COURSE
 #define B5_TIGHT_COURSE 0
 #endif
-#if TK_SUPPORT_SMP
-#error "This integration profile requires SMP=0"
-#endif
-#if CNF_TIMER_PERIOD != 1
-#error "Use picocar_integration.mk (1ms kernel tick required)"
-#endif
-#if TM_CONSOLE_UART
-#error "GP0 belongs to the line sensor: this profile requires USB-only console"
-#endif
 #if TM_CONSOLE_USB_CDC
 IMPORT UW tm_usb_state(void);
 #endif
@@ -47,7 +37,7 @@ static b5_feedback_t feedback_shared;
 static b5_request_t pending_request;
 static bool request_pending;
 static volatile bool run_enabled;
-static bool buddy4_ready;
+static volatile bool buddy4_ready;
 
 #if TM_WIFI_MQTT
 static ER report_measurement(uint8_t source, uint8_t type, uint16_t flags,
@@ -81,14 +71,15 @@ static uint16_t enc_diag_flags(void)
 #endif
 #endif
 static volatile bool user_stop_pending;
+static bool remote_start_rejected;
 static volatile bool remote_start_pending;   /* START intent: dashboard (MQTT) or USB R */
 static bool fault_latched;                   /* motor stall latch: cleared only by a power cycle */
-/* Execution status for telemetry src5 types 60/61 (see auto_start.h). */
-volatile int32_t b5_exec_state, b5_exec_reason, b5_start_result, b5_start_count, b5_auto_retries;
+/* Packed values for the existing source 5, type 60 telemetry. */
+static int32_t execution_state, execution_reason;
 static unsigned char commands[8];
 static unsigned command_head,command_tail;
 bool line_controller_active(void) { return run_enabled; }
-bool b5_line_usb_connected(void) {
+static bool b5_line_usb_connected(void) {
 #if TM_CONSOLE_USB_CDC
  return tm_usb_state()>=3;
 #else
@@ -108,12 +99,12 @@ void b5_line_command_received(unsigned c) {
  }
  EI(irq);
 }
-bool b5_line_take_stop(void) {
+static bool b5_line_take_stop(void) {
  UW irq; bool stop;
  DI(irq); stop=user_stop_pending; user_stop_pending=false; EI(irq);
  return stop;
 }
-int b5_line_take_command(void) {
+static int b5_line_take_command(void) {
  UW irq; int c=-1;
  DI(irq);
  if(command_head!=command_tail) {
@@ -121,15 +112,26 @@ int b5_line_take_command(void) {
  }
  EI(irq); return c;
 }
-/* MQTT bridge (Buddy 1 task): non-blocking intent only, never touches the motors. 'S' = STOP, 'R' = START. */
+/* MQTT bridge (network owner): non-blocking intent only, never touches the motors. 'S' = STOP, 'R' = START. */
 void b5_remote_command_intent(unsigned c) {
  UW irq;
  DI(irq);
- if(c=='S') { user_stop_pending=true; command_tail=command_head; remote_start_pending=false; }
- else if(c=='R') remote_start_pending=true;
+ if(c=='S') {
+  user_stop_pending=true; command_tail=command_head; remote_start_pending=false; remote_start_rejected=false;
+ } else if(c=='R' && !user_stop_pending) {
+#if TM_WIFI_MQTT
+  /* Subscription-time messages must not arm a restart on a later dashboard handshake. */
+  if(!mqtt_dashboard_ready_after_connect(10000u)) remote_start_rejected=true;
+  else
+#endif
+  remote_start_pending=true;
+ }
  EI(irq);
 }
-static void discard_commands(void) { UW irq; DI(irq); command_tail=command_head; EI(irq); }
+static void discard_commands(void) {
+ UW irq;
+ DI(irq); command_tail=command_head; remote_start_pending=false; EI(irq);
+}
 bool line_controller_feedback(b5_feedback_t *f) {
  UW irq; DI(irq); *f=feedback_shared; EI(irq); return f->valid;
 }
@@ -141,25 +143,29 @@ bool line_controller_request(const b5_request_t *r) {
  }
  EI(irq); return accepted;
 }
-/* Why the car last stopped itself, reported as telemetry src=5 type=57 (value_1=code, value_2=count). */
-volatile int32_t b5_halt_code; volatile int32_t b5_halt_count;
+void vehicle_controller_execution_status(int32_t *state,int32_t *reason) {
+ UW irq;
+ DI(irq); *state=execution_state; *reason=execution_reason; EI(irq);
+}
 static const char *const halt_reasons[]={"user stop","obstacle scanner heartbeat timeout",
  "obstacle subsystem fault (see SCAN)","line lost outside recovery","request rejected","barcode turn rejected",
  "motor scheduling delay","motor fault","forward range unavailable while moving",
- "navigation failed/pose mismatch","motor reset failed","line follower could not start"};
+ "navigation failed/pose mismatch","motor reset failed","line follower could not start",
+ "junction stopped without a barcode action"};
 static void halt(full_nav_t *nav,auto_start_t *start,const char *why) {
- { int32_t code=0; for(unsigned i=0;i<sizeof(halt_reasons)/sizeof(halt_reasons[0]);i++) {
-    const char *a=why,*b=halt_reasons[i]; while(*a && *a==*b) { a++; b++; }
-    if(*a==0 && *b==0) { code=(int32_t)i+1; break; } }
-   b5_halt_code=code; b5_halt_count++; }
- { /* Persistent (operator needed): motor stall latch or a failed motor reset. Everything else is retryable. */
-   bool persistent=(b5_halt_code==8 && fault_latched) || b5_halt_code==11;
-   auto_start_halt(start,b5_halt_code,persistent,buddy5_clock_ms()); }
+ int32_t code=0;
+ for(unsigned i=0;i<sizeof(halt_reasons)/sizeof(halt_reasons[0]);i++) {
+  const char *a=why,*b=halt_reasons[i];
+  while(*a && *a==*b) { a++; b++; }
+  if(*a==0 && *b==0) { code=(int32_t)i+1; break; }
+ }
+ bool persistent=(code==8 && fault_latched) || code==11;
+ auto_start_halt(start,code,persistent);
  run_enabled=false; nav->active=false; nav->moving=false; nav->forward_moving=false;
+ nav->settled=0;
  line_follow_stop(); motion_emergency_stop(); line_scan_abort(); discard_commands();
- tm_printf((UB*)"[AUTO] STOPPED: %s (code %d). %s\n",(UB*)why,(int)b5_halt_code,
-  start->phase==AUTO_FAULTED?"Operator action needed: power-cycle.":
-  b5_halt_code==1?"Send START (dashboard) or R (USB) to restart.":"Restarting the whole process automatically.");
+ tm_printf((UB*)"[AUTO] STOPPED: %s (code %d). %s\n",(UB*)why,(int)code,
+  start->phase==AUTO_FAULTED?"Operator action needed: power-cycle.":"Send START (dashboard) or R (USB) to restart.");
 }
 static void controller_task(INT stacd,void *exinf) {
  motion_status_t motor; line_scan_status_t scan;
@@ -194,11 +200,18 @@ static void controller_task(INT stacd,void *exinf) {
   int command=stop_cmd?'S':b5_line_take_command();
   if(command=='S') {
    /* STOP always wins over a pending START. A fault is never downgraded and a repeat STOP is not re-counted. */
-   { UW sirq; DI(sirq); remote_start_pending=false; EI(sirq); }
-   if(start.phase!=AUTO_LATCHED && start.phase!=AUTO_FAULTED) halt(&nav,&start,"user stop");
+   { UW sirq; DI(sirq); remote_start_pending=false; remote_start_rejected=false; EI(sirq); }
+   if(start.phase!=AUTO_FAULTED && (start.phase!=AUTO_LATCHED || start.reason!=B5_HALT_USER_STOP))
+    halt(&nav,&start,"user stop");
   } else {
    if(command=='R') { UW sirq; DI(sirq); remote_start_pending=true; EI(sirq); }
-   bool want_start; { UW sirq; DI(sirq); want_start=remote_start_pending; EI(sirq); }
+   bool want_start;
+   { UW sirq; DI(sirq);
+     want_start=remote_start_pending;
+     if(remote_start_rejected) {
+      start.last_start=START_REJECTED_NOT_READY; remote_start_rejected=false;
+     }
+     EI(sirq); }
    /* START is a restart request: it leaves a stop (waiting for the stop to settle first), is ignored while
     * starting or running (never resets a running maneuver) and is rejected after a persistent fault. */
    if(want_start && !(start.phase==AUTO_LATCHED && nav.settled<3)) {
@@ -222,6 +235,7 @@ static void controller_task(INT stacd,void *exinf) {
     } else lost_since=0;
     if(run_enabled) {
      line_follow_update();
+     if(line_follow_restart_required()) halt(&nav,&start,"junction stopped without a barcode action");
     }
    } else {
     lost_since=0;
@@ -339,18 +353,25 @@ static void controller_task(INT stacd,void *exinf) {
 #if B3_BARCODE_ONLY
   ready=false; /* barcode-only test: the car must never start moving */
 #endif
-  auto_action_t action=auto_start_update(&start,now,nav.settled>=3,ready);
+  const bool restarting=start.restarting;
+  if(restarting) {
+   ready=ready && scan.state==B5_MONITORING && guard_fresh &&
+         (uint32_t)(scan.front_timestamp_ms-start.since)<=(uint32_t)(now-start.since);
+  }
+  auto_action_t action=auto_start_update(&start,now,nav.settled>=3,ready && !user_stop_pending);
   if(action==AUTO_RESET) {
    line_follow_stop();
    if(motion_reset()!=MOTION_OK) halt(&nav,&start,"motor reset failed");
    else {
     motion_update(); motion_get_status(&motor); last_motor=now;
     full_nav_init(&nav,&motor); nav.settled=3; line_scan_reset();   /* the stall latch is never cleared here */
+    if(restarting) { lost_since=0; last_guard_clear=0; }
     DI(irq); request_pending=false; EI(irq);
     tm_printf((UB*)"[AUTO] Waiting for line and fresh forward observations; no keyboard command needed.\n");
    }
   }
   if(action==AUTO_START) {
+   if(restarting) line_follow_discard_barcode();
    run_enabled=true;
    /* If already 15..20cm from an obstacle, remain stationary and let the
     * first active front sample request STOP/SCAN. Never drive into it. */
@@ -358,19 +379,14 @@ static void controller_task(INT stacd,void *exinf) {
     halt(&nav,&start,"line follower could not start");
    else {
     if(buddy4_ready) (void)buddy4_task_begin_run();
-    tm_printf((UB*)"[AUTO] RUNNING automatically; front=%dmm (-1=out of range).\n",scan.front_clearance_mm==B5_CLEAR_FRONT_MM?-1:scan.front_clearance_mm);
+    tm_printf((UB*)"[AUTO] RUNNING %s; front=%dmm (-1=out of range).\n",
+     (UB*)(restarting?"after START":"automatically"),scan.front_clearance_mm==B5_CLEAR_FRONT_MM?-1:scan.front_clearance_mm);
    }
   }
-  if(auto_start_auto_retry(&start,now,nav.settled>=3)) {
-   discard_commands();
-   tm_printf((UB*)"[AUTO] Automatic restart #%u after stop code %d.\n",(unsigned)start.auto_retries,(int)start.reason);
-  }
-  b5_auto_retries=(int32_t)start.auto_retries;
-  b5_exec_state=(int32_t)auto_start_exec_state(&start); b5_exec_reason=start.reason;
-  b5_start_result=(int32_t)start.last_start; b5_start_count=(int32_t)start.start_count;
   b5_feedback_t f;
   full_nav_feedback(&nav,last_motor,&f); f.fault=fault_latched;
-  DI(irq); feedback_shared=f; EI(irq);
+  int32_t state=(int32_t)auto_start_exec_state(&start)|((int32_t)start.last_start<<4);
+  DI(irq); feedback_shared=f; execution_state=state; execution_reason=start.reason; EI(irq);
 #if TM_WIFI_MQTT
   if(mqtt_dashboard_ready() && (uint32_t)(now-last_line_report)>=200u) {
    line_status_t current;
@@ -393,6 +409,9 @@ static void controller_task(INT stacd,void *exinf) {
   ) {
 #if TM_WIFI_MQTT
    ++report_sequence;
+#if B5_DISABLED
+   report_measurement(5,60,0,state,start.reason,report_sequence);
+#endif
    bool tilt_valid=false;
    int32_t pitch=0,roll=0;
 #endif
@@ -467,40 +486,19 @@ static void controller_task(INT stacd,void *exinf) {
   tk_dly_tsk(1);
  }
 }
-EXPORT INT usermain(void) {
- T_CTSK cfg={0};
- if(b5_platform_init()<E_OK || motion_init()!=MOTION_OK) return 1;
- motion_emergency_stop(); line_follow_init();
-#if !B5_DISABLED
- ultrasonic_init();
- if(!buddy5_servo_init()) return 1;
-#endif
- ER buddy1_init_result=buddy1_init();
- if(buddy1_init_result<E_OK)
-  tm_printf((UB*)"[B1] Telemetry unavailable (%d); driving continues.\n",buddy1_init_result);
- ER buddy4_init_result=buddy4_task_init();
- buddy4_ready=buddy4_init_result>=E_OK;
- if(!buddy4_ready) tm_printf((UB*)"[B4] IMU task unavailable (%d); driving continues.\n",buddy4_init_result);
+int32_t vehicle_controller_start(bool imu_ready) {
+ buddy4_ready=imu_ready;
  /* Motor timing must outrank the 2 ms Wi-Fi poll task (priority 4). */
+ T_CTSK cfg={0};
  cfg.tskatr=TA_HLNG|TA_RNG3; cfg.task=controller_task; cfg.itskpri=2; cfg.stksz=4096;
- ID id=tk_cre_tsk(&cfg); if(id<0) return 1;
- if(tk_sta_tsk(id,0)<0) { tk_del_tsk(id); return 1; }
-#if !B5_DISABLED
- if(line_scan_start()<E_OK) { motion_emergency_stop(); return 1; }
-#endif
- if(buddy1_init_result>=E_OK) {
-  ER e=buddy1_start();
-  if(e<E_OK) tm_printf((UB*)"[B1] Telemetry start failed (%d); driving continues.\n",e);
- }
- if(buddy4_ready) {
-  ER e=buddy4_task_start();
-  if(e<E_OK) { buddy4_ready=false; tm_printf((UB*)"[B4] IMU task did not start (%d); driving continues.\n",e); }
- }
-#if (TM_CONSOLE_USB_CDC || TM_WIFI_MQTT) && !B3_NO_BARCODE
- ER barcode_error=buddy3_barcode_start();
- if(barcode_error<E_OK)
-  tm_printf((UB*)"[B3 BARCODE] Task start failed (%d); driving continues.\n",barcode_error);
-#endif
- tk_slp_tsk(TMO_FEVR); return 0;
+ ID id=tk_cre_tsk(&cfg);
+ if(id<0) return id;
+ ER e=tk_sta_tsk(id,0);
+ if(e<0) tk_del_tsk(id);
+ return e;
+}
+
+void vehicle_controller_disable_imu(void) {
+ buddy4_ready=false;
 }
 #endif

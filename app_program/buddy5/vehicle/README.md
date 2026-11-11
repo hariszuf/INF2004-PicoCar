@@ -1,6 +1,6 @@
 # Full-test vehicle integration
 
-`main.c` owns the autonomous vehicle controller and its μT-Kernel task. It
+`app_program/vehicle/vehicle_controller.c` owns vehicle execution and its μT-Kernel task. It
 receives Buddy 5 obstacle requests, calls Buddy 2 motion primitives through
 `vehicle_nav.c`, and starts or resumes Buddy 3 line following. The GPIO interrupt
 dispatcher and Pico SDK compatibility headers live here because they are
@@ -63,6 +63,6 @@ marks usable yaw for type 14 and a saved median peak for type 16.
 Obstacle flags bits 0 and 1
 mark width and depth validity, bit 4 identifies the driving profile, and
 envelope bit 5 marks the driver's out-of-range clearance sentinel. The raw IR
-bitmask does not contain a decoded barcode. MQTT START/STOP still reaches
-Buddy 1's logging consumer. The driving controller uses its existing controls.
+bitmask does not contain a decoded barcode. The controller accepts MQTT STOP
+and START as a controlled retry. See the integration guide for execution feedback.
 

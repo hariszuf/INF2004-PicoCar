@@ -12,7 +12,7 @@ const context = {
     Date, Math, Map, Object, Number,
     document: { createElement: () => ({ textContent: "" }) },
     byId: id => {
-        if (!elements.has(id)) elements.set(id, { textContent: "N/A", dataset: {}, append(note) { this.note = note.textContent; } });
+        if (!elements.has(id)) elements.set(id, { textContent: "N/A", firstChild: { textContent: "" }, dataset: {}, append(note) { this.note = note.textContent; } });
         return elements.get(id);
     },
     subsystems: [], sourceObservations: new Map(), obstacleObservations: new Map(), sensorObservations,
@@ -101,3 +101,20 @@ assert.equal(value("pitch"), "N/A");
 assert.equal(value("highest-hump"), "1.4 cm");
 assert.match(elements.get("highest-hump").note, /Disconnected/);
 console.log("Buddy 4 synthetic MQTT parser/render checks passed");
+
+context.brokerConnected = true;
+const execution = context.parseEnvelope("src=5 type=60 seq=2 exec_state_and_start_result=2 stop_reason_and_auto_restarts=0");
+sensorObservations.set("5/60", { fields: execution, at: Date.now(), received: true });
+context.updateMeasurements();
+assert.equal(elements.get("exec-state").firstChild.textContent, "Running");
+context.brokerConnected = false;
+context.updateMeasurements();
+assert.equal(elements.get("exec-state").firstChild.textContent, "Unconfirmed");
+assert.match(value("exec-detail"), /Last reported state: Running/);
+context.brokerConnected = true;
+sensorObservations.get("5/60").at -= 4000;
+context.updateMeasurements();
+assert.equal(elements.get("exec-state").firstChild.textContent, "Unconfirmed");
+sensorObservations.delete("5/60");
+context.updateMeasurements();
+assert.match(value("exec-detail"), /Waiting for a fresh controller report/);

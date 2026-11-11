@@ -35,6 +35,8 @@ sensor_header = re.compile(
 def on_connect(client, userdata, flags, reason_code, properties):
     if reason_code == 0:
         print("[MQTT] Connected to Mosquitto")
+        with sensor_lock:
+            sensor_frames.get(5, {}).pop(60, None)
         client.subscribe([
             (TOPIC_STATUS, 0),
             (TOPIC_TELEMETRY, 0),
@@ -51,11 +53,14 @@ def on_message(client, userdata, message):
             client.publish(TOPIC_COMMAND, f"dashboard_ready={probe[1]}", qos=0, retain=False)
             return
 
+    match = sensor_header.fullmatch(payload) if message.topic == TOPIC_TELEMETRY else None
+    if match and match.groups()[:2] == ("5", "60") and getattr(message, "retain", False):
+        return
+
     with sensor_lock:
         received_at = time.monotonic()
         latest_messages[message.topic] = payload
         last_message_times[message.topic] = received_at
-        match = sensor_header.fullmatch(payload) if message.topic == TOPIC_TELEMETRY else None
         if match:
             source, kind, sequence, first, second = map(int, match.groups()[:5])
             if (kind in sensor_types[source] and sequence <= 0xFFFFFFFF
