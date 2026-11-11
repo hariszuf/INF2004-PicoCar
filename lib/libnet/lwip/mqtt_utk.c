@@ -374,6 +374,8 @@ static const struct {
     {5, 56, "obstacle_validity_mask", "telemetry_drops"},
     {5, 58, "raw_range_mm", "raw_range_status"},
     {5, 59, "box_edges_packed", "decision_info"},
+    {5, 61, "scan_m35_to_m20", "scan_m15_to_0"},
+    {5, 62, "scan_p5_to_p20", "scan_p25_and_looks"},
     {2, 4, "left_encoder_ticks", "right_encoder_ticks"},
     {4, 11, "sample_age_ms", "imu_errors"},
     {4, 12, "clipped_samples", "unsuitable_samples"},

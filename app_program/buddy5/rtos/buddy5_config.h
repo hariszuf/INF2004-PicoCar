@@ -11,7 +11,7 @@
 /* HC-SR04 edge/clear-space estimate uncertainty used only when deciding
  * whether a measured side is long enough; planned body clearance is retained. */
 #define B5_ROUTE_UNCERTAINTY_MM 30
-#define B5_STOP_FRONT_MM 350   /* stop this far (mm) from the box: far enough to see both box edges */
+#define B5_STOP_FRONT_MM 350   /* stop this far (mm) from the box: the +25/-35 degree scan then covers ~160 mm left and ~245 mm right of the line */
 #define B5_MAX_PROFILE_MM 1200
 #define B5_MAX_OFFSET_MM 700
 #define B5_STEP_MM 60
@@ -76,10 +76,14 @@
 #ifndef B5_ASSUMED_DEPTH_MM
 #define B5_ASSUMED_DEPTH_MM 350
 #endif
-/* The scan only sees about +/-35 degrees, so a wide box's edges can be out of view and its width underestimated.
- * Always keep the car at least this far (mm) from the line while passing. TUNE: >= half the widest box + 85 + 50. */
+/* Sideways leg after the first turn: the measured box width + B5_SIDE_EXTRA_MM, but never less than
+ * B5_MIN_BYPASS_OFFSET_MM and never so little that the pivot beside the box would clip it (B5_PIVOT_CLEAR_MM).
+ * A 200 mm box on the line gives about 300 mm. */
 #ifndef B5_MIN_BYPASS_OFFSET_MM
-#define B5_MIN_BYPASS_OFFSET_MM 350
+#define B5_MIN_BYPASS_OFFSET_MM 220
+#endif
+#ifndef B5_SIDE_EXTRA_MM
+#define B5_SIDE_EXTRA_MM 60
 #endif
 /* Measuring the real box width: if the box fills the +/-35 degree scan window the edges cannot be seen, so the car
  * reverses this far (mm) and scans again, up to B5_MAX_RESCANS times. Needs free space behind the car. */
@@ -89,7 +93,7 @@
 /* Reverse and scan again ONLY when the scan cannot tell which side is better (the obstacle fills the whole window,
  * e.g. two boxes side by side). Each reverse widens what the +25/-35 degree window can see. */
 #ifndef B5_MAX_RESCANS
-#define B5_MAX_RESCANS 2
+#define B5_MAX_RESCANS 0   /* 0 = never reverse after detecting the obstacle; the front check picks the other side if needed */
 #endif
 /* The straight leg past the box is B5_PASS_WIDTH_FACTOR x the measured box width (B5_UNKNOWN_WIDTH_MM if it could
  * not be measured), counted from where the car first stopped, plus B5_PASS_SAFETY_MM. A deeper box is caught by the
@@ -106,10 +110,42 @@
 #define B5_CHECK_SETTLE_MS 500u
 /* While sweeping back across the line: black longer than this (mm) is not the tape edge-to-edge. */
 #define B5_TAPE_MAX_MM 40.0f
+/* ...and black shorter than this (mm) is not the line either (the edge of the white paper, a mark on the floor):
+ * the car keeps driving until it crosses the real tape. */
+#ifndef B5_TAPE_MIN_MM
+#define B5_TAPE_MIN_MM 4.0f
+#endif
 /* Lateral room (mm) from the box edge to the axle so a 90 degree pivot beside the box cannot clip it:
  * corner radius sqrt(177^2+85^2) = 196 plus a margin. */
-#define B5_PIVOT_CLEAR_MM 220
+#define B5_PIVOT_CLEAR_MM 160   /* TUNE: raise if the car's corner touches the box when it turns toward the line */
 #define B5_CHECK_MARGIN_MM 30
+/* The sonar reports anything nearer than its 90 mm dead zone as "no echo", i.e. as free space. After turning to
+ * face the line the box can be that close, so the car first reverses this far (mm, away from the line) and only
+ * then judges the readings. */
+#ifndef B5_CHECK_BACK_MM
+#define B5_CHECK_BACK_MM 120
+#endif
+/* While driving back to the line: a forward echo nearer than this (mm) and short of the line stops the car;
+ * it reverses, faces forward, drives B5_EXTEND_MM further and tries again. */
+#ifndef B5_SWEEP_STOP_MM
+#define B5_SWEEP_STOP_MM 180
+#endif
+/* Side check by turning the car: the sonar beam is so wide that from the stop point a box usually fills the whole
+ * +25/-35 degree servo scan and neither edge shows. Unless both edges were measured, the car pivots left to
+ * B5_PROBE_DEG and pings, then B5_PROBE_STEP_DEG further (up to B5_PROBE_LOOKS looks) until the box is out of view,
+ * then does the same to the right and turns back. The side where the box drops out of view sooner has the nearer
+ * edge: the car passes on that side. 0 = off. */
+#ifndef B5_PROBE_DEG
+#define B5_PROBE_DEG 30
+#endif
+#define B5_PROBE_STEP_DEG 15
+#define B5_PROBE_LOOKS 4u
+#define B5_PROBE_SETTLE_MS 600u    /* wait after the pivot so every ping of the batch is taken standing still */
+#define B5_PROBE_TIMEOUT_MS 3000u  /* no usable reading in this time: that look counts as unknown */
+/* Extra sideways distance (mm) on a side whose box edge the scan could not see (its position is only a low guess). */
+#ifndef B5_UNSEEN_EDGE_EXTRA_MM
+#define B5_UNSEEN_EDGE_EXTRA_MM 80
+#endif
 /* 1 = during the return the sonar looks back toward the box (servo at its limit on that side). Echoes up to
  * B5_CHECK_BEYOND_MM past the line still count as the box (it straddles the line). */
 #ifndef B5_RECOVERY_LOOK_BACK
@@ -148,7 +184,7 @@
 #define B5_ADV_TOL_Y_MM 20
 #endif
 /* Sideways sweep back to the line: how far past the expected line position to keep looking (mm). */
-#define B5_LINE_SWEEP_EXTRA_MM 100
+#define B5_LINE_SWEEP_EXTRA_MM 250   /* drive up to this far (mm) past where the line should be; the IR sensors stop the car on the line */
 /* Wheel speed (cm/s) for the straight legs of the bypass. */
 #ifndef B5_BYPASS_SPEED_CM_S
 #define B5_BYPASS_SPEED_CM_S 8.0f
@@ -189,7 +225,10 @@
 #endif
 /* During the straight pass: anything closer than this ahead stops the car. */
 #ifndef B5_ADVANCE_STOP_MM
-#define B5_ADVANCE_STOP_MM 200
+#define B5_ADVANCE_STOP_MM 170
+/* Front check before the straight pass: only an echo no more than this many mm beyond the box-front distance
+ * counts as "in the path". A longer one is the corner of the box being passed (the sonar beam is wide). */
+#define B5_ROUTE_CORNER_MARGIN_MM 30
 #endif
 /* Telemetry src5 type 59: left/right box edge, why that side was chosen, turn and sonar corrections. */
 #define B5_TELEM_DECISION 59u

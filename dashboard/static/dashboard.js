@@ -581,8 +581,8 @@ function updateMeasurements() {
         ? `${signed16(decision.fields.value1 >>> shift).toLocaleString()} mm${(info & measuredBit) ? " (measured)" : " (estimate, at least this far)"}`
         : "Unknown";
     const reasonNames = ["Unknown", "Only the left edge is in view (box fills the right side)", "Only the right edge is in view (box fills the left side)",
-        "Shorter detour (box edge nearer the car's path)", "Edges about equal: more free space beyond the box", "Box fills the scan, no edge in view (default right)",
-        "Only one side has enough room", "Box fills the scan, one side reaches further"];
+        "Shorter detour (box edge nearer the car's path)", "Edges about equal: more free space beyond the box", "Box fills the scan, no edge in view by the scan",
+        "Only one side has enough room", "Box fills the scan, one side reaches further", "Something is nearer on the other side", "Turned left and right to look: this side's edge is nearer"];
     measured("box-left-edge", edge(0, 16), decision || latest);
     measured("box-right-edge", edge(16, 32), decision || latest);
     measured("side-reason", decided ? reasonNames[info & 15] ?? `Code ${info & 15}` : "Unknown", decision || latest);

@@ -13,16 +13,18 @@ junction_action_t junction_action_for_letter(char letter)
     {
         return JUNCTION_NONE;
     }
-    index = (letter - 'A') % 3;
-    if (index == 0)
+    if (letter == 'F')
+    {
+        return JUNCTION_UTURN;
+    }
+    if (letter == 'A')
     {
         return JUNCTION_LEFT;
     }
-    if (index == 1)
+    if (letter == 'W')
     {
-        return JUNCTION_STRAIGHT;
+        return JUNCTION_RIGHT;
     }
-    return JUNCTION_RIGHT;
 }
 
 const char *junction_action_name(junction_action_t action)
@@ -35,6 +37,8 @@ const char *junction_action_name(junction_action_t action)
         return "STRAIGHT";
     case JUNCTION_RIGHT:
         return "RIGHT";
+    case JUNCTION_UTURN:
+        return "UTURN";
     default:
         return "NONE";
     }
