@@ -49,10 +49,10 @@
             <div><span class="small-label">Vehicle readiness</span><strong class="state" data-tone="neutral">Unconfirmed</strong><span class="status-detail">Safety feedback future implementation</span></div>
         </div>
         <div class="remote-controls" role="group" aria-label="Remote MQTT commands" aria-describedby="command-disclaimer">
-            <button class="command-button start-button" type="button" id="start-command" disabled><svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7z"/></svg>START</button>
+            <button class="command-button start-button" type="button" id="start-command" disabled><svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7z"/></svg>Start again</button>
             <button class="command-button stop-button" type="button" id="stop-command" disabled><svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>STOP</button>
         </div>
-        <div class="command-feedback"><p id="command-result" role="status" aria-live="polite">No command sent. Execution unconfirmed.</p><p id="command-disclaimer">START also restarts the car after a stop (clears recoverable stops, then waits for readiness). A queued publication does not prove the car accepted it: see "Execution state".</p></div>
+        <div class="command-feedback"><p id="command-result" role="status" aria-live="polite">No command sent. Execution unconfirmed.</p><p id="command-disclaimer">The car starts automatically when ready. Start again requests a new run after a stop. Check Execution state for the controller’s response.</p></div>
     </section>
     <main id="main" tabindex="-1">
         <div class="page-heading"><div><h1 id="view-title">Overview</h1><p id="view-description">Connection evidence and subsystem coverage for vehicle1.</p></div><button class="quiet-button" id="refresh-button" type="button">Refresh telemetry</button></div>

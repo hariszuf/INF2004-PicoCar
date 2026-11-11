@@ -262,7 +262,7 @@ function updateCommandButtons() {
     byId("start-command").disabled = !statusAvailable || !brokerConnected || pendingCommands.size > 0;
     // STOP remains independent of an in-flight START and can be attempted when connection evidence is unknown.
     byId("stop-command").disabled = pendingCommands.has("STOP") || (statusAvailable && !brokerConnected);
-    byId("start-command").title = statusAvailable && brokerConnected ? "Publish START (also restarts after a stop); see Execution state for the vehicle result" : "START requires a confirmed dashboard-to-broker connection";
+    byId("start-command").title = statusAvailable && brokerConnected ? "Request another run after a stop. See Execution state for the result." : "START requires a confirmed dashboard-to-broker connection";
     byId("stop-command").title = statusAvailable && !brokerConnected ? "MQTT broker disconnected" : "Publish STOP; this is not a hardware emergency stop";
 }
 
@@ -451,20 +451,31 @@ function updateMeasurements() {
     {
         const exec = sensorObservations.get("5/60");
         const states = ["Startup: waiting for boot delay", "Startup: waiting for readiness", "Running", "Stopped", "Restart requested: waiting for readiness", "Faulted: operator action needed (power-cycle)"];
-        const reasons = ["none", "user stop", "obstacle scanner heartbeat timeout", "obstacle subsystem fault", "line lost outside recovery", "request rejected", "barcode turn rejected", "motor scheduling delay", "motor fault / stall", "forward range unavailable while moving", "navigation failed / pose mismatch", "motor reset failed", "line follower could not start"];
-        const startResults = ["no START received", "START accepted", "START ignored: already starting or running", "START rejected: persistent fault"];
+        const reasons = ["none", "user stop", "obstacle scanner heartbeat timeout", "obstacle subsystem fault", "line lost outside recovery", "request rejected", "barcode turn rejected", "motor scheduling delay", "motor fault / stall", "forward range unavailable while moving", "navigation failed / pose mismatch", "motor reset failed", "line follower could not start", "junction stopped without a barcode action"];
+        const startResults = ["no START received", "START accepted", "START ignored: already starting or running", "START rejected: persistent fault", "START rejected: MQTT startup gate still closed"];
         const state = byId("exec-state"), detail = byId("exec-detail");
-        if (exec && state && detail) {
-            const code = exec.fields.value1 & 15, startResult = (exec.fields.value1 >> 4) & 15;
-            const reason = exec.fields.value2 & 255, autoRestarts = exec.fields.value2 >>> 8;
-            const stale = Date.now() - exec.at >= 3000;
-            state.firstChild.textContent = `${states[code] ?? `Unknown (${code})`}${stale ? " (stale)" : ""}`;
-            state.dataset.tone = code === 5 ? "fault" : "neutral";
-            const parts = [];
-            if ((code === 3 || code === 5 || code === 4) && reason) parts.push(`last stop: ${reasons[reason] ?? `code ${reason}`}`);
-            if (autoRestarts > 0) parts.push(`automatic restarts: ${autoRestarts}`);
-            if (startResult) parts.push(startResults[startResult] ?? "START result unknown");
-            detail.textContent = parts.join(" · ") || "Reported by the vehicle controller";
+        if (state && detail) {
+            const fresh = exec?.received && statusAvailable && telemetryAvailable &&
+                brokerConnected && Date.now() - exec.at < 3000;
+            state.firstChild.textContent = fresh ? "" : "Unconfirmed";
+            state.dataset.tone = "neutral";
+            detail.textContent = "Waiting for a fresh controller report.";
+            if (exec?.received) {
+                const code = exec.fields.value1 & 15, startResult = (exec.fields.value1 >> 4) & 15;
+                const reason = exec.fields.value2 & 255, autoRestarts = exec.fields.value2 >>> 8;
+                const label = states[code] ?? `Unknown (${code})`;
+                const parts = [observationLabel(exec)];
+                if (fresh) {
+                    state.firstChild.textContent = label;
+                    state.dataset.tone = code === 5 ? "fault" : "neutral";
+                } else {
+                    parts.unshift(`Last reported state: ${label}`);
+                }
+                if ((code === 3 || code === 5 || code === 4) && reason) parts.push(`last stop: ${reasons[reason] ?? `code ${reason}`}`);
+                if (autoRestarts > 0) parts.push(`automatic restarts: ${autoRestarts}`);
+                if (startResult) parts.push(startResults[startResult] ?? "START result unknown");
+                detail.textContent = parts.join(" · ");
+            }
         }
     }
     const line = sensorObservations.get("3/5");

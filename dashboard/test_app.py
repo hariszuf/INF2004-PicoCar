@@ -73,6 +73,23 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(len(frames), 1)
         self.assertEqual(frames[0]["payload"], payload.decode())
 
+    def test_execution_status_requires_live_telemetry_after_reconnect(self):
+        message = SimpleNamespace(
+            topic=dashboard.TOPIC_TELEMETRY,
+            payload=b"src=5 type=60 seq=10 value1=2 value2=0 flags=16",
+            retain=False,
+        )
+        dashboard.on_message(self.client, None, message)
+        self.assertEqual(len(dashboard.get_telemetry()["sensor_frames"]), 1)
+        dashboard.on_connect(self.client, None, None, 0, None)
+        self.assertEqual(dashboard.get_telemetry()["sensor_frames"], [])
+        message.retain = True
+        dashboard.on_message(self.client, None, message)
+        self.assertEqual(dashboard.get_telemetry()["sensor_frames"], [])
+        message.retain = False
+        dashboard.on_message(self.client, None, message)
+        self.assertEqual(len(dashboard.get_telemetry()["sensor_frames"]), 1)
+
     def test_buddy4_frames_survive_refresh_and_reconnect_with_real_ages(self):
         def receive(payload, clock):
             with patch.object(dashboard.time, "monotonic", return_value=clock):
