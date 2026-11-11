@@ -60,6 +60,19 @@ def check(browser, url, output):
     expect(page.locator("#sequence")).to_have_text("7")
     expect(page.locator(".connection-states")).to_contain_text("Unconfirmed")
 
+    execution = "src=5 type=60 seq=2 exec_state_and_start_result=2 stop_reason_and_auto_restarts=0"
+    telemetry["sensor_frames"] = [{"payload": execution, "age_seconds": 0.5}]
+    page.locator("#refresh-button").click()
+    expect(page.locator("#exec-state")).to_contain_text("Running")
+    telemetry["sensor_frames"][0]["age_seconds"] = 4
+    page.locator("#refresh-button").click()
+    expect(page.locator("#exec-state")).to_contain_text("Unconfirmed")
+    expect(page.locator("#exec-detail")).to_contain_text("Last reported state: Running")
+    telemetry["sensor_frames"] = []
+    page.locator("#refresh-button").click()
+    expect(page.locator("#exec-detail")).to_have_text("Waiting for a fresh controller report.")
+    del telemetry["sensor_frames"]
+
     for command in ("START", "STOP"):
         page.locator(f"#{command.lower()}-command").click()
         expect(page.locator("#command-result")).to_have_text(f"{command}: publication queued. Execution unconfirmed.")

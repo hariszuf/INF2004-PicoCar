@@ -42,6 +42,9 @@ void line_follow_update(void);
  * the two sensors and stops. Keep calling line_follow_update(). Status: 0 running, 1 done, -1 failed. */
 bool line_follow_rejoin(int direction, float advance_cm);
 int line_follow_rejoin_status(void);
+/* Controller hooks for an operator restart. */
+bool line_follow_restart_required(void);
+void line_follow_discard_barcode(void);
 void line_follow_get_status(line_status_t *p_status);
 
 #endif /* LINE_FOLLOW_H */
