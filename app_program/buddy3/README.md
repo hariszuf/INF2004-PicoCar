@@ -1,56 +1,69 @@
-# Buddy 3 — Line Following (on the Buddy 2 library)
+# Buddy 3 - Line following and barcode scanning
 
-Team 08, INF2004 PicoCar. Based on the team's `ir_motor_curve_test.c`. Its own motors, encoder interrupts and PID were removed: **all wheel control now goes through Buddy 2's `motion_drive()`**, so Buddy 3 depends on the Buddy 2 library and cannot clash with its encoder interrupts.
+Buddy 3 reads the line sensors, decodes Code 39 barcodes, and chooses movements at junctions. Wheel control uses the Buddy 2 motion library; Buddy 3 does not maintain a separate motor PID or encoder interrupt handler.
 
-## Run it (autonomous)
+## Integrated firmware
 
-The project `CMakeLists.txt` builds `test/line_follow_demo_main.c` together with the Buddy 2 sources into `EmbeddedProject.uf2`. Flash, switch on, and place the car on the line within 5 seconds with both line sensors on the 18 mm black line. It drives by itself. USB serial output is optional.
+The integrated RTOS build selects Buddy 3 sources in `build_make/picocar_integration.mk`. The vehicle coordinator starts and stops line following and the barcode task. The former standalone line-following demo and motor diagnostic targets in `app_program/CMakeLists.txt` have been retired.
 
-Slopes and humps: the program also polls Buddy 4's IMU and passes the result to Buddy 2, which slows the wheels / adds power on the ramp. Buddy 3's logic and speeds are unchanged; the scaling happens inside Buddy 2.
+Barcode decoding is included when the integration profile has USB CDC console or MQTT support. `NO_BARCODE=1` disables starting the barcode task; `BARCODE_ONLY=1` provides a scanning-only mode without driving.
 
-## Logic (same as the team code)
+## Sensors and line following
 
-| Sensors on the line | Action |
+- GP0 and GP2 are the line sensors; GP26 is the barcode sensor.
+- `LINE_BLACK_LEVEL` defines the input level that represents black.
+- `LINE_GP0_IS_CAR_LEFT` assigns the line sensors to the car's left and right sides.
+- The current configuration uses straddle mode: the line runs between the sensors, so both white means centred. One sensor seeing black causes a correction toward that side.
+- With junction handling enabled, both line sensors seeing black triggers the junction sequence.
+- Buddy 4 tilt observations can temporarily hold the previous wheel commands while the car crosses a ramp or hump.
+
+Pins, speeds, terrain hold, and junction timing are configured in `line_config.h`. Build definitions can override settings guarded by `#ifndef`.
+
+## Barcode scanning
+
+1. `barcode_task.c` samples the GP26 sensor and calls `barcode_scan_update()`.
+2. `barcode_scan.c` debounces the signal and measures black-bar and white-gap durations.
+3. `barcode39.c` decodes those durations as Code 39 text, including reverse traversal.
+4. `barcode_scan_on_decoded()` saves a valid single uppercase A-Z letter and its read timestamp.
+5. At the next junction, `line_follow.c` uses the latest unused scan and asks `junction_action_for_letter()` for its action.
+
+The current mapping in `junction_map.c` is:
+
+| Letter | Action |
 |---|---|
-| both | straight at `LINE_STRAIGHT_SPEED_CM_S` |
-| only one | steer toward the side that still sees the line: inside wheel `LINE_TURN_INNER_SPEED_CM_S`, outside wheel `LINE_TURN_OUTER_SPEED_CM_S` |
-| (optional, off by default) only one, for more than `LINE_ESCALATE_AFTER_MS` | the curve is too tight for the normal turn: the inside wheel reverses slowly to pivot harder (`LINE_ESCALATE_*`) |
-| none | **stop** (wheels only move while a black line is detected). Resumes when a sensor sees the line again. Optional: `LINE_RECOVER_MS` > 0 keeps turning toward the last side for that long first |
+| A | Left |
+| W | Right |
+| F | Clockwise U-turn |
+| Any other letter | No instruction; stop at the junction with the current default |
 
-Added to the team code: the short recovery turn (set `LINE_RECOVER_MS` to 0 for the original "stop at once"), and speeds in cm/s (about 2.5 cm/s, slow) instead of encoder counts/s.
+The mapping function also accepts lowercase letters. No letter currently maps to straight ahead, although `JUNCTION_STRAIGHT` remains supported.
 
-The line sensors are checked every 5 ms (`LINE_UPDATE_PERIOD_MS`) for quicker steering; Motion Control keeps its 20 ms speed loop.
+Scanning stores an instruction for the next junction. It does not immediately turn the car with the current junction configuration. Each scan is consumed once. Without a new mapped letter, the default `JUNCTION_NONE` keeps the car stopped at the junction.
 
-Why it can now go this slow: Buddy 2's default minimum motor duty (15 %) kept a wheel far above a few cm/s. The project `CMakeLists.txt` lowers it for this program (`MOTION_MIN_DUTY=0.05f`, `MOTION_FEEDFORWARD_DUTY_PER_CM_S=0.0125f`, near the 6 % the team's own test used), and Buddy 2's speed PID raises the duty until the wheel reaches the requested speed. `LINE_LEFT_WHEEL_SCALE` / `LINE_RIGHT_WHEEL_SCALE` even out the two motors.
-
-## Settings to check (`line_config.h`)
-
-- `LINE_GP0_IS_CAR_LEFT`: 0 means GP0 is on the car's right when facing forward. If the car steers away from the line, flip it.
-- `LINE_BLACK_LEVEL`: 1 = black (confirmed by the team).
-- Speeds: `LINE_STRAIGHT_SPEED_CM_S`, `LINE_TURN_OUTER_SPEED_CM_S`, `LINE_TURN_INNER_SPEED_CM_S`. Raise them slowly once it follows well.
-- Pins are GP0 and GP2 for the line sensors and GP26 for the barcode (monitored only), as in the team code. These differ from the Week 6 document, which listed GP26 left, GP2 centre, GP0 right.
+The current junction sequence pauses for 3 seconds, advances 8 cm before a turn, then turns and searches for the outgoing line. Left/right turns target 90 degrees and the U-turn targets 180 degrees. The initial encoder-controlled turn ends 20 degrees before the target; sensor search completes line reacquisition. These distances and angles require verification on the physical track.
 
 ## Files
 
 | File | Purpose |
 |---|---|
-| `line_config.h` | Pins, speeds, lost-line timing |
-| `line_sensors.h/.c` | Reads GP0, GP2 and the barcode pin as left/right/barcode bits |
-| `line_follow.h/.c` | Decision logic, calls `motion_drive()` |
-| `test/line_follow_demo_main.c` | Autonomous demo program |
-| `test/host/` | PC simulation on a track with 10 cm radius curves |
+| `line_config.h` | Sensor pins, speeds, terrain and junction settings |
+| `line_sensors.c/.h` | Reads the line and barcode sensors |
+| `line_follow.c/.h` | Steering, junction sequence and line reacquisition |
+| `junction_map.c/.h` | Letter-to-action mapping and action names |
+| `barcode_task.c/.h` | RTOS sampling task and latest decoded letter |
+| `barcode_scan.c/.h` | Debouncing, run timing and decoder interface |
+| `barcode39.c/.h` | Code 39 decoding |
+| `test/barcode_test/` | Standalone barcode reader test |
+| `test/host/` | Host tests for decoding, mapping and line-following logic |
 
-## Host simulation
+## Verification
 
+Barcode host tests can be run from `app_program/buddy3/` with a shell and GCC:
+
+```sh
+sh test/host/run_barcode_tests.sh
 ```
-cd "Buddy 3"
-sh test/host/run_tests.sh
-```
 
-Uses Buddy 2's simulated robot on a made-up track (straights, 10 cm U-turn, S-curve, 270° loop, bend, line end). The sensor spacing (12 mm) and forward offset (50 mm) are assumptions. It checks the logic only, not the real car.
+Some older host tests and instructions need updating: `test_junction_map.c` still expects the former repeating letter mapping, and `run_tests.sh` uses the old `../Buddy 2` directory name. Review these before relying on their results with the current configuration.
 
-## Verification status
-
-- Logic passes the host simulation (follows the whole track, stops at the line end).
-- Pico files were syntax-checked against stubs only; not built with the SDK or run on the car.
-- Barcode decoding is not implemented. `line_sensors_read()` already reports the barcode pin.
+Host tests exercise software logic and simulated inputs; they do not establish physical barcode-reading or turn accuracy. This README update did not rerun tests or verify the firmware on the car.
