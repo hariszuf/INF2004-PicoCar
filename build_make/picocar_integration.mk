@@ -58,7 +58,7 @@ ifneq ($(BARCODE_INPUT),)
 B3_SRCS += ../app_program/buddy3/barcode_scan.c ../app_program/buddy3/barcode39.c
 endif
 B4_CORE_SRCS := ../app_program/buddy4/buddy4_imu.c \
- ../app_program/buddy4/buddy4_impact.c ../app_program/buddy4/buddy4_motion.c \
+ ../app_program/buddy4/buddy4_lift.c ../app_program/buddy4/buddy4_motion.c \
  ../app_program/buddy4/buddy4_encoder_yaw.c
 B4_SRCS := $(wildcard ../app_program/buddy4/rtos/*.c)
 B5_SRCS := $(wildcard ../app_program/buddy5/rtos/*.c)

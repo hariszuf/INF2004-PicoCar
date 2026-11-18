@@ -1,5 +1,10 @@
 #ifndef PICOCAR_BUDDY5_CONFIG_H
 #define PICOCAR_BUDDY5_CONFIG_H
+/* The obstacle (measured): 150 mm long (along the line), 100 mm wide (across the line), 130 mm high. */
+#define B5_BOX_LENGTH_MM 150
+#define B5_BOX_WIDTH_MM 100
+#define B5_BOX_HEIGHT_MM 130
+#define B5_BOX_POS_TOL_MM 20   /* how far the box may sit off the line centre / how much bigger than 100 mm the scan may report it */
 /* User measurements, mm, including protrusions. */
 #define B5_CAR_LENGTH_MM 355
 #define B5_CAR_WIDTH_MM 170
@@ -74,16 +79,16 @@
 #endif
 /* TUNE: depth of the box along the line (mm) when the scan could not measure it. Bigger = safer. */
 #ifndef B5_ASSUMED_DEPTH_MM
-#define B5_ASSUMED_DEPTH_MM 350
+#define B5_ASSUMED_DEPTH_MM B5_BOX_LENGTH_MM
 #endif
 /* Sideways leg after the first turn: the measured box width + B5_SIDE_EXTRA_MM, but never less than
  * B5_MIN_BYPASS_OFFSET_MM and never so little that the pivot beside the box would clip it (B5_PIVOT_CLEAR_MM).
  * A 200 mm box on the line gives about 300 mm. */
 #ifndef B5_MIN_BYPASS_OFFSET_MM
-#define B5_MIN_BYPASS_OFFSET_MM 220
+#define B5_MIN_BYPASS_OFFSET_MM 150   /* box edge (50 mm each side of a centred 100 mm box) + half car 85 + ~35 margin */
 #endif
 #ifndef B5_SIDE_EXTRA_MM
-#define B5_SIDE_EXTRA_MM 60
+#define B5_SIDE_EXTRA_MM 30
 #endif
 /* Measuring the real box width: if the box fills the +/-35 degree scan window the edges cannot be seen, so the car
  * reverses this far (mm) and scans again, up to B5_MAX_RESCANS times. Needs free space behind the car. */
@@ -102,7 +107,11 @@
 /* Straight leg beside the box, one move: the axle ends B5_PASS_BESIDE_MM + B5_PASS_TAIL_MM past the box FRONT face,
  * then the car turns toward the line once. The sonar check there catches a deeper box (reverse, extend, try again). */
 #ifndef B5_PASS_BESIDE_MM
-#define B5_PASS_BESIDE_MM 100   /* a few cm past the box front, then face the line and check */
+/* The axle must be this far past the box REAR face before the car turns toward the line. The 355 mm car pivots on the
+ * line afterwards and its tail corner swings a 196 mm radius around the axle (sqrt(177^2+85^2)), so the box rear
+ * must be further back than that: 196 + 34 mm margin. */
+#define B5_PIVOT_PAST_REAR_MM 250   /* tail corner swings 196 mm around the axle when the car pivots back onto the line, so the box rear must be that far behind it (170 clipped the box in simulation; 12 cm clips badly) */
+#define B5_PASS_BESIDE_MM 250   /* 200 + 50 mm past the box FRONT face (set by the user) */
 #endif
 #define B5_AXLE_TO_SENSOR_MM 80
 /* Sonar check after turning toward the line: wait this long (ms) for post-turn pings, then the box counts as
@@ -117,13 +126,13 @@
 #endif
 /* Lateral room (mm) from the box edge to the axle so a 90 degree pivot beside the box cannot clip it:
  * corner radius sqrt(177^2+85^2) = 196 plus a margin. */
-#define B5_PIVOT_CLEAR_MM 160   /* TUNE: raise if the car's corner touches the box when it turns toward the line */
+#define B5_PIVOT_CLEAR_MM 100   /* half car width 85 + 40 margin. The turn toward the line is made PAST the box rear (see B5_PIVOT_PAST_REAR_MM), so the corner radius no longer matters beside the box. TUNE: raise if the car side brushes the box */
 #define B5_CHECK_MARGIN_MM 30
 /* The sonar reports anything nearer than its 90 mm dead zone as "no echo", i.e. as free space. After turning to
  * face the line the box can be that close, so the car first reverses this far (mm, away from the line) and only
  * then judges the readings. */
 #ifndef B5_CHECK_BACK_MM
-#define B5_CHECK_BACK_MM 120
+#define B5_CHECK_BACK_MM 0   /* no reverse after the turn: scan from where the car stands */
 #endif
 /* While driving back to the line: a forward echo nearer than this (mm) and short of the line stops the car;
  * it reverses, faces forward, drives B5_EXTEND_MM further and tries again. */
@@ -144,7 +153,7 @@
 #define B5_PROBE_TIMEOUT_MS 3000u  /* no usable reading in this time: that look counts as unknown */
 /* Extra sideways distance (mm) on a side whose box edge the scan could not see (its position is only a low guess). */
 #ifndef B5_UNSEEN_EDGE_EXTRA_MM
-#define B5_UNSEEN_EDGE_EXTRA_MM 80
+#define B5_UNSEEN_EDGE_EXTRA_MM 20
 #endif
 /* 1 = during the return the sonar looks back toward the box (servo at its limit on that side). Echoes up to
  * B5_CHECK_BEYOND_MM past the line still count as the box (it straddles the line). */
@@ -162,7 +171,7 @@
 #ifndef B5_PASS_TAIL_MM
 #define B5_PASS_TAIL_MM 0
 #endif
-#define B5_UNKNOWN_WIDTH_MM 500
+#define B5_UNKNOWN_WIDTH_MM B5_BOX_WIDTH_MM
 #define B5_MIN_PASS_MM 400
 #ifndef B5_PASS_SAFETY_MM
 #define B5_PASS_SAFETY_MM 120
@@ -171,23 +180,23 @@
  * line, the car is still beside the box. It reverses a little, faces forward, drives a little further and
  * tries again (up to B5_MAX_EXTENDS times). */
 #define B5_RETURN_REVERSE_MM 60
-#define B5_EXTEND_MM 200
-#define B5_MAX_EXTENDS 10
+#define B5_EXTEND_MM 60
+#define B5_MAX_EXTENDS 8
 /* Extra distance past the box rear so the car's tail clears it before turning back (mm). */
 #define B5_BYPASS_END_MARGIN_MM 40
 /* A long open-loop forward move drifts a little: allowed end-position error (mm). */
 #if B5_SIMPLE_BYPASS
-#define B5_ADV_TOL_X_MM 60
-#define B5_ADV_TOL_Y_MM 80
+#define B5_ADV_TOL_X_MM 40
+#define B5_ADV_TOL_Y_MM 40
 #else
 #define B5_ADV_TOL_X_MM 5
 #define B5_ADV_TOL_Y_MM 20
 #endif
 /* Sideways sweep back to the line: how far past the expected line position to keep looking (mm). */
-#define B5_LINE_SWEEP_EXTRA_MM 250   /* drive up to this far (mm) past where the line should be; the IR sensors stop the car on the line */
+#define B5_LINE_SWEEP_EXTRA_MM 100   /* drive up to this far (mm) past where the line should be; the IR sensors stop the car on the line */
 /* Wheel speed (cm/s) for the straight legs of the bypass. */
 #ifndef B5_BYPASS_SPEED_CM_S
-#define B5_BYPASS_SPEED_CM_S 8.0f
+#define B5_BYPASS_SPEED_CM_S 6.0f   /* slower legs stop more exactly: no overshoot after a turn */
 #endif
 /* Slow pivot that finds the line after the return turn: speed (cm/s) and timeout (ms). */
 #define B5_LINE_SEARCH_SPEED_CM_S 4.0f

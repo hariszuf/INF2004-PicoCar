@@ -25,6 +25,10 @@
 #define TELEMETRY_TYPE_ODOMETRY    ((uint8_t)10U)
 /* Buddy 4 run maximum: value_1=millimetres, value_2=run ID, flags bit 0=valid. */
 #define TELEMETRY_TYPE_HIGHEST_HUMP ((uint8_t)19U)
+/* Buddy 4 lift state: flags bit0=IMU fresh, bit1=robot lifted/overturned (latched),
+ * value_1=reason (0 none, 1 tilted, 2 overturned, 3 lift motion),
+ * value_2=(lift event count & 0xFFFF) | (tilt angle in 0.1 deg << 16). */
+#define TELEMETRY_TYPE_LIFT ((uint8_t)20U)
 
 /* For TELEMETRY_TYPE_IMU only: pitch and roll are usable. */
 #define TELEMETRY_IMU_TILT_VALID   ((uint16_t)1U)

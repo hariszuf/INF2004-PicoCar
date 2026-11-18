@@ -123,7 +123,18 @@ for (const [view, panels] of Object.entries(sections)) {
             metricPanel("Acquisition diagnostics", [["Sensor freshness", "imu-freshness"], ["Last reading age (ms)", "imu-sample-age"], ["I²C / configuration errors", "imu-io-errors"]]),
             metricPanel("Measurement quality", [["IMU measurement quality", "imu-quality"], ["Clipped sample count", "imu-clipped-samples"], ["Unsuitable tilt sample count", "imu-unsuitable-samples"]]),
         );
-        root.append(diagnosticsHeading, diagnostics);
+        const liftHeading = document.createElement("div");
+        liftHeading.className = "section-heading";
+        liftHeading.innerHTML = "<h2>Robot lift detection</h2><span class='muted'>All motors stop when the robot is lifted or overturned</span>";
+        const liftRow = document.createElement("div");
+        liftRow.className = "two-column";
+        const liftPanel = metricPanel("Robot lift status", [["PicoCar", "lift-status"]]);
+        const liftNote = document.createElement("p");
+        liftNote.className = "panel-note";
+        liftNote.textContent = "Lifting the PicoCar stops all motors. Set it down and press START to run again.";
+        liftPanel.append(liftNote);
+        liftRow.append(liftPanel);
+        root.append(diagnosticsHeading, diagnostics, liftHeading, liftRow);
         const heading = document.createElement("div");
         heading.className = "section-heading";
         heading.innerHTML = "<h2>Saved event results</h2><span class='muted'>Separate from current sensor measurements</span>";
@@ -134,12 +145,7 @@ for (const [view, panels] of Object.entries(sections)) {
         rampNote.className = "panel-note";
         rampNote.textContent = "Preliminary estimates. Stable and median peaks have independent validity; saved results are not current wheel-height readings.";
         ramp.append(rampNote);
-        const impact = metricPanel("Possible-impact result", [["Latest possible-impact event", "impact-result"], ["Event timestamp (device uptime)", "impact-time"], ["Possible-impact event count", "impact-count"]]);
-        const impactNote = document.createElement("p");
-        impactNote.className = "panel-note";
-        impactNote.textContent = "Observational, not a confirmed collision. Event history remains separate from current sensor validity.";
-        impact.append(impactNote);
-        events.append(ramp, impact);
+        events.append(ramp);
         const note = document.createElement("p");
         note.className = "panel-note";
         note.textContent = "Saved results appear after the firmware reports an event.";
@@ -173,7 +179,7 @@ for (const [view, panels] of Object.entries(sections)) {
         for (const text of [
             "Firmware quality states are GRAVITY_LIKE, NON_GRAVITY, CLIPPED, NONFINITE and UNAVAILABLE. Acquisition validity and gravity-based tilt validity are distinct. Clipped samples also contribute to the unsuitable tilt count; these counts must not be added together.",
             "Sensor age must come from Buddy 4 sample timing and validity, never the vehicle heartbeat or browser payload age. Old or invalid readings must not be shown as live. Ramp event timestamps are device uptime, not wall-clock time; detected sides include LEFT_WHEEL_UP, RIGHT_WHEEL_UP and SIDE_LEVEL.",
-            "Possible-impact history is observational. The current Buddy 4 snapshot does not expose a possible-obstruction event or timestamp, so those fields are omitted.",
+            "Lift detection uses the gravity direction (tilt of 45° or more for 100 ms, or upside-down) and a sustained 0.15 g push for 150 ms. The state latches until the robot is level (25° or less) and still for 1 s. It is reported as source 4 type 20 (flags bit 0 = sensor fresh, bit 1 = lifted; value 1 = reason; value 2 = event count | tilt in 0.1° << 16).",
         ]) {
             const paragraph = document.createElement("p");
             paragraph.textContent = text;
@@ -321,7 +327,7 @@ const telemetryValueKeys = {
     "4/15": ["wheel_height_mm", "measurement_quality"],
     "4/16": ["stable_peak_mm", "median_peak_mm"],
     "4/17": ["peak_side", "peak_end_ms"],
-    "4/18": ["impact_count", "last_impact_ms"],
+    "4/20": ["lift_reason", "lift_count_and_tilt"],
     "4/19": ["highest_hump_mm", "run_id"],
     "6/57": ["line_reacquired_count", "reserved"],
 };
@@ -451,7 +457,7 @@ function updateMeasurements() {
     {
         const exec = sensorObservations.get("5/60");
         const states = ["Startup: waiting for boot delay", "Startup: waiting for readiness", "Running", "Stopped", "Restart requested: waiting for readiness", "Faulted: operator action needed (power-cycle)"];
-        const reasons = ["none", "user stop", "obstacle scanner heartbeat timeout", "obstacle subsystem fault", "line lost outside recovery", "request rejected", "barcode turn rejected", "motor scheduling delay", "motor fault / stall", "forward range unavailable while moving", "navigation failed / pose mismatch", "motor reset failed", "line follower could not start", "junction stopped without a barcode action"];
+        const reasons = ["none", "user stop", "obstacle scanner heartbeat timeout", "obstacle subsystem fault", "line lost outside recovery", "request rejected", "barcode turn rejected", "motor scheduling delay", "motor fault / stall", "forward range unavailable while moving", "navigation failed / pose mismatch", "motor reset failed", "line follower could not start", "junction stopped without a barcode action", "robot lifted or overturned"];
         const startResults = ["no START received", "START accepted", "START ignored: already starting or running", "START rejected: persistent fault", "START rejected: MQTT startup gate still closed"];
         const state = byId("exec-state"), detail = byId("exec-detail");
         if (state && detail) {
@@ -521,7 +527,6 @@ function updateMeasurements() {
             f => f.flags & 2 ? (f.value2 / 10).toFixed(1) : "N/A"],
         [17, "peak-side", "peak-time", f => f.flags & 1 ? sideNames[f.value1] ?? "Unknown" : "N/A",
             f => f.flags & 1 ? `${f.value2 >>> 0} ms` : "N/A"],
-        [18, "impact-count", "impact-time", f => f.value1 >>> 0, f => f.value1 ? `${f.value2 >>> 0} ms` : "N/A"],
     ];
     for (const [type, firstId, secondId, firstValue, secondValue] of imuReports) {
         const observation = sensorObservations.get(`4/${type}`);
@@ -537,9 +542,11 @@ function updateMeasurements() {
     if (acquisition) {
         measured("imu-freshness", !imuLive(acquisition) ? "Stale" : acquisition.fields.flags & 1 ? "Fresh at report" : "Unavailable at report", acquisition);
     }
-    const impact = sensorObservations.get("4/18");
-    if (impact) {
-        measured("impact-result", impact.fields.value1 ? "Possible impact recorded" : "No event recorded", impact);
+    const lift = sensorObservations.get("4/20");
+    if (lift) {
+        const live = imuLive(lift), fresh = (lift.fields.flags & 1) !== 0, lifted = (lift.fields.flags & 2) !== 0;
+        measured("lift-status", !live ? "Unknown (stale)" : lifted ? "Robot is being lifted up" : fresh ? "On the ground" : "IMU unavailable",
+            lift, !live ? "neutral" : lifted ? "fault" : fresh ? "good" : "warning");
     }
     const highest = sensorObservations.get("4/19");
     if (highest) measured("highest-hump", highest.fields.flags & 1 ? `${(highest.fields.value1 / 10).toFixed(1)} cm` : "N/A", highest);
@@ -629,7 +636,7 @@ const telemetryValueLabels = {
     "4/15": ["Wheel-height difference (mm)", "Measurement quality"],
     "4/16": ["Stable peak height (mm)", "Median peak height (mm)"],
     "4/17": ["Peak side", "Peak end uptime (ms)"],
-    "4/18": ["Impact count", "Last impact uptime (ms)"],
+    "4/20": ["Lift reason (0 none, 1 tilted, 2 overturned, 3 lift motion)", "Lift count | tilt in 0.1° << 16"],
     "4/19": ["Highest stable peak (mm)", "Run ID"],
     "6/57": ["Line reacquisition count", "Reserved"],
 };
@@ -637,7 +644,7 @@ const telemetryValueLabels = {
 function updateTelemetryDisplay() {
     byId("telemetry-age").textContent = !hasTelemetryObservation ? "N/A" : lastTelemetryChange === null ? "Cached; age unknown" : `Changed ${ageLabel(Date.now() - lastTelemetryChange)} ago`;
     const fields = latestEnvelope;
-    const types = { 1: "Heartbeat", 2: "State", 3: "Motor speed", 4: "Encoder", 5: "Line sensor", 6: "Barcode", 7: "IMU", 8: "Hump", 9: "Ultrasonic", 10: "Odometry", 11: "IMU acquisition", 12: "IMU sample counters", 13: "Terrain and side", 14: "Estimated motion and yaw", 15: "Wheel height and quality", 16: "Saved peak heights", 17: "Saved ramp event", 18: "Possible impacts", 19: "Highest hump", 50: "Obstacle state", 51: "Obstacle size", 52: "Bypass plan", 53: "Depth bounds", 54: "Front clearance", 55: "Obstacle correlation", 56: "Obstacle validity", 57: "Line reacquisition", 58: "Raw ultrasonic range", 59: "Scan decision" };
+    const types = { 1: "Heartbeat", 2: "State", 3: "Motor speed", 4: "Encoder", 5: "Line sensor", 6: "Barcode", 7: "IMU", 8: "Hump", 9: "Ultrasonic", 10: "Odometry", 11: "IMU acquisition", 12: "IMU sample counters", 13: "Terrain and side", 14: "Estimated motion and yaw", 15: "Wheel height and quality", 16: "Saved peak heights", 17: "Saved ramp event", 19: "Highest hump", 20: "Robot lifted state", 50: "Obstacle state", 51: "Obstacle size", 52: "Bypass plan", 53: "Depth bounds", 54: "Front clearance", 55: "Obstacle correlation", 56: "Obstacle validity", 57: "Line reacquisition", 58: "Raw ultrasonic range", 59: "Scan decision" };
     const rawSequence = previousPayloads.get(telemetryTopic)?.match(/(?:^|\s)seq=(\d+)(?=\s|$)/);
     const sequence = rawSequence && Number(rawSequence[1]) <= 4294967295 ? rawSequence[1] : "N/A";
     byId("sequence").textContent = fields ? String(fields.seq) : sequence;

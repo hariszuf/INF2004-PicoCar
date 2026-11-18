@@ -146,7 +146,12 @@ static int ray_class(const b5_scan_t *s,int i,int32_t front) {
  * minimum bypass offset and enough room to pivot beside the box. */
 static int32_t planned_offset(const b5_profile_t *p, int side) {
     int32_t edge=side>0 ? p->left_edge_mm : -p->right_edge_mm;
-    int32_t mag=(p->width_mm>0 ? p->width_mm : 0)+B5_SIDE_EXTRA_MM;   /* box size + a few cm */
+    int32_t width=p->width_mm>0 ? p->width_mm : 0;
+    /* The wide sonar beam makes the measured edge and width too big. The box is known (B5_BOX_WIDTH_MM), so cap both:
+     * a shorter sideways leg keeps the car on the track. */
+    if (edge>B5_BOX_WIDTH_MM/2+B5_BOX_POS_TOL_MM) edge=B5_BOX_WIDTH_MM/2+B5_BOX_POS_TOL_MM;
+    if (width>B5_BOX_WIDTH_MM+B5_BOX_POS_TOL_MM) width=B5_BOX_WIDTH_MM+B5_BOX_POS_TOL_MM;
+    int32_t mag=width+B5_SIDE_EXTRA_MM;   /* box size + a few cm */
     int32_t need=edge+B5_PIVOT_CLEAR_MM+((side>0 ? p->left_measured : p->right_measured) ? 0 : B5_UNSEEN_EDGE_EXTRA_MM);
     if (need>B5_MAX_OFFSET_MM) need=B5_MAX_OFFSET_MM;
     if (mag<B5_MIN_BYPASS_OFFSET_MM) mag=B5_MIN_BYPASS_OFFSET_MM;

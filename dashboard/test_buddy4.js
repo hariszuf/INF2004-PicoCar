@@ -29,7 +29,7 @@ function packet(type, first, second, flags = 0, age = 0) {
         12: ["clipped_samples", "unsuitable_samples"], 13: ["terrain_state", "side_state"],
         14: ["motion_state", "yaw_rate_cdeg_s"], 15: ["wheel_height_mm", "measurement_quality"],
         16: ["stable_peak_mm", "median_peak_mm"], 17: ["peak_side", "peak_end_ms"],
-        18: ["impact_count", "last_impact_ms"], 19: ["highest_hump_mm", "run_id"],
+        19: ["highest_hump_mm", "run_id"], 20: ["lift_reason", "lift_count_and_tilt"],
     };
     const [a, b] = names[type];
     const fields = context.parseEnvelope(`src=4 type=${type} seq=2 ${a}=${first} ${b}=${second} flags=${flags}`);
@@ -46,7 +46,7 @@ packet(14, 4, -250, 3);
 packet(15, 14, 1, 1);
 packet(16, 14, 9, 3);
 packet(17, -1, 12345, 1);
-packet(18, 2, 13000, 0);
+packet(20, 1, (612 << 16) | 3, 3);
 packet(19, 14, 1, 1);
 context.updateMeasurements();
 assert.equal(value("imu-status"), "Tilt valid");
@@ -68,9 +68,16 @@ assert.equal(value("peak-height"), "1.4");
 assert.equal(value("median-peak-height"), "0.9");
 assert.equal(value("peak-side"), "Left wheel up");
 assert.equal(value("peak-time"), "12345 ms");
-assert.equal(value("impact-count"), 2);
-assert.equal(value("impact-result"), "Possible impact recorded");
-assert.equal(value("impact-time"), "13000 ms");
+assert.equal(value("lift-status"), "Robot is being lifted up");
+assert.equal(elements.get("lift-status").dataset.tone, "fault");
+packet(20, 0, 3, 1);
+context.updateMeasurements();
+assert.equal(value("lift-status"), "On the ground");
+assert.equal(elements.get("lift-status").dataset.tone, "good");
+packet(20, 2, 4, 3, 5000);
+context.updateMeasurements();
+assert.equal(value("lift-status"), "Unknown (stale)");
+packet(20, 1, (612 << 16) | 3, 3);
 assert.equal(value("highest-hump"), "1.4 cm");
 
 packet(7, 0, 0, 0);

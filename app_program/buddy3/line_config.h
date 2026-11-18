@@ -69,7 +69,7 @@
 /** Action when there is no new barcode letter: JUNCTION_NONE = stop and stay stopped (default, never guess),
  *  or JUNCTION_LEFT / JUNCTION_STRAIGHT / JUNCTION_RIGHT to force a turn for testing. */
 #ifndef LINE_JUNCTION_DEFAULT_ACTION
-#define LINE_JUNCTION_DEFAULT_ACTION JUNCTION_NONE
+#define LINE_JUNCTION_DEFAULT_ACTION JUNCTION_STRAIGHT   /* no barcode read at a junction: go straight */
 #endif
 /** The sensors sit ahead of the wheel axle. Before turning, drive forward this far so the car turns at the
  *  middle of the junction. TUNE: about the distance from the axle to the sensors. 0 = turn on the spot. */
@@ -112,8 +112,8 @@
 /* Speeds (cm/s). Much slower than the Buddy 2 demo.                   */
 /* Team test used 300 counts/s straight, 120 inner (about 5 and 2 cm/s). */
 /* ------------------------------------------------------------------ */
-#define LINE_STRAIGHT_SPEED_CM_S    (3.0f)
-#define LINE_TURN_OUTER_SPEED_CM_S  (3.0f)
+#define LINE_STRAIGHT_SPEED_CM_S    (9.0f)
+#define LINE_TURN_OUTER_SPEED_CM_S  (9.0f)
 #ifndef LINE_RIGHT_OUTER_SPEED_CM_S
 #define LINE_RIGHT_OUTER_SPEED_CM_S LINE_TURN_OUTER_SPEED_CM_S
 #endif

@@ -7,7 +7,7 @@
 #include "../../buddy3/line_config.h"
 enum { TURN=1, MOVE, CHECK_LINE, SEARCH, BACK, SWEEP, CHECK_FRONT, REJOIN };
 #define NAV_HEADING_ALIGNED_DEG 8.0f
-#define NAV_TURN_DEADBAND_DEG 4.0f
+#define NAV_TURN_DEADBAND_DEG 3.0f
 static float absolute(float x) { return x<0?-x:x; }
 static float corrected_heading(const motion_status_t *m) {
  return (m->heading_deg/MOTION_TURN_SCALE)*B5_TURN_ODOMETRY_CORRECTION;
@@ -330,7 +330,7 @@ if(a.kind==CHECK_FRONT) {
   result=error>0?motion_turn_left(error):motion_turn_right(-error);
  } else if(a.kind==BACK) {
   if(a.value<4) { ++n->index; return; }
-  if(motion_set_speed(6.0f)!=MOTION_OK) { fail(n); return; }
+  if(motion_set_speed(9.0f)!=MOTION_OK) { fail(n); return; }
   result=motion_move_backward(a.value/10.0f);
   if(result!=MOTION_OK) { fail(n); return; }
   n->issued=true; n->moving=true; n->forward_moving=false; n->motion_seen=false;
