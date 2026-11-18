@@ -151,7 +151,7 @@ static const char *const halt_reasons[]={"user stop","obstacle scanner heartbeat
  "obstacle subsystem fault (see SCAN)","line lost outside recovery","request rejected","barcode turn rejected",
  "motor scheduling delay","motor fault","forward range unavailable while moving",
  "navigation failed/pose mismatch","motor reset failed","line follower could not start",
- "junction stopped without a barcode action"};
+ "junction stopped without a barcode action","robot lifted or overturned"};
 static void halt(full_nav_t *nav,auto_start_t *start,const char *why) {
  int32_t code=0;
  for(unsigned i=0;i<sizeof(halt_reasons)/sizeof(halt_reasons[0]);i++) {
@@ -178,6 +178,8 @@ static void controller_task(INT stacd,void *exinf) {
  uint8_t last_reported_mask=0;
  line_state_t last_reported_state=LINE_STATE_IDLE;
  uint32_t line_reacquired_count=0;
+ uint32_t last_lift_report=now-1000u,last_lift_count_reported=0;
+ bool last_lift_reported=false;
 #endif
  uint32_t lost_since=0,last_guard_clear=0;
 #if TM_CONSOLE_USB_CDC || TM_WIFI_MQTT
@@ -185,6 +187,8 @@ static void controller_task(INT stacd,void *exinf) {
  bool barcode_seen=false;
 #endif
  uint8_t mask=0; fault_latched=false;
+ /* Buddy 4 lift/overturn state, refreshed every 20 ms motor slot. */
+ bool lift_active=false,lift_fresh=false; uint8_t lift_reason=0; uint32_t lift_count=0; int32_t lift_tilt_dec=0;
  (void)stacd; (void)exinf;
  auto_start_init(&start,now);
  tm_printf((UB*)"[AUTO] Power-on automatic mode. 3s delay, then wait for line and forward observations.\n");
@@ -316,6 +320,13 @@ static void controller_task(INT stacd,void *exinf) {
       terrain.roll_deg=imu.roll_deg;
      }
      (void)motion_set_terrain(&terrain);
+     /* Lifted or overturned: stop every motor now. The IMU no longer detects collisions;
+      * lifting the car is the end-of-run signal. A latched lift needs START after the car is set down. */
+     lift_active=imu.lifted; lift_fresh=imu.lift_valid; lift_reason=imu.lift_reason;
+     lift_count=imu.lift_count; lift_tilt_dec=(int32_t)(imu.tilt_deg*10.0f);
+     if(lift_tilt_dec<0) lift_tilt_dec=0;
+     if(lift_tilt_dec>1800) lift_tilt_dec=1800;
+     if(lift_active && run_enabled) halt(&nav,&start,"robot lifted or overturned");
     }
    }
    if(motor.fault==MOTION_FAULT_STALL) fault_latched=true;
@@ -358,7 +369,7 @@ static void controller_task(INT stacd,void *exinf) {
    ready=ready && scan.state==B5_MONITORING && guard_fresh &&
          (uint32_t)(scan.front_timestamp_ms-start.since)<=(uint32_t)(now-start.since);
   }
-  auto_action_t action=auto_start_update(&start,now,nav.settled>=3,ready && !user_stop_pending);
+  auto_action_t action=auto_start_update(&start,now,nav.settled>=3,ready && !user_stop_pending && !lift_active);
   if(action==AUTO_RESET) {
    line_follow_stop();
    if(motion_reset()!=MOTION_OK) halt(&nav,&start,"motor reset failed");
@@ -402,6 +413,17 @@ static void controller_task(INT stacd,void *exinf) {
    }
   }
 #endif
+#if TM_WIFI_MQTT
+  /* Lift state is time critical for the dashboard: report on change, at most every 200 ms, else every second. */
+  if(buddy4_ready && mqtt_dashboard_ready() && (uint32_t)(now-last_lift_report)>=200u &&
+     (lift_active!=last_lift_reported || lift_count!=last_lift_count_reported ||
+      (uint32_t)(now-last_lift_report)>=1000u)) {
+   if(report_measurement(4,TELEMETRY_TYPE_LIFT,(uint16_t)((lift_fresh?1u:0u)|(lift_active?2u:0u)),
+       lift_active?lift_reason:0,(int32_t)((lift_count&0xFFFFu)|((uint32_t)lift_tilt_dec<<16)),report_sequence)==E_OK) {
+    last_lift_report=now; last_lift_reported=lift_active; last_lift_count_reported=lift_count;
+   }
+  }
+#endif
   if((uint32_t)(now-last_report)>=1000u
 #if TM_WIFI_MQTT
      && mqtt_dashboard_ready()
@@ -433,8 +455,6 @@ static void controller_task(INT stacd,void *exinf) {
          imu.last_event.median_valid?(int32_t)(imu.last_event.median_cm*10):0,report_sequence);
      report_measurement(4,17,imu.last_event.end_us?1:0,imu.last_event.side,
          (int32_t)(imu.last_event.end_us/1000u),report_sequence);
-     report_measurement(4,18,imu.impact_valid?1:0,imu.impact_count,
-         (int32_t)(imu.impact_time_us/1000u),report_sequence);
      report_measurement(4,TELEMETRY_TYPE_HIGHEST_HUMP,imu.highest_hump_valid?1:0,
          imu.highest_hump_valid?(int32_t)(imu.highest_hump_cm*10):0,
          (int32_t)imu.run_id,report_sequence);
@@ -444,9 +464,9 @@ static void controller_task(INT stacd,void *exinf) {
       roll=(int32_t)(imu.roll_deg*100);
      }
 #endif
-     tm_printf((UB*)"[B4] imu=%d tilt=%d age_ms=%u terrain=%d side=%d impact=%u motion=%d yaw=%d io_errors=%u\n",
+     tm_printf((UB*)"[B4] imu=%d tilt=%d age_ms=%u terrain=%d side=%d lifted=%d lifts=%u motion=%d yaw=%d io_errors=%u\n",
       imu.valid,imu.tilt_valid,(unsigned)imu.sample_age_ms,imu.terrain,imu.side,
-      (unsigned)imu.impact_count,imu.motion_valid?imu.motion_state:-1,imu.yaw_valid,
+      imu.lifted?1:0,(unsigned)imu.lift_count,imu.motion_valid?imu.motion_state:-1,imu.yaw_valid,
       (unsigned)imu.io_errors);
     }
    }

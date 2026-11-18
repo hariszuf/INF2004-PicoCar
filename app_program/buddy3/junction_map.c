@@ -25,6 +25,7 @@ junction_action_t junction_action_for_letter(char letter)
     {
         return JUNCTION_RIGHT;
     }
+    return JUNCTION_NONE;   /* any other letter: no instruction (the line follower then goes straight) */
 }
 
 const char *junction_action_name(junction_action_t action)

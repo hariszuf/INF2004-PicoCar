@@ -191,7 +191,9 @@ static void scan_task(INT stacd,void *exinf) {
    /* One packet for the vehicle execution status, kept small so the shared telemetry queue does not drop the
     * obstacle profile packets above. value_1 = state | last START result << 4,
     * value_2 = last stop reason | automatic restarts << 8. */
-   emit(60,(b5_exec_state&15)|((b5_start_result&15)<<4),(b5_exec_reason&255)|(b5_auto_retries<<8),seq);
+   int32_t execution_state,execution_reason;
+   vehicle_controller_execution_status(&execution_state,&execution_reason);
+   emit(60,execution_state,execution_reason,seq);
    if(core.profile.side_reason!=B5_WHY_NONE && seq%3u!=0u) {
     /* What the sonar saw at each scan angle, for diagnosing a wrong side choice. One byte per angle, -35 deg first,
      * 5 deg steps: 0 = not sampled, 1 = unusable reading, 255 = no echo, otherwise range in units of 4 mm.

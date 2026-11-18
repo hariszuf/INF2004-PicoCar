@@ -1,6 +1,6 @@
 #include "buddy4_imu.h"
 #include "buddy4_device.h"
-#include "buddy4_impact.h"
+#include "buddy4_lift.h"
 #include "buddy4_motion.h"
 #include "buddy4_encoder_yaw.h"
 #include <string.h>
@@ -23,7 +23,7 @@ static ID data_mutex, task_id, release_flag, release_cyclic;
 static bool initialised;
 static buddy4_device_t device;
 static buddy4_imu_t imu;
-static buddy4_impact_t impact;
+static buddy4_lift_t lift;
 static buddy4_motion_t motion;
 static buddy4_encoder_yaw_t yaw;
 static buddy4_task_snapshot_t published, next;
@@ -91,13 +91,23 @@ ER buddy4_task_get(buddy4_task_snapshot_t *out)
         out->bump_event = out->side_event_ended = false;
     }
     if (e < E_OK || expired(now, out->poll_us, IMU_MAX_AGE_US)) {
-        out->impact_valid = out->possible_impact = false;
+        if (e < E_OK || expired(now, out->sample_us, 250000u))
+            out->lift_valid = false; /* lifted stays latched; only its freshness is lost */
     }
     if (e < E_OK || expired(now, out->encoder_sample_us, ENCODER_MAX_AGE_US - 1u)) {
         out->motion_valid = out->yaw_valid = false;
         out->motion_state = BUDDY4_MOTION_UNKNOWN;
     }
     return e;
+}
+
+static void copy_lift(void)
+{
+    const buddy4_lift_output_t *l = &lift.output;
+    next.lift_valid = l->valid; next.lifted = l->lifted;
+    next.lift_reason = l->lifted ? l->reason : 0;
+    next.lift_count = l->count; next.lift_since_us = l->since_us;
+    next.tilt_deg = l->tilt_deg; next.lift_deviation_g = l->deviation_g;
 }
 
 static void publish(void)
@@ -151,12 +161,13 @@ static void process_once(uint64_t now)
         imu.ready = false;
         next.sequence++;
         next.poll_us = now;
-        next.valid = next.tilt_valid = next.acceleration_valid = next.impact_valid = next.motion_valid = next.yaw_valid = false;
-        next.bump_event = next.side_event_ended = next.possible_impact = false;
+        next.valid = next.tilt_valid = next.acceleration_valid = next.motion_valid = next.yaw_valid = false;
+        next.bump_event = next.side_event_ended = false;
         next.timing_valid = false;
         next.poll_result = BUDDY4_NOT_READY;
         next.device_error = (int)clock_error;
-        buddy4_impact_update(&impact, 0, 0, 0, false, now, now);
+        buddy4_lift_update(&lift, 0, 0, 0, false, now, now);
+        copy_lift();
         publish();
         return;
     }
@@ -173,7 +184,7 @@ static void process_once(uint64_t now)
     next.poll_duration_ms = next.timing_valid ? elapsed_ms(finished, acquired) : UINT32_MAX;
     next.poll_interval_ms = next.sequence ? elapsed_ms(acquired, next.poll_us) : 0;
     buddy4_output_t *o = &imu.output;
-    buddy4_impact_update(&impact, o->accel_g[0], o->accel_g[1],
+    buddy4_lift_update(&lift, o->accel_g[0], o->accel_g[1],
         o->accel_g[2], result == BUDDY4_FRESH && o->valid && o->acceleration_valid,
         o->timestamp_us, acquired);
     if (!speed.valid) {
@@ -189,7 +200,6 @@ static void process_once(uint64_t now)
     }
     buddy4_motion_output_t mo = buddy4_motion_get(&motion, acquired);
     buddy4_encoder_yaw_output_t yo = buddy4_encoder_yaw_get(&yaw, acquired);
-    buddy4_impact_output_t io = buddy4_impact_get(&impact, acquired);
     next.sequence++;
     next.poll_us = acquired; next.sample_us = o->timestamp_us;
     next.valid = o->valid; next.poll_result = result;
@@ -224,9 +234,7 @@ static void process_once(uint64_t now)
     if (next.side_event_ended) {
         save_completed_event(&o->ended_event, o->timestamp_us);
     }
-    next.impact_valid = io.valid; next.possible_impact = io.possible_impact;
-    next.impact_count = io.event_count; next.impact_time_us = io.event_us;
-    next.impact_deviation_g = io.deviation_g;
+    copy_lift();
     next.motion_state = mo.state; next.motion_valid = mo.valid;
     next.yaw_valid = yo.valid; next.encoder_sample_us = yo.sample_us;
     next.encoder_yaw_deg_s = yo.encoder_yaw_rate_estimate_deg_s;
@@ -269,10 +277,11 @@ static void sensor_task(INT code, void *info)
         if (e < E_OK || (e = buddy4_task_time_us(&now)) < E_OK) {
             /* A failed release/clock read interrupts fresh-sample evidence.
              * Use the last known poll time; now may be unavailable. */
-            buddy4_impact_update(&impact, 0, 0, 0, false,
-                                 next.poll_us, next.poll_us);
-            next.valid = next.tilt_valid = next.acceleration_valid = next.impact_valid = next.motion_valid = next.yaw_valid = false;
-            next.bump_event = next.side_event_ended = next.possible_impact = false;
+            buddy4_lift_update(&lift, 0, 0, 0, false,
+                               next.poll_us, next.poll_us);
+            copy_lift();
+            next.valid = next.tilt_valid = next.acceleration_valid = next.motion_valid = next.yaw_valid = false;
+            next.bump_event = next.side_event_ended = false;
             next.timing_valid = false;
             next.device_error = (int)e;
             publish();
@@ -294,7 +303,7 @@ ER buddy4_task_init(void)
     if (dd < E_OK) { (void)tk_del_mtx(data_mutex); return (ER)dd; }
     device = (buddy4_device_t){.descriptor = (int)dd};
     buddy4_init(&imu, buddy4_device_bus(&device), buddy4_default_config());
-    (void)buddy4_impact_init(&impact, buddy4_impact_default_config());
+    (void)buddy4_lift_init(&lift, buddy4_lift_default_config());
     (void)buddy4_motion_init(&motion, buddy4_motion_default_config());
     (void)buddy4_encoder_yaw_init(&yaw, buddy4_encoder_yaw_default_config());
     memset(&next, 0, sizeof(next));

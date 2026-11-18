@@ -52,10 +52,13 @@ typedef struct {
     uint32_t run_id;
     bool highest_hump_valid;
     float highest_hump_cm;
-    bool impact_valid, possible_impact;
-    uint32_t impact_count;
-    uint64_t impact_time_us;
-    float impact_deviation_g;
+    /* Robot lifted / overturned (replaces the old impact observer).
+     * lifted is a latched state and stays set when the IMU samples go stale. */
+    bool lift_valid, lifted;
+    uint8_t lift_reason; /* 0 none, 1 tilted, 2 overturned, 3 lift motion */
+    uint32_t lift_count;
+    uint64_t lift_since_us;
+    float tilt_deg, lift_deviation_g;
     int motion_state;
     bool motion_valid, yaw_valid;
     uint64_t encoder_sample_us;
