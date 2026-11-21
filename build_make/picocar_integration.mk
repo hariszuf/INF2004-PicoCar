@@ -66,7 +66,7 @@ B4_SRCS := $(wildcard ../app_program/buddy4/rtos/*.c)
 ifeq ($(NO_B5),1)
 B5_SRCS :=
 else
-B5_SRCS := ../app_program/vehicle/rtos/buddy5_task.c ../app_program/vehicle/rtos/buddy5_core.c ../app_program/vehicle/rtos/buddy5_plan.c
+B5_SRCS := ../app_program/buddy5/buddy5_task.c ../app_program/buddy5/buddy5_core.c ../app_program/buddy5/buddy5_plan.c
 endif
 CONTROLLER_SRC := ../app_program/vehicle/vehicle_controller.c
 SHARED_SRCS := $(wildcard ../app_program/vehicle/support/*.c)
@@ -82,11 +82,11 @@ include makefile
 # The generic application pattern rule does not create nested object folders.
 .PHONY: b5_integration_dirs
 b5_integration_dirs:
-	@mkdir -p mtkernel_3/app_program/buddy4 mtkernel_3/app_program/buddy4/rtos mtkernel_3/app_program/vehicle mtkernel_3/app_program/vehicle/support mtkernel_3/app_program/vehicle/rtos
+	@mkdir -p mtkernel_3/app_program/buddy4 mtkernel_3/app_program/buddy4/rtos mtkernel_3/app_program/vehicle mtkernel_3/app_program/vehicle/support mtkernel_3/app_program/buddy5
 $(INTEGRATION_OBJS): | b5_integration_dirs
 INCPATH := -I"../app_program/vehicle/support/rtos_config" $(INCPATH) \
  -I"../app_program/vehicle" -I"../app_program/vehicle/support" -I"../app_program/buddy4/rtos" \
- -I"../app_program/buddy4" -I"../app_program/vehicle/rtos" \
+ -I"../app_program/buddy4" -I"../app_program/buddy5" \
  -I"../app_program/buddy2" -I"../app_program/buddy3"
 CFLAGS += -DB5_FULL_TEST=1 -UTM_CONSOLE_UART -DTM_CONSOLE_UART=0 \
  -DMOTION_MIN_DUTY=0.10f -DMOTION_BREAKAWAY_DUTY=0.22f \
