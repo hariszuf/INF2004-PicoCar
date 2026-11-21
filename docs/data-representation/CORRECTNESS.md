@@ -3,13 +3,13 @@
 ## Stage 1: controller flags and fault mask
 - Host test `testing/system/test_robot_flags.c`: 18 checks pass (set, clear, update, test-and-clear, balanced locking).
 - Firmware builds (make exit code 0). Flash +224 B, RAM unchanged.
-- On-car check (to record): STOP halts, START restarts, dashboard shows Running / Stopped.
+- On-car check: passed on the final firmware (see Stage 4 section): STOP halts, START restarts, dashboard shows Running / Stopped.
 
 ## Stage 2: Buddy 5 structs
 - Host test `testing/system/test_bitpack.c`: 9 checks pass (all widths 1..32, 13 scan slots independent, clamp).
 - Behaviour unchanged: the host simulation (`testing/buddy5/new_logic/run_tests.sh 2`) and the scan-only run
   (`run_scanonly.sh`) print byte-for-byte identical output before and after the change (diff is empty).
-- On-car check (to record): obstacle bypass and scan-only width reading.
+- On-car check: passed on the final firmware (see Stage 4 section): obstacle bypass works as before.
 
 ## Stage 3: binary MQTT
 - C codec: `testing/system/test_telemetry_frame.c` passes (round trip, extreme values, malformed frames).
@@ -32,4 +32,5 @@ Host tests are run before and after the change and their output is compared with
   the same DI/EI section the code already used for its command queue. Reading a flag is one load. The Buddy 2
   PID and terrain tests check timing-dependent behaviour (stall detection after 2140 ms, speed settling) and are
   unchanged.
-- On-car check (to record): line following, barcode read, hump / slope compensation, obstacle bypass.
+- On-car check (2026-11-21, final firmware with Stages 1 to 4): line following, barcode read, slope / hump, obstacle bypass,
+  START, STOP, barcode map and live dashboard telemetry all behaved normally, same as before the change.
