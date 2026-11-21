@@ -9,6 +9,7 @@ Raw outputs are kept in `evidence/` and `local-artifacts/`.
 | Stage 1: controller flags + fault mask | see `evidence/size_stage1.txt` | 2608 | 53368 (map: 53176, unchanged) | 55976 | 0 B (flash +224 B) |
 | Stage 2: Buddy 5 structs | 394904 | 2608 | 53336 | 55944 | -32 B (flash +1108 B vs baseline) |
 | Stage 3: binary MQTT telemetry and commands | 394060 | 2608 | 53336 | 55944 | -32 B (flash +264 B vs baseline, -844 B vs Stage 2) |
+| Stage 4: Buddy 2, 3, 4 data packed | 394392 | 2608 | 53264 | 55872 | **-104 B (-0.19%)** (flash +596 B vs baseline) |
 
 Stage 3 changes the wire format, not static RAM: its gain is message size (see `MESSAGE_SIZES.md`), and flash even drops
 because the text formatting code is gone.
@@ -38,5 +39,7 @@ Static variables changed without a struct: Buddy 2 `s_initialised`, `s_estop_req
 `s_terrain_have` (4 bools) became one 32-bit flag word; its state, fault and terrain enums are one byte each;
 `s_direction[2]` went from 4 bytes to 1 byte each. Buddy 3 `barcode_scan.c` 4 bools became one flag word.
 
-The firmware RAM figure for Stage 4 comes from the next build (`arm-none-eabi-size`); it is added to the table
-above as the "Stage 4" row.
+Measured firmware result: static RAM 55976 B to 55872 B (-104 B). The saving is small because the large static
+buffers (task stacks, message buffers, MQTT and lwIP buffers) are sized by their jobs, not by flag fields, and were
+not changed. The larger gains from this change are on the wire (message sizes, `MESSAGE_SIZES.md`) and in the safe
+shared access to packed flags.
