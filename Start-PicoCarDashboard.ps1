@@ -2,7 +2,8 @@
 param(
     [ipaddress]$VehicleBrokerAddress = '127.0.0.1',
     [ValidateRange(1, 65535)][int]$MqttPort = 1883,
-    [ValidateRange(1, 65535)][int]$DashboardPort = 8000
+    [ValidateRange(1, 65535)][int]$DashboardPort = 8000,
+    [switch]$AllowPhone   # let phones and other devices on the same Wi-Fi open the dashboard (trusted network only)
 )
 
 $ErrorActionPreference = 'Stop'
@@ -87,10 +88,22 @@ try {
 
     $env:MQTT_BROKER_HOST = '127.0.0.1'
     $env:MQTT_BROKER_PORT = [string]$MqttPort
+    $bindAddress = '127.0.0.1'
     Write-Host "Dashboard  http://127.0.0.1:$DashboardPort/"
+    if ($AllowPhone) {
+        $bindAddress = '0.0.0.0'
+        $phoneAddress = $vehicleAddress
+        if ($phoneAddress -eq '127.0.0.1') {
+            $phoneAddress = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+                Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.254.*' } |
+                Select-Object -First 1 -ExpandProperty IPAddress)
+        }
+        Write-Host "Phone / other devices  http://${phoneAddress}:$DashboardPort/   (same Wi-Fi or hotspot; allow Python through the Windows firewall on Private networks if asked)"
+        Write-Host 'Anyone on that network can press START/STOP, so use it only on your own test network.'
+    }
     Write-Host "Dashboard files  $dashboard"
     Write-Host "PicoCar MQTT address  ${vehicleAddress}:$MqttPort"
-    & $python -m uvicorn app:app --app-dir $dashboard --host 127.0.0.1 --port $DashboardPort
+    & $python -m uvicorn app:app --app-dir $dashboard --host $bindAddress --port $DashboardPort
     if ($LASTEXITCODE) { throw 'The dashboard server exited with an error.' }
 } finally {
     $env:MQTT_BROKER_HOST = $previousHost

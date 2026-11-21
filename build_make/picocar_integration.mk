@@ -9,6 +9,7 @@ TELEMETRY_MQTT ?= 1
 NO_BARCODE ?= 0
 BARCODE_ONLY ?= 0
 NO_B5 ?= 0
+SCAN_ONLY ?= 0
 NO_LINE ?= 0
 ENC_DIAG ?= 0
 ifeq ($(TELEMETRY_MQTT),1)
@@ -33,7 +34,7 @@ endif
 endif
 # Optional existing Buddy 1 radio profile uses the original makefile gates.
 override BUDDY1_ONLY := 1
-override PROFILE_ID = picocar-integration-v3-smp0-headless$(HEADLESS)-tight$(TIGHT_COURSE)-tick1-wifi$(WIFI)-join$(WIFI_JOIN)-netif$(WIFI_NETIF)-static$(WIFI_STATIC)-dhcp$(WIFI_DHCP)-dns$(WIFI_DNS)-udp$(WIFI_UDP)-tcp$(WIFI_TCP)-bulk$(WIFI_TCPBULK)-mqtt$(WIFI_MQTT)-nob5$(NO_B5)-noline$(NO_LINE)-nobarcode$(NO_BARCODE)-barcodeonly$(BARCODE_ONLY)-encdiag$(ENC_DIAG)
+override PROFILE_ID = picocar-integration-v3-smp0-headless$(HEADLESS)-tight$(TIGHT_COURSE)-tick1-wifi$(WIFI)-join$(WIFI_JOIN)-netif$(WIFI_NETIF)-static$(WIFI_STATIC)-dhcp$(WIFI_DHCP)-dns$(WIFI_DNS)-udp$(WIFI_UDP)-tcp$(WIFI_TCP)-bulk$(WIFI_TCPBULK)-mqtt$(WIFI_MQTT)-nob5$(NO_B5)-noline$(NO_LINE)-nobarcode$(NO_BARCODE)-barcodeonly$(BARCODE_ONLY)-encdiag$(ENC_DIAG)-scanonly$(SCAN_ONLY)
 TIGHT_SUFFIX :=
 ifeq ($(TIGHT_COURSE),1)
 TIGHT_SUFFIX := _tight
@@ -61,11 +62,19 @@ B4_CORE_SRCS := ../app_program/buddy4/buddy4_imu.c \
  ../app_program/buddy4/buddy4_lift.c ../app_program/buddy4/buddy4_motion.c \
  ../app_program/buddy4/buddy4_encoder_yaw.c
 B4_SRCS := $(wildcard ../app_program/buddy4/rtos/*.c)
-B5_SRCS := $(wildcard ../app_program/buddy5/rtos/*.c)
+# Buddy 5 (obstacle bypass). Build with NO_B5=1 to drop it and fall back to line following only (b5_stub.c).
+ifeq ($(NO_B5),1)
+B5_SRCS :=
+else
+B5_SRCS := ../app_program/vehicle/rtos/buddy5_task.c ../app_program/vehicle/rtos/buddy5_core.c ../app_program/vehicle/rtos/buddy5_plan.c
+endif
 CONTROLLER_SRC := ../app_program/vehicle/vehicle_controller.c
-SHARED_SRCS := $(wildcard ../app_program/buddy5/vehicle/*.c)
+SHARED_SRCS := $(wildcard ../app_program/vehicle/support/*.c)
+ifneq ($(NO_B5),1)
+SHARED_SRCS := $(filter-out ../app_program/vehicle/support/b5_stub.c,$(SHARED_SRCS))
+endif
 ifeq ($(HEADLESS),1)
-SHARED_SRCS := $(filter-out ../app_program/buddy5/vehicle/usb_input.c,$(SHARED_SRCS))
+SHARED_SRCS := $(filter-out ../app_program/vehicle/support/usb_input.c,$(SHARED_SRCS))
 endif
 INTEGRATION_OBJS := $(patsubst ../%,mtkernel_3/%,$(B4_CORE_SRCS:.c=.o) $(B4_SRCS:.c=.o) $(B5_SRCS:.c=.o) $(SHARED_SRCS:.c=.o) $(CONTROLLER_SRC:.c=.o))
 override TEMP_SRCS := ../app_program/app_main.c $(CONTROLLER_SRC) $(B1_SRCS) $(B2_SRCS) $(B3_SRCS) $(B4_CORE_SRCS) $(B4_SRCS) $(B5_SRCS) $(SHARED_SRCS)
@@ -73,11 +82,11 @@ include makefile
 # The generic application pattern rule does not create nested object folders.
 .PHONY: b5_integration_dirs
 b5_integration_dirs:
-	@mkdir -p mtkernel_3/app_program/buddy4 mtkernel_3/app_program/buddy4/rtos mtkernel_3/app_program/buddy5/rtos mtkernel_3/app_program/buddy5/vehicle mtkernel_3/app_program/vehicle
+	@mkdir -p mtkernel_3/app_program/buddy4 mtkernel_3/app_program/buddy4/rtos mtkernel_3/app_program/vehicle mtkernel_3/app_program/vehicle/support mtkernel_3/app_program/vehicle/rtos
 $(INTEGRATION_OBJS): | b5_integration_dirs
-INCPATH := -I"../app_program/buddy5/vehicle/rtos_config" $(INCPATH) \
- -I"../app_program/vehicle" -I"../app_program/buddy5/vehicle" -I"../app_program/buddy4/rtos" \
- -I"../app_program/buddy4" -I"../app_program/buddy5/rtos" \
+INCPATH := -I"../app_program/vehicle/support/rtos_config" $(INCPATH) \
+ -I"../app_program/vehicle" -I"../app_program/vehicle/support" -I"../app_program/buddy4/rtos" \
+ -I"../app_program/buddy4" -I"../app_program/vehicle/rtos" \
  -I"../app_program/buddy2" -I"../app_program/buddy3"
 CFLAGS += -DB5_FULL_TEST=1 -UTM_CONSOLE_UART -DTM_CONSOLE_UART=0 \
  -DMOTION_MIN_DUTY=0.10f -DMOTION_BREAKAWAY_DUTY=0.22f \
@@ -90,6 +99,11 @@ CFLAGS += -DB3_BARCODE_ONLY=1 -DB3_NO_LINE=1
 endif
 ifeq ($(NO_B5),1)
 CFLAGS += -DB5_DISABLED=1
+else
+CFLAGS += -DB5_DISABLED=0
+endif
+ifeq ($(SCAN_ONLY),1)
+CFLAGS += -DB5_SCAN_ONLY=1
 endif
 ifeq ($(NO_LINE),1)
 CFLAGS += -DB3_NO_LINE=1
@@ -121,7 +135,7 @@ B5_COMPAT_OBJS := mtkernel_3/app_program/buddy2/motion_control.o \
  mtkernel_3/app_program/buddy2/motion_motor.o \
  mtkernel_3/app_program/buddy2/motion_encoder.o \
  mtkernel_3/app_program/buddy3/line_sensors.o
-$(B5_COMPAT_OBJS): INCPATH := -I"../app_program/buddy5/vehicle/compat" $(INCPATH)
+$(B5_COMPAT_OBJS): INCPATH := -I"../app_program/vehicle/support/compat" $(INCPATH)
 # Resolve Arm libm and link it after object files (motion profiles use sqrtf).
 B5_LIBM := $(shell $(GCC) -mcpu=cortex-m0plus -mthumb -print-file-name=libm.a)
 # Target-specific so the inherited clean recipe can never delete the SDK archive.

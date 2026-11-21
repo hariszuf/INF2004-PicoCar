@@ -4,11 +4,12 @@
 #include "buddy1/buddy1.h"
 
 #ifdef B5_FULL_TEST
+#ifndef B5_DISABLED
+#define B5_DISABLED 1   /* Buddy 5 (obstacle detection) removed */
+#endif
 #include "buddy2/motion_control.h"
 #include "buddy3/line_follow.h"
 #include "buddy4/rtos/buddy4_task.h"
-#include "buddy5/ultrasonic.h"
-#include "buddy5/rtos/buddy5_servo.h"
 #include "barcode_task.h"
 #include "platform.h"
 #include "scan_link.h"
@@ -33,12 +34,6 @@ static INT start_application(void)
 
     motion_emergency_stop();
     line_follow_init();
-#if !B5_DISABLED
-    ultrasonic_init();
-    if (!buddy5_servo_init()) {
-        return 1;
-    }
-#endif
 
     ER buddy1_init_result = buddy1_init();
     if (buddy1_init_result < E_OK) {
@@ -54,15 +49,15 @@ static INT start_application(void)
     }
 
     /* Phase 2: Start the application tasks. */
-    if (vehicle_controller_start(buddy4_ready) < E_OK) {
-        return 1;
-    }
 #if !B5_DISABLED
     if (line_scan_start() < E_OK) {
-        motion_emergency_stop();
+        tm_printf((UB *)"[B5] Obstacle scanner failed to start.\n");
         return 1;
     }
 #endif
+    if (vehicle_controller_start(buddy4_ready) < E_OK) {
+        return 1;
+    }
 
     if (buddy1_init_result >= E_OK) {
         ER error = buddy1_start();
@@ -92,9 +87,7 @@ static INT start_application(void)
     return 0;
 }
 #else
-#include "buddy5/buddy5.h"
-
-/* Legacy Buddy 1 and Buddy 5 development profile. */
+/* Legacy Buddy 1 development profile (Buddy 5 removed). */
 static INT start_application(void)
 {
     /* Phase 1: Initialise subsystem resources. */
@@ -104,22 +97,10 @@ static INT start_application(void)
         return 1;
     }
 
-    error = buddy5_init();
-    if (error < E_OK) {
-        tm_printf((UB *)"[APP] Buddy 5 init failed: %d\n", error);
-        return 1;
-    }
-
     /* Phase 2: Start the application tasks. */
     error = buddy1_start();
     if (error < E_OK) {
         tm_printf((UB *)"[APP] Buddy 1 start failed: %d\n", error);
-        return 1;
-    }
-
-    error = buddy5_start();
-    if (error < E_OK) {
-        tm_printf((UB *)"[APP] Buddy 5 start failed: %d\n", error);
         return 1;
     }
 

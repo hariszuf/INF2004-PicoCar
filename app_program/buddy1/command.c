@@ -215,6 +215,45 @@ static uint8_t command_text_matches(
  */
 extern void b5_remote_command_intent(unsigned command) __attribute__((weak));
 
+/*
+ * Barcode map (Buddy 3): "MAP " followed by 26 letters (one per barcode letter A..Z, each L S R U or N) replaces
+ * the A-Z table, "MAPRESET" restores the built-in defaults. Rejected while the car is running. All weak, so
+ * profiles without Buddy 3 / the vehicle controller still link. The result is reported back through telemetry.
+ */
+extern int junction_map_apply(const char *codes, unsigned length) __attribute__((weak));
+extern void junction_map_reset(void) __attribute__((weak));
+extern int b5_run_active(void) __attribute__((weak));
+static volatile int32_t barcode_map_result = 0;   /* 0 none yet, 1 applied, 2 bad format, 3 rejected (car running) */
+
+int32_t buddy1_barcode_map_result(void)
+{
+    return barcode_map_result;
+}
+
+static int32_t barcode_map_command(const char *payload, uint16_t payload_length)
+{
+    if ((junction_map_apply == NULL) || (junction_map_reset == NULL)) {
+        barcode_map_result = 2;
+        return (int32_t)E_NOSPT;
+    }
+    if ((b5_run_active != NULL) && (b5_run_active() != 0)) {
+        barcode_map_result = 3;
+        return (int32_t)E_BUSY;
+    }
+    if (command_text_matches(payload, payload_length, "MAPRESET", 8U) != 0U) {
+        junction_map_reset();
+        barcode_map_result = 1;
+        return 0;
+    }
+    if ((payload_length == 30U) && (payload[3] == ' ') &&
+        (junction_map_apply(&payload[4], 26U) == 0)) {
+        barcode_map_result = 1;
+        return 0;
+    }
+    barcode_map_result = 2;
+    return (int32_t)E_PAR;
+}
+
 int32_t buddy1_mqtt_command_ingest(
     const char *payload,
     uint16_t payload_length)
@@ -223,6 +262,10 @@ int32_t buddy1_mqtt_command_ingest(
 
     if (payload == NULL) {
         return (int32_t)E_PAR;
+    }
+
+    if ((payload_length >= 3U) && (payload[0] == 'M') && (payload[1] == 'A') && (payload[2] == 'P')) {
+        return barcode_map_command(payload, payload_length);
     }
 
     if (command_text_matches(payload, payload_length,

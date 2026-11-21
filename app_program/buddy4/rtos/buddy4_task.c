@@ -184,8 +184,11 @@ static void process_once(uint64_t now)
     next.poll_duration_ms = next.timing_valid ? elapsed_ms(finished, acquired) : UINT32_MAX;
     next.poll_interval_ms = next.sequence ? elapsed_ms(acquired, next.poll_us) : 0;
     buddy4_output_t *o = &imu.output;
+    /* Only gravity-like samples (0.8-1.2 g) say anything about tilt. A reading that is not ~1 g (bad range,
+     * wiring, a stuck bus) gives a meaningless angle, and used to latch "lifted" forever, which blocked the start.
+     * Such samples now count as "no data", and the lift state releases after invalid_release_us. */
     buddy4_lift_update(&lift, o->accel_g[0], o->accel_g[1],
-        o->accel_g[2], result == BUDDY4_FRESH && o->valid && o->acceleration_valid,
+        o->accel_g[2], result == BUDDY4_FRESH && o->valid && o->tilt_valid,
         o->timestamp_us, acquired);
     if (!speed.valid) {
         buddy4_motion_update(&motion, 0, 0, false, acquired, acquired);

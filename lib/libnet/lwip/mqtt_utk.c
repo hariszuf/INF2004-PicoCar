@@ -364,6 +364,8 @@ static const struct {
     {2, 10, "odometry_mm", "motor_fault"},
     {3, 5, "ir_mask", "line_state"},
     {3, 6, "barcode_ascii", "barcode_age_ms"},
+    {3, 21, "map_a_to_j", "map_k_to_t"},
+    {3, 22, "map_u_to_z", "map_version_result"},
     {4, 7, "pitch_cdeg", "roll_cdeg"},
     {5, 50, "obstacle_state", "obstacle_fault"},
     {5, 51, "width_mm", "depth_high_mm"},

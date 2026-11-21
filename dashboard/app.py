@@ -24,7 +24,7 @@ latest_messages = {}
 last_message_times = {}
 sensor_frames = {}
 sensor_lock = Lock()
-sensor_types = {2: {3, 4, 10}, 3: {5, 6}, 4: {7, *range(11, 21)}, 5: {*range(50, 63)}, 6: {57}}
+sensor_types = {2: {3, 4, 10}, 3: {5, 6, 21, 22}, 4: {7, *range(11, 21)}, 5: {*range(50, 63)}, 6: {57}}
 sensor_header = re.compile(
     r"src=([2-6]) type=([0-9]{1,2}) seq=([0-9]{1,10}) "
     r"[a-z][a-z0-9_]{0,31}=(-?[0-9]{1,10}) [a-z][a-z0-9_]{0,31}=(-?[0-9]{1,10})(?: flags=([0-9]{1,5}))?"
@@ -138,6 +138,46 @@ def get_status():
             heartbeat_age is not None and heartbeat_age < 15
         ),
         "heartbeat_age_seconds": heartbeat_age,
+    }
+
+
+@app.post("/api/barcode-map/{codes}")
+def set_barcode_map(codes: str):
+    """Send the barcode A-Z map to the car: 26 letters (L left, S straight, R right, U U-turn, N none) or RESET."""
+    codes = codes.upper()
+
+    if codes == "RESET":
+        payload = "MAPRESET"
+    elif re.fullmatch(r"[LSRUN]{26}", codes):
+        payload = f"MAP {codes}"
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Map must be 26 letters of L, S, R, U or N (A to Z), or RESET",
+        )
+
+    if not mqtt_client.is_connected():
+        raise HTTPException(
+            status_code=503,
+            detail="MQTT broker disconnected",
+        )
+
+    result = mqtt_client.publish(
+        TOPIC_COMMAND,
+        payload=payload,
+        qos=0,
+        retain=False,
+    )
+
+    if result.rc != mqtt.MQTT_ERR_SUCCESS:
+        raise HTTPException(
+            status_code=503,
+            detail="MQTT publish failed",
+        )
+
+    return {
+        "command": payload,
+        "status": "publish queued",
     }
 
 

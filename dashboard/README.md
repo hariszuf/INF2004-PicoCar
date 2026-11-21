@@ -236,3 +236,19 @@ contain simulated test data, not physical-hardware evidence.
 Live broker reconnection, physical command execution and sensor accuracy still
 require independent lab verification. Earlier firmware cold-boot evidence does
 not verify this frontend redesign.
+
+## Open the dashboard on a phone
+
+GitHub Pages cannot host this dashboard: it only serves static files, while the dashboard needs the Python
+server and the MQTT broker that run on the laptop (the car talks to that broker over the local Wi-Fi/hotspot).
+Instead, let the phone open the laptop's server over the same network:
+
+1. Connect the phone to the same Wi-Fi or hotspot as the laptop and the car.
+2. Start the dashboard with the phone option:
+   `powershell -ExecutionPolicy Bypass -File .\Start-PicoCarDashboard.ps1 -VehicleBrokerAddress <laptop Wi-Fi IPv4> -AllowPhone`
+3. Open the "Phone / other devices" address it prints (for example `http://192.168.137.1:8000/`) in the phone's browser.
+4. If Windows asks, allow Python through the firewall on Private networks.
+
+The layout is responsive, so the phone shows the same views in a single column. The server then listens on all
+network interfaces and has no login, so anyone on that network can press START/STOP: use it on your own test
+network only. Without `-AllowPhone` the dashboard stays local to the laptop.

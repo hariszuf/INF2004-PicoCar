@@ -78,6 +78,146 @@ function metricPanel(title, fields) {
     return panel;
 }
 
+// ---- Barcode map (Buddy 3): choose what each letter A-Z makes the car do, then send it over MQTT. ----
+const BARCODE_CODES = "NLSRU";   // index = junction action code in the firmware (0 none, 1 left, 2 straight, 3 right, 4 U-turn)
+const BARCODE_OPTIONS = [["L", "Left"], ["S", "Straight"], ["R", "Right"], ["U", "U-turn"], ["N", "None"]];
+const BARCODE_DEFAULT = "LNNNNUNNNNNNNNNNNNNNNNRNNN";   // the firmware's built-in map: A left, F U-turn, W right
+const BARCODE_STORE = "barcodeMapDraft";
+
+function decodeBarcodeMap(first, second, third) {
+    const words = [first, second, third];
+    let text = "";
+    for (let i = 0; i < 26; i++) {
+        const word = words[Math.floor(i / 10)];
+        const code = (word >> (3 * (i % 10))) & 7;
+        if (code > 4) return null;
+        text += BARCODE_CODES[code];
+    }
+    return text;
+}
+
+function currentBarcodeDraft() {
+    return [...document.querySelectorAll("#barcode-map-grid select")].map((select) => select.value).join("");
+}
+
+function setBarcodeStatus(text, tone = "neutral") {
+    const element = byId("barcode-map-status");
+    element.textContent = text;
+    element.dataset.tone = tone;
+}
+
+async function postBarcodeMap(codes, label) {
+    setBarcodeStatus(`Sending ${label}...`);
+    try {
+        const response = await fetch(`/api/barcode-map/${codes}`, { method: "POST" });
+        if (!response.ok) {
+            let detail = `HTTP ${response.status}`;
+            try { detail = (await response.json()).detail || detail; } catch (e) { /* keep status */ }
+            setBarcodeStatus(`Not sent: ${detail}`, "fault");
+            return;
+        }
+        setBarcodeStatus("Sent. Check 'Car currently holds' below within a few seconds to confirm the car applied it.", "good");
+    } catch (error) {
+        setBarcodeStatus("Not sent: the dashboard server could not be reached.", "fault");
+    }
+}
+
+function buildBarcodeMapPanel(root) {
+    const panel = document.createElement("section");
+    panel.className = "panel";
+    const heading = document.createElement("h2");
+    heading.textContent = "Barcode map (letter to junction action)";
+    const note = document.createElement("p");
+    note.className = "panel-note";
+    note.textContent = "Pick the action for each barcode letter, then send it to the car. The car refuses a new map while it is running and forgets it on reboot (send it again after every power-up).";
+    const grid = document.createElement("div");
+    grid.id = "barcode-map-grid";
+    grid.style.cssText = "display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:8px;margin:12px 0";
+    let saved = BARCODE_DEFAULT;
+    try {
+        const stored = localStorage.getItem(BARCODE_STORE);
+        if (stored && /^[LSRUN]{26}$/.test(stored)) saved = stored;
+    } catch (e) { /* storage unavailable */ }
+    for (let i = 0; i < 26; i++) {
+        const label = document.createElement("label");
+        label.style.cssText = "display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--border, #d0d0d0);border-radius:8px;min-width:0";
+        const letter = document.createElement("strong");
+        letter.textContent = String.fromCharCode(65 + i);
+        letter.style.cssText = "flex:0 0 1.2em;text-align:center";
+        const select = document.createElement("select");
+        select.setAttribute("aria-label", `Action for barcode ${letter.textContent}`);
+        select.style.cssText = "flex:1 1 auto;min-width:0;width:100%";
+        for (const [value, text] of BARCODE_OPTIONS) {
+            const option = document.createElement("option");
+            option.value = value;
+            option.textContent = text;
+            select.append(option);
+        }
+        select.value = saved[i];
+        select.addEventListener("change", () => {
+            try { localStorage.setItem(BARCODE_STORE, currentBarcodeDraft()); } catch (e) { /* storage unavailable */ }
+            updateBarcodeMapReadout();
+        });
+        label.append(letter, select);
+        grid.append(label);
+    }
+    const actions = document.createElement("div");
+    actions.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;margin:8px 0";
+    const makeButton = (text, handler) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "quiet-button";
+        button.textContent = text;
+        button.addEventListener("click", handler);
+        return button;
+    };
+    actions.append(
+        makeButton("Send map to car", () => postBarcodeMap(currentBarcodeDraft(), "map")),
+        makeButton("Reset car to defaults", () => postBarcodeMap("RESET", "reset")),
+        makeButton("Copy car's map into the table", () => {
+            const held = byId("barcode-map-held").dataset.map;
+            if (!held) { setBarcodeStatus("The car has not reported its map yet.", "fault"); return; }
+            document.querySelectorAll("#barcode-map-grid select").forEach((select, i) => { select.value = held[i]; });
+            try { localStorage.setItem(BARCODE_STORE, held); } catch (e) { /* storage unavailable */ }
+            updateBarcodeMapReadout();
+        }),
+    );
+    const status = document.createElement("p");
+    status.id = "barcode-map-status";
+    status.className = "panel-note";
+    status.textContent = "Not sent yet.";
+    const list = document.createElement("dl");
+    list.className = "metric-list";
+    for (const [label, id] of [["Car currently holds", "barcode-map-held"], ["Matches the table above", "barcode-map-match"], ["Last MAP command result", "barcode-map-result"]]) {
+        const row = document.createElement("div");
+        const term = document.createElement("dt");
+        term.textContent = label;
+        const value = document.createElement("dd");
+        value.id = id;
+        value.textContent = "Unknown";
+        row.append(term, value);
+        list.append(row);
+    }
+    panel.append(heading, note, grid, actions, status, list);
+    root.append(panel);
+}
+
+function updateBarcodeMapReadout() {
+    const held = byId("barcode-map-held");
+    if (!held) return;
+    const first = sensorObservations.get("3/21"), second = sensorObservations.get("3/22");
+    const fresh = first && second && first.fields.seq === second.fields.seq;
+    const map = fresh ? decodeBarcodeMap(first.fields.value1, first.fields.value2, second.fields.value1) : null;
+    held.dataset.map = map || "";
+    held.textContent = map ? map.split("").map((code, i) => `${String.fromCharCode(65 + i)}=${code}`).join(" ") : "Unknown (no map report yet)";
+    const draft = currentBarcodeDraft();
+    byId("barcode-map-match").textContent = !map ? "Unknown" : map === draft ? "Yes, the car holds exactly this table" : "No, the car holds a different map (press Send)";
+    byId("barcode-map-match").dataset.tone = !map ? "neutral" : map === draft ? "good" : "warning";
+    const results = ["No MAP command yet", "Applied", "Rejected: bad format", "Rejected: car is running"];
+    const code = fresh ? (second.fields.value2 >>> 16) : null;
+    byId("barcode-map-result").textContent = code === null ? "Unknown" : `${results[code] ?? `Code ${code}`} (map changes since boot: ${second.fields.value2 & 0xFFFF})`;
+}
+
 for (const [view, panels] of Object.entries(sections)) {
     const root = byId(`view-${view}`);
     const note = document.createElement("div");
@@ -91,6 +231,7 @@ for (const [view, panels] of Object.entries(sections)) {
     grid.className = "two-column";
     for (const [title, fields] of panels) grid.append(metricPanel(title, fields));
     root.append(note, grid);
+    if (view === "line") buildBarcodeMapPanel(root);
     if (view === "motion") {
         const distanceNote = document.createElement("p");
         distanceNote.className = "panel-note";
@@ -104,7 +245,7 @@ for (const [view, panels] of Object.entries(sections)) {
         const profile = document.createElement("div");
         profile.className = "two-column";
         profile.append(
-            metricPanel("Width & bypass", [["Estimated obstacle width", "obstacle-width"], ["Width validity", "obstacle-width-validity"], ["Chosen bypass side", "bypass-side"], ["Planned sideways offset", "bypass-offset"]]),
+            metricPanel("Width & bypass", [["Estimated obstacle width", "obstacle-width"], ["Width validity", "obstacle-width-validity"], ["Last saved box width (kept in this browser)", "saved-width"], ["Chosen bypass side", "bypass-side"], ["Planned sideways offset", "bypass-offset"]]),
             metricPanel("Depth estimate", [["Depth lower bound", "depth-low"], ["Depth upper bound", "depth-high"], ["Depth validity", "depth-validity"], ["Validity packet sequence", "obstacle-profile-sequence"]]),
             metricPanel("Scan decision", [["Left box edge", "box-left-edge"], ["Right box edge", "box-right-edge"], ["Why this side", "side-reason"], ["Heading re-turns", "turn-fixes"], ["Sonar extra turns (turned too little)", "block-fixes"], ["Side switched after front check", "side-switched"], ["Rescans (reverse and look again)", "rescans"]]),
         );
@@ -189,31 +330,86 @@ for (const [view, panels] of Object.entries(sections)) {
     root.append(details);
 }
 
-for (const subsystem of subsystems) {
-    const row = document.createElement("tr");
-    const identity = document.createElement("td");
-    identity.textContent = subsystem.name;
+const overviewCards = [
+    { view: "motion", title: "Motion control", owner: "Buddy 2", source: 2, rows: [["Speed left / right", "ov-motion-speed"], ["Distance travelled", "ov-motion-distance"], ["Motor status", "ov-motion-status"]] },
+    { view: "line", title: "Line & barcode", owner: "Buddy 3", source: 3, rows: [["Line sensors", "ov-line-sensors"], ["Tracking state", "ov-line-state"], ["Last barcode", "ov-line-barcode"]] },
+    { view: "imu", title: "IMU & terrain", owner: "Buddy 4", source: 4, rows: [["Lift status", "ov-imu-lift"], ["Pitch / roll", "ov-imu-tilt"], ["Terrain", "ov-imu-terrain"]] },
+    { view: "obstacle", title: "Obstacle detection", owner: "Buddy 5", source: 5, rows: [["Detection state", "ov-obs-state"], ["Front clearance", "ov-obs-front"], ["Box width", "ov-obs-width"], ["Last saved width", "ov-obs-saved"]] },
+];
+for (const card of overviewCards) {
+    const article = document.createElement("article");
+    article.className = "buddy-card";
+    const head = document.createElement("header");
+    const titles = document.createElement("div");
+    const title = document.createElement("h3");
+    title.textContent = card.title;
     const owner = document.createElement("small");
-    owner.textContent = subsystem.owner;
-    identity.append(owner);
-    const coverage = document.createElement("td");
-    const tag = document.createElement("span");
-    tag.className = "tag neutral";
-    tag.id = `${subsystem.view}-coverage`;
-    tag.textContent = subsystem.coverage;
-    coverage.append(tag);
-    const observation = document.createElement("td");
-    observation.id = `${subsystem.view}-last-seen`;
-    observation.textContent = "N/A";
-    const destination = document.createElement("td");
+    owner.textContent = card.owner;
+    titles.append(title, owner);
+    const live = document.createElement("span");
+    live.className = "tag neutral";
+    live.id = `ov-${card.view}-live`;
+    live.textContent = "No data";
+    head.append(titles, live);
+    const list = document.createElement("dl");
+    for (const [label, id] of card.rows) {
+        const row = document.createElement("div");
+        const term = document.createElement("dt");
+        term.textContent = label;
+        const value = document.createElement("dd");
+        value.id = id;
+        value.textContent = "N/A";
+        row.append(term, value);
+        list.append(row);
+    }
     const link = document.createElement("a");
-    link.href = `#${subsystem.view}`;
+    link.href = `#${card.view}`;
     link.className = "text-link";
-    link.textContent = "View";
-    link.setAttribute("aria-label", `View ${subsystem.name.toLowerCase()}`);
-    destination.append(link);
-    row.append(identity, coverage, observation, destination);
-    byId("subsystem-rows").append(row);
+    link.textContent = "Open details";
+    article.append(head, list, link);
+    byId("buddy-cards").append(article);
+}
+
+function detailText(id) {
+    const element = byId(id);
+    return element && element.firstChild ? element.firstChild.textContent : "N/A";
+}
+
+function overviewSet(id, text, tone = "neutral") {
+    const element = byId(id);
+    if (!element) return;
+    element.textContent = text;
+    element.dataset.tone = tone;
+}
+
+// Copies the already-computed detail values (single source of truth) into the overview cards.
+function updateOverviewCards() {
+    for (const card of overviewCards) {
+        const observation = sourceObservations.get(card.source);
+        const age = observation ? Date.now() - observation.at : null;
+        const live = byId(`ov-${card.view}-live`);
+        if (!live) continue;
+        const tone = !observation ? "neutral" : age < 5000 && brokerConnected ? "good" : "warning";
+        live.className = `tag ${tone}`;
+        live.textContent = !observation ? "No data" : age < 5000 && brokerConnected ? "Live" : `Stale ${ageLabel(age)}`;
+    }
+    const pair = (a, b, unit = "") => {
+        const x = detailText(a), y = detailText(b);
+        return x === "N/A" && y === "N/A" ? "N/A" : `${x.replace(unit, "")} / ${y}`;
+    };
+    overviewSet("ov-motion-speed", pair("motor-left", "motor-right", " mm/s"));
+    overviewSet("ov-motion-distance", detailText("distance-travelled"));
+    overviewSet("ov-motion-status", detailText("motor-status"), byId("motor-status")?.dataset.tone);
+    overviewSet("ov-line-sensors", detailText("line-detection"));
+    overviewSet("ov-line-state", detailText("tracking-state"));
+    overviewSet("ov-line-barcode", detailText("barcode-result"));
+    overviewSet("ov-imu-lift", detailText("lift-status"), byId("lift-status")?.dataset.tone);
+    overviewSet("ov-imu-tilt", pair("pitch", "roll"));
+    overviewSet("ov-imu-terrain", detailText("terrain"));
+    overviewSet("ov-obs-state", detailText("obstacle-state"), byId("obstacle-state")?.dataset.tone);
+    overviewSet("ov-obs-front", detailText("front-clearance"));
+    overviewSet("ov-obs-width", detailText("obstacle-width"));
+    overviewSet("ov-obs-saved", detailText("saved-width"));
 }
 
 function setMenu(open) {
@@ -292,11 +488,11 @@ function updateConnectionDisplay() {
         const fresh = heartbeatFresh && localAge !== null && localAge < 15;
         byId("heartbeat-age").textContent = localAge === null ? "Age N/A" : `${localAge.toFixed(1)} s since status`;
         setState("vehicle-connection", !brokerConnected ? "Link disconnected" : localAge === null ? "Not received" : fresh ? "Fresh" : "Stale", !brokerConnected ? "fault" : fresh ? "good" : "warning");
-        byId("connection-headline").textContent = !brokerConnected ? "MQTT link disconnected" : fresh ? "Heartbeat fresh. Readiness unconfirmed." : "Waiting for a fresh vehicle heartbeat";
+        byId("connection-headline").textContent = !brokerConnected ? "MQTT link disconnected" : fresh ? "Vehicle heartbeat is fresh" : "Waiting for a fresh vehicle heartbeat";
         byId("connection-explanation").textContent = !brokerConnected
             ? "The dashboard is reachable, but its broker connection is down. Cached payloads do not establish a live vehicle link."
-            : fresh ? "Status traffic is recent. Controller execution and safety feedback are still needed to confirm vehicle readiness."
-            : "The broker is connected, but vehicle status is missing or stale. Connection alone does not establish readiness.";
+            : fresh ? "Status messages from the car are arriving normally."
+            : "The broker is connected, but the car's status messages are missing or stale.";
     }
     updateCommandButtons();
 }
@@ -307,6 +503,8 @@ const telemetryValueKeys = {
     "2/10": ["odometry_mm", "motor_fault"],
     "3/5": ["ir_mask", "line_state"],
     "3/6": ["barcode_ascii", "barcode_age_ms"],
+    "3/21": ["map_a_to_j", "map_k_to_t"],
+    "3/22": ["map_u_to_z", "map_version_result"],
     "4/7": ["pitch_cdeg", "roll_cdeg"],
     "5/50": ["obstacle_state", "obstacle_fault"],
     "5/51": ["width_mm", "depth_high_mm"],
@@ -345,6 +543,8 @@ function parseEnvelope(payload) {
         fields.value1 ??= fields[keys[0]];
         const drivingValidity = fields.src === 5 && fields.type === 56 && (fields.value1 & 16);
         fields.value2 ??= fields[drivingValidity ? "reserved" : keys[1]];
+        // The firmware names the second field of 5/56 "telemetry_drops"; accept it as well as "extend_retries".
+        if (fields.src === 5 && fields.type === 56) fields.value2 ??= fields.telemetry_drops ?? fields.extend_retries ?? fields.reserved;
     }
     if (!Number.isInteger(fields.value1) || !Number.isInteger(fields.value2)) return null;
     if (!["src", "type", "seq", "value1", "value2"].every((key) => Object.hasOwn(fields, key))) return null;
@@ -427,10 +627,8 @@ function updateMeasurements() {
     }
     for (const subsystem of subsystems) {
         const observation = sourceObservations.get(subsystem.source);
-        byId(`${subsystem.view}-last-seen`).textContent = observationLabel(observation);
         if (observation) {
-            byId(`${subsystem.view}-coverage`).textContent = "Payload observed";
-            byId(`${subsystem.view}-observation`).textContent = `Source ${observation.fields.src}, type ${observation.fields.type}, sequence ${observation.fields.seq}. ${observationLabel(observation)}. Validity is not established by receiving a payload.`;
+            { const target = byId(`${subsystem.view}-observation`); if (target) target.textContent = `Source ${observation.fields.src}, type ${observation.fields.type}, sequence ${observation.fields.seq}. ${observationLabel(observation)}. Validity is not established by receiving a payload.`; }
         }
     }
     const speed = sensorObservations.get("2/3");
@@ -481,6 +679,23 @@ function updateMeasurements() {
                 if (autoRestarts > 0) parts.push(`automatic restarts: ${autoRestarts}`);
                 if (startResult) parts.push(startResults[startResult] ?? "START result unknown");
                 detail.textContent = parts.join(" · ");
+            }
+            const tile = byId("vehicle-status"), tileDetail = byId("vehicle-status-detail");
+            if (tile && tileDetail) {
+                if (fresh) {
+                    const code = exec.fields.value1 & 15, reason = exec.fields.value2 & 255;
+                    const short = ["Starting", "Starting", "Running", "Stopped", "Restarting", "Faulted"];
+                    const tones = ["neutral", "neutral", "good", "warning", "neutral", "fault"];
+                    tile.textContent = short[code] ?? "Unknown";
+                    tile.dataset.tone = tones[code] ?? "neutral";
+                    tileDetail.textContent = (code === 3 || code === 4 || code === 5) && reason
+                        ? `Last stop: ${reasons[reason] ?? `code ${reason}`}`
+                        : states[code] ?? "";
+                } else {
+                    tile.textContent = "Unconfirmed";
+                    tile.dataset.tone = "neutral";
+                    tileDetail.textContent = exec?.received ? "Report is stale" : "Waiting for controller report";
+                }
             }
         }
     }
@@ -552,13 +767,14 @@ function updateMeasurements() {
     if (highest) measured("highest-hump", highest.fields.flags & 1 ? `${(highest.fields.value1 / 10).toFixed(1)} cm` : "N/A", highest);
     const reacquired = sensorObservations.get("6/57");
     if (reacquired) measured("line-reacquired", `${reacquired.fields.value1 >>> 0} this boot`, reacquired);
+    updateBarcodeMapReadout();
     const latest = sourceObservations.get(5);
     if (!latest) return;
     const state = obstacleObservations.get(50);
     measured("obstacle-state", state ? stateNames[state.fields.value1] ?? `Unknown state (${state.fields.value1})` : "Unknown", state || latest, state?.fields.value1 === 6 ? "fault" : "neutral");
     measured("obstacle-fault", state ? faultNames[state.fields.value2] ?? `Unknown fault (${state.fields.value2})` : "Unknown", state || latest, state && state.fields.value2 !== 0 ? "fault" : "neutral");
     const range = obstacleObservations.get(54);
-    measured("front-clearance", !range || range.fields.value1 === -1 ? "Unknown" : `${range.fields.value1.toLocaleString()} mm`, range || latest);
+    measured("front-clearance", !range || range.fields.value1 === -1 ? "Unknown" : range.fields.value1 >= 100000 ? "Nothing in range" : `${range.fields.value1.toLocaleString()} mm`, range || latest);
     measured("servo-angle", range && range.fields.value2 >= -60 && range.fields.value2 <= 60 ? `${range.fields.value2}°` : "N/A", range || latest);
     const rawRange = obstacleObservations.get(58);
     const rawStatus = rawRange?.fields.value2;
@@ -576,7 +792,7 @@ function updateMeasurements() {
     ]) {
         const estimate = obstacleObservations.get(type);
         // Validity from another report must never approve an older estimate.
-        const matched = knownMask && estimate && estimate.fields.seq === validity.fields.seq && validity.fields.seq === latest.fields.seq;
+        const matched = knownMask && estimate && estimate.fields.seq === validity.fields.seq;   // a lost live message must not hide the saved result
         const values = estimate ? [estimate.fields.value1, estimate.fields.value2] : [];
         const numericValid = type === 51 ? values[0] > 0 : values[0] >= 0 && values[1] >= values[0];
         // Bit 8: width estimated from the outermost echoes because the box is wider than the scan window.
@@ -584,15 +800,22 @@ function updateMeasurements() {
         const valid = (matched && (mask & bit) !== 0 && numericValid) || estimated;
         const label = !matched ? "Unknown" : estimated ? "Lower bound only (box wider than the scan window)" : !(mask & bit) ? "Invalid (reported)" : valid ? "Valid (reported)" : "Inconsistent";
         measured(validityId, label, validity || estimate || latest);
+        if (type === 51 && valid) {
+            try { localStorage.setItem("lastBoxWidth", JSON.stringify({ mm: values[0], atLeast: !!estimated, left: null, at: new Date().toLocaleTimeString() })); } catch (e) { /* storage unavailable */ }
+        }
         ids.forEach((id, index) => measured(id, valid ? `${estimated ? "At least " : ""}${values[index].toLocaleString()} mm` : "Unknown", estimate || validity || latest));
     }
+    try {
+        const saved = JSON.parse(localStorage.getItem("lastBoxWidth") || "null");
+        measured("saved-width", saved ? `${saved.atLeast ? "At least " : ""}${saved.mm.toLocaleString()} mm (at ${saved.at})` : "None yet", latest);
+    } catch (e) { measured("saved-width", "None yet", latest); }
     const plan = obstacleObservations.get(52);
-    const planned = plan && plan.fields.seq === latest.fields.seq && [1, -1].includes(plan.fields.value1);
+    const planned = plan && validity && plan.fields.seq === validity.fields.seq && [1, -1].includes(plan.fields.value1);
     measured("bypass-side", planned ? plan.fields.value1 === 1 ? "Left" : "Right" : "Unknown", plan || latest);
     measured("bypass-offset", planned ? `${plan.fields.value2.toLocaleString()} mm` : "Unknown", plan || latest);
     // Type 59: box edges (two signed 16-bit values packed in value1) and the scan decision (value2).
     const decision = obstacleObservations.get(59);
-    const decided = decision && decision.fields.seq === latest.fields.seq;
+    const decided = decision && validity && decision.fields.seq === validity.fields.seq;
     const signed16 = (x) => (x & 0x8000) ? (x & 0xFFFF) - 0x10000 : (x & 0xFFFF);
     const info = decided ? decision.fields.value2 : 0;
     const edge = (shift, measuredBit) => decided
@@ -616,6 +839,8 @@ const telemetryValueLabels = {
     "2/10": ["Signed odometry (mm)", "Motor fault code"],
     "3/5": ["IR sensor bitmask", "Line-follow state code"],
     "3/6": ["Decoded letter (ASCII)", "Age at publication (ms)"],
+    "3/21": ["Barcode map letters A-J (3 bits each)", "Barcode map letters K-T (3 bits each)"],
+    "3/22": ["Barcode map letters U-Z (3 bits each)", "Map version (bits 0-15) + last MAP result (bits 16+)"],
     "4/7": ["Pitch (0.01°)", "Roll (0.01°)"],
     "5/50": ["Obstacle state code", "Obstacle fault code"],
     "5/51": ["Obstacle width (mm)", "Upper depth estimate (mm)"],
@@ -661,6 +886,7 @@ function updateTelemetryDisplay() {
     }
     byId("parse-note").textContent = !hasTelemetryObservation ? "No telemetry payload received." : !fields ? "Unrecognised or incomplete envelope. The raw payload is preserved above." : `${((labels || fields.type <= 10) && types[fields.type]) || "Unmapped telemetry type"}. Values are shown as transmitted. Missing flags leave validity unknown.`;
     updateMeasurements();
+    updateOverviewCards();
 }
 
 async function requestJSON(path, options = {}) {
