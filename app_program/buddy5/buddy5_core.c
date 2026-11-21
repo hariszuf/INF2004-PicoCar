@@ -212,9 +212,9 @@ void b5_core_update(b5_core_t *c,uint32_t now,const b5_feedback_t *f,const b5_ra
  case B5_SCANNING:
   if(range && c->slot<B5_SCAN_POINTS) {
    int i=c->slot;
-   if(b5_range_no_echo(range)) { c->scan.state[i]=B5_SCAN_NO_ECHO; c->scan.distance[i]=0; }
-   else if(range->valid) { c->scan.state[i]=B5_SCAN_ECHO; c->scan.distance[i]=(uint16_t)(range->distance_mm>65535u?65535u:range->distance_mm); }
-   else c->scan.state[i]=0;
+   if(b5_range_no_echo(range)) b5_scan_set(&c->scan,i,B5_SCAN_NO_ECHO,0u);
+   else if(range->valid) b5_scan_set(&c->scan,i,B5_SCAN_ECHO,range->distance_mm);
+   else b5_scan_set(&c->scan,i,0u,0u);
    if(++c->slot>=B5_SCAN_POINTS) set_state(c,B5_PROCESSING,now);
   } else if((uint32_t)(now-c->state_since_ms)>B5_SCAN_TIMEOUT_MS) b5_core_fail(c,B5_FAULT_TIMEOUT,now);
   if(c->state==B5_PROCESSING) do_processing(c,now);

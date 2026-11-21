@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "buddy5_config.h"
+#include "../bitpack.h"
 /* Buddy 5 core (portable logic: no heap, no RTOS, no hardware). See buddy5_plan.h for the side choice and
  * buddy5_core.c for the state machine. The scan task (buddy5_task.c) feeds it sonar ranges and hands its
  * requests to the vehicle controller. */
@@ -35,11 +36,10 @@ typedef struct {
 #define B5_WHY_DEFAULT 4         /* nothing decided: the configured default side */
 #define B5_WHY_NO_ROUTE 5
 typedef struct {
- bool valid, stopped, fault, request_failed;
- uint8_t turn_fixes, block_fixes;
- bool heading_aligned, line_acquired;
- bool front_ok;      /* sonar saw nothing ahead after turning toward the line */
- uint8_t extends;
+ bool valid:1, stopped:1, fault:1, request_failed:1;
+ bool heading_aligned:1, line_acquired:1;
+ bool front_ok:1;    /* sonar saw nothing ahead after turning toward the line */
+ uint8_t turn_fixes, block_fixes, extends;
  uint32_t timestamp_ms, completed_id;
  /* Wheel-axle position relative to the stop point: +forward = original line direction, +lateral = left. */
  int32_t forward_mm, lateral_mm;
@@ -58,23 +58,39 @@ static inline int32_t b5_front_clearance(const b5_range_t *r) {
         r && r->valid?(int32_t)r->distance_mm-B5_FRONT_OVERHANG_MM:-1;
 }
 #define B5_SCAN_POINTS 13 /* -35..+25, slots every 5 degrees */
+/* Packed scan: per slot a 13-bit distance (0..8191 mm, the sonar tops out near 4116 mm) and a 2-bit state
+ * (0 not measured / invalid, B5_SCAN_ECHO, B5_SCAN_NO_ECHO), 15 bits per slot, stored in a byte array. */
+#define B5_SCAN_DIST_BITS 13u
+#define B5_SCAN_STATE_BITS 2u
+#define B5_SCAN_SLOT_BITS (B5_SCAN_DIST_BITS+B5_SCAN_STATE_BITS)
+#define B5_SCAN_DIST_MAX ((1u<<B5_SCAN_DIST_BITS)-1u)
 typedef struct {
- uint16_t distance[B5_SCAN_POINTS];
- uint8_t state[B5_SCAN_POINTS];   /* 0 not measured / invalid, B5_SCAN_ECHO, B5_SCAN_NO_ECHO */
+ uint8_t bits[BITPACK_BYTES(B5_SCAN_POINTS*B5_SCAN_SLOT_BITS)];
 } b5_scan_t;
+static inline uint16_t b5_scan_dist(const b5_scan_t *s,int i) {
+ return (uint16_t)bitpack_get(s->bits,(unsigned)i*B5_SCAN_SLOT_BITS,B5_SCAN_DIST_BITS);
+}
+static inline uint8_t b5_scan_state(const b5_scan_t *s,int i) {
+ return (uint8_t)bitpack_get(s->bits,(unsigned)i*B5_SCAN_SLOT_BITS+B5_SCAN_DIST_BITS,B5_SCAN_STATE_BITS);
+}
+static inline void b5_scan_set(b5_scan_t *s,int i,uint8_t state,uint32_t dist) {
+ if(dist>B5_SCAN_DIST_MAX) dist=B5_SCAN_DIST_MAX;
+ bitpack_put(s->bits,(unsigned)i*B5_SCAN_SLOT_BITS,B5_SCAN_DIST_BITS,dist);
+ bitpack_put(s->bits,(unsigned)i*B5_SCAN_SLOT_BITS+B5_SCAN_DIST_BITS,B5_SCAN_STATE_BITS,state);
+}
 static inline int b5_slot_angle(int slot) { return B5_SCAN_MIN_DEG+5*slot; }
 
 /* What the planner decided (also reported through the status for telemetry/printing). */
 typedef struct {
- bool valid;                      /* a box was found and a route exists */
- bool width_valid, depth_valid;
+ bool valid:1;                    /* a box was found and a route exists */
+ bool width_valid:1, depth_valid:1;
+ bool left_seen:1, right_seen:1;  /* the scan really saw that box edge */
+ int8_t side:2;                   /* +1 left, -1 right */
+ uint8_t side_reason:3;           /* B5_WHY_* */
  int32_t front_mm;                /* car front to box face at the stop (for printing) */
  int32_t width_mm, depth_low_mm, depth_high_mm;
  int32_t offset_mm;               /* chosen side: sideways distance from the line (positive magnitude) */
  int32_t pass_x_mm;               /* chosen side: wheel-axle x (from the stop point) where the car turns back */
- int8_t side;                     /* +1 left, -1 right */
- int8_t side_reason;              /* B5_WHY_* */
- bool left_seen, right_seen;      /* the scan really saw that box edge */
  int32_t left_edge_mm, right_edge_mm, left_room_mm, right_room_mm;
  int32_t left_cost_mm, right_cost_mm;
 } b5_profile_t;
@@ -89,34 +105,39 @@ bool b5_sampler_push(b5_sampler_t *s,const b5_range_t *sample,b5_range_t *out);
 b5_range_t b5_filter(const b5_range_t samples[B5_SAMPLER_N]);
 
 typedef struct {
- b5_state_t state;
- b5_fault_t fault;
+ b5_state_t state:3;
+ b5_fault_t fault:4;
+ bool request_pending:1;          /* issued but not yet accepted by the controller */
+ bool request_active:1;           /* accepted, waiting for completion */
  b5_request_t request;            /* last request issued */
- bool request_pending;            /* issued but not yet accepted by the controller */
- bool request_active;             /* accepted, waiting for completion */
  b5_profile_t profile;
  b5_scan_t scan;
  uint32_t state_since_ms, request_since_ms, avoid_since_ms, next_request_id, now_ms;
  int32_t front_clearance_mm;      /* latest filtered forward reading (angle 0) */
  uint32_t front_ms; uint32_t front_seq;
- uint8_t slot;                    /* SCANNING: current servo slot */
- uint8_t phase;
+ uint8_t slot:4;                  /* SCANNING: current servo slot (0..13) */
+ uint8_t phase:4;
  uint8_t hit_count, false_alarms;
  uint32_t scan_count, noface_count;   /* scan-only: completed scans with a front face / scans that saw none */
- int8_t side;                     /* committed / current candidate side */
- uint8_t blocked_mask;            /* bit0 left, bit1 right: tried and found blocked */
+ int8_t side:2;                   /* committed / current candidate side */
+ uint8_t blocked_mask:2;          /* bit0 left, bit1 right: tried and found blocked */
  int32_t offset_mm, pass_x_mm;    /* for the current side */
  int32_t off_arr[2], pass_arr[2], edge_arr[2];   /* per side [0]=left [1]=right, from the plan */
  bool feas_arr[2];
  int32_t stop_front_mm;           /* forward clearance when the stop was triggered */
  uint32_t check_since_ms, cooldown_until_ms, recover_since_ms;
  uint8_t chk_n; int32_t chk_min;
- bool fb_front_ok;
- bool plan_edges_valid;
+ bool fb_front_ok:1;
+ bool plan_edges_valid:1;
  /* kept for the box-corner test in the pass check */
  int32_t x_face_mm, edge_near_mm;
   uint8_t adv_close;      /* consecutive close echoes while passing the box */
 } b5_core_t;
+/* The packed fields above must hold every value they are given. */
+_Static_assert(B5_SCAN_POINTS<=15,"slot field is 4 bits");
+_Static_assert(B5_ERROR<8,"b5_state_t fits 3 bits");
+_Static_assert(B5_FAULT_SERVO<16,"b5_fault_t fits 4 bits");
+_Static_assert(sizeof(b5_scan_t)==(B5_SCAN_POINTS*B5_SCAN_SLOT_BITS+7)/8,"packed scan size");
 void b5_core_init(b5_core_t *c,uint32_t now_ms);
 /* Re-arm after a stop / restart: back to monitoring, nothing pending. */
 void b5_core_reset(b5_core_t *c,uint32_t now_ms);

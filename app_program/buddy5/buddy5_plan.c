@@ -73,8 +73,8 @@ void b5_plan_make(const b5_scan_t *scan,int32_t front_hint_mm,uint8_t blocked_ma
  int32_t face[5]; int nf=0;
  for(int i=0;i<B5_SCAN_POINTS;i++) {
   int a=b5_slot_angle(i);
-  if(a<-10 || a>10 || scan->state[i]!=B5_SCAN_ECHO) continue;
-  face[nf++]=round_f((float)scan->distance[i]*cosf((float)a*DEG2RAD));
+  if(a<-10 || a>10 || b5_scan_state(scan,i)!=B5_SCAN_ECHO) continue;
+  face[nf++]=round_f((float)b5_scan_dist(scan,i)*cosf((float)a*DEG2RAD));
  }
  if(nf>=2) { out->face_dist_mm=median_i(face,nf); out->face_valid=true; }
  else if(nf==1) { out->face_dist_mm=face[0]; out->face_valid=true; }
@@ -96,9 +96,9 @@ void b5_plan_make(const b5_scan_t *scan,int32_t front_hint_mm,uint8_t blocked_ma
  for(int i=0;i<B5_SCAN_POINTS;i++) {
   float a=(float)b5_slot_angle(i)*DEG2RAD;
   lat[i]=0; cls[i]=RAY_NONE;
-  if(scan->state[i]==B5_SCAN_NO_ECHO) { cls[i]=RAY_CLEAR; continue; }
-  if(scan->state[i]!=B5_SCAN_ECHO) continue;
-  float d=(float)scan->distance[i], expect=(float)out->face_dist_mm/cosf(a);
+  if(b5_scan_state(scan,i)==B5_SCAN_NO_ECHO) { cls[i]=RAY_CLEAR; continue; }
+  if(b5_scan_state(scan,i)!=B5_SCAN_ECHO) continue;
+  float d=(float)b5_scan_dist(scan,i), expect=(float)out->face_dist_mm/cosf(a);
   lat[i]=round_f(d*sinf(a));   /* + = left of the sonar axis */
   if(d<expect-(float)B5_FACE_TOL_MM) cls[i]=RAY_NEAR;
   else if(d>expect+(float)B5_FACE_TOL_MM) cls[i]=RAY_FAR;
@@ -145,7 +145,7 @@ void b5_plan_make(const b5_scan_t *scan,int32_t front_hint_mm,uint8_t blocked_ma
    if((s==0 && a<=0) || (s==1 && a>=0)) continue;
    if(cls[i]!=RAY_NEAR && cls[i]!=RAY_FAR) continue;
    int32_t u=i_abs(lat[i]);
-   int32_t x_hit=B5_AXLE_TO_SENSOR_MM+round_f((float)scan->distance[i]*cosf((float)a*DEG2RAD));
+   int32_t x_hit=B5_AXLE_TO_SENSOR_MM+round_f((float)b5_scan_dist(scan,i)*cosf((float)a*DEG2RAD));
    if(x_hit>out->x_face_mm+depth+B5_AXLE_TO_FRONT_MM+250) continue;   /* beyond the pass: not in the way */
    if(u<=edge) continue;                                              /* inside the box width: not "beside" */
    room=i_min(room,u-edge);
