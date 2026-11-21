@@ -7,6 +7,7 @@
 #include "command.h"
 
 #include "mqtt_command_bridge.h"
+#include "../telemetry_frame.h"
 
 #define COMMAND_QUEUE_DEPTH    8U
 #define COMMAND_TASK_PRIORITY  6
@@ -264,11 +265,46 @@ int32_t buddy1_mqtt_command_ingest(
         return (int32_t)E_PAR;
     }
 
-    if ((payload_length >= 3U) && (payload[0] == 'M') && (payload[1] == 'A') && (payload[2] == 'P')) {
+    if ((payload_length >= 1U) && (((uint8_t)payload[0] & TF_BINARY_MARK) != 0U)) {
+        /* Compact binary command from the dashboard (see telemetry_frame.h). */
+        uint8_t opcode = (uint8_t)payload[0] & 0x7FU;
+
+        if (opcode == TF_CMD_MAP) {
+            char text[4U + TF_MAP_LETTERS + 1U] = { 'M', 'A', 'P', ' ' };
+
+            if ((payload_length != TF_CMD_MAP_LENGTH) ||
+                !tf_decode_map((const uint8_t *)&payload[1], &text[4])) {
+                barcode_map_result = 2;
+                return (int32_t)E_PAR;
+            }
+            return barcode_map_command(text, (uint16_t)(4U + TF_MAP_LETTERS));
+        }
+        if (payload_length != 1U) {
+            return (int32_t)E_PAR;
+        }
+        if (opcode == TF_CMD_MAPRESET) {
+            return barcode_map_command("MAPRESET", 8U);
+        }
+        else if (opcode == TF_CMD_START) {
+            message.type = COMMAND_TYPE_START;
+        }
+        else if (opcode == TF_CMD_STOP) {
+            message.type = COMMAND_TYPE_STOP;
+        }
+        else if (opcode == TF_CMD_PAUSE) {
+            message.type = COMMAND_TYPE_PAUSE;
+        }
+        else if (opcode == TF_CMD_RESUME) {
+            message.type = COMMAND_TYPE_RESUME;
+        }
+        else {
+            return (int32_t)E_PAR;
+        }
+    }
+    else if ((payload_length >= 3U) && (payload[0] == 'M') && (payload[1] == 'A') && (payload[2] == 'P')) {
         return barcode_map_command(payload, payload_length);
     }
-
-    if (command_text_matches(payload, payload_length,
+    else if (command_text_matches(payload, payload_length,
                              "START", 5U) != 0U) {
         message.type = COMMAND_TYPE_START;
     }

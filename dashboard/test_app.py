@@ -126,15 +126,68 @@ class DashboardTests(unittest.TestCase):
         self.client.publish.assert_not_called()
         self.client.is_connected.return_value = True
         self.client.publish.return_value.rc = dashboard.mqtt.MQTT_ERR_SUCCESS
-        for command in ("start", "stop"):
+        for command, frame in (("start", b"\x81"), ("stop", b"\x82")):
             result = dashboard.send_command(command)
             self.assertEqual(result["status"], "publish queued")
             self.client.publish.assert_called_with(
-                dashboard.TOPIC_COMMAND, payload=command.upper(), qos=0, retain=False)
+                dashboard.TOPIC_COMMAND, payload=frame, qos=0, retain=False)
         self.client.publish.return_value.rc = dashboard.mqtt.MQTT_ERR_NO_CONN
         with self.assertRaises(HTTPException) as error:
             dashboard.send_command("STOP")
         self.assertEqual(error.exception.status_code, 503)
+
+
+    # Binary frames. The hex strings are the bytes printed by testing/system/test_telemetry_frame.c (the firmware codec).
+    FIRMWARE_FRAMES = [
+        ("a503d20400649c", (2, 3, 0, 100, -100, 1234)),
+        ("da332a0000bd002c01", (5, 51, 0, 189, 300, 42)),
+        ("df7bffffff0100ffffff7f00000080", (5, 59, 1, 2147483647, -2147483648, 16777215)),
+    ]
+
+    def test_binary_telemetry_matches_the_firmware_codec(self):
+        for hex_bytes, (source, kind, flags, first, second, sequence) in self.FIRMWARE_FRAMES:
+            raw = bytes.fromhex(hex_bytes)
+            self.assertEqual(
+                dashboard.frames_codec.encode_telemetry(source, kind, flags, first, second, sequence), raw)
+            frame = dashboard.frames_codec.decode_telemetry(raw)
+            self.assertEqual(tuple(frame), (source, kind, flags, first, second, sequence))
+
+    def test_binary_telemetry_reaches_the_page_as_the_usual_text_fields(self):
+        dashboard.on_message(None, None, SimpleNamespace(
+            topic=dashboard.TOPIC_TELEMETRY, payload=bytes.fromhex("da332a0000bd002c01")))
+        frames = dashboard.get_telemetry()["sensor_frames"]
+        self.assertEqual(len(frames), 1)
+        self.assertEqual(frames[0]["payload"], "src=5 type=51 seq=42 value1=189 value2=300 flags=0")
+
+    def test_binary_heartbeat_on_the_status_topic_keeps_the_heartbeat_fresh(self):
+        raw = dashboard.frames_codec.encode_telemetry(1, 1, 0, 0, 0, 7)
+        self.assertEqual(len(raw), 5)
+        with patch.object(dashboard.time, "monotonic", return_value=100):
+            dashboard.on_message(None, None, SimpleNamespace(topic=dashboard.TOPIC_STATUS, payload=raw))
+        with patch.object(dashboard.time, "monotonic", return_value=101):
+            self.assertTrue(dashboard.get_status()["vehicle_heartbeat_fresh"])
+        self.assertEqual(dashboard.get_telemetry()[dashboard.TOPIC_STATUS], "heartbeat seq=7")
+
+    def test_malformed_binary_frames_are_ignored(self):
+        for raw in (b"\xa5", b"\xa5\x03\x00\x00", bytes.fromhex("a503d20400649c00"), bytes.fromhex("a583d20400649c")):
+            dashboard.on_message(None, None, SimpleNamespace(topic=dashboard.TOPIC_TELEMETRY, payload=raw))
+        self.assertNotIn(dashboard.TOPIC_TELEMETRY, dashboard.get_telemetry())
+        self.assertEqual(dashboard.get_telemetry()["sensor_frames"], [])
+
+    def test_barcode_map_is_sent_as_a_compact_binary_command(self):
+        self.client.is_connected.return_value = True
+        self.client.publish.return_value.rc = dashboard.mqtt.MQTT_ERR_SUCCESS
+        default = "LNNNNUNNNNNNNNNNNNNNNNRNNN"
+        result = dashboard.set_barcode_map(default)
+        self.assertEqual(result["command"], "MAP " + default)
+        self.client.publish.assert_called_with(
+            dashboard.TOPIC_COMMAND, payload=bytes.fromhex("8501000200000000000c00"), qos=0, retain=False)
+        self.assertEqual(len(bytes.fromhex("8501000200000000000c00")), 11)
+        dashboard.set_barcode_map("reset")
+        self.client.publish.assert_called_with(dashboard.TOPIC_COMMAND, payload=b"\x86", qos=0, retain=False)
+        with self.assertRaises(HTTPException) as error:
+            dashboard.set_barcode_map("LSR")
+        self.assertEqual(error.exception.status_code, 400)
 
 
 if __name__ == "__main__":

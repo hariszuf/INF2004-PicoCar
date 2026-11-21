@@ -6,7 +6,7 @@ Branch: `Tribunal-1-Changes`. Baseline code: git tag `baseline-before-bitpacking
 |---|---|---|
 | Data representation table | [AUDIT.md](AUDIT.md) (becomes the final table) | draft, fields being converted stage by stage |
 | RAM usage before and after | [RAM_COMPARISON.md](RAM_COMPARISON.md) | baseline + Stage 1 recorded |
-| Message size before and after | MESSAGE_SIZES.md | after Stage 3 (binary MQTT) |
+| Message size before and after | MESSAGE_SIZES.md | done (Stage 3, binary MQTT; 87% smaller telemetry payloads) |
 | Correctness and performance | CORRECTNESS.md | host tests recorded per stage, on-car results to add |
 
 ## Stages

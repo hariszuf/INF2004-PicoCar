@@ -7,7 +7,7 @@ Raw outputs are kept in `evidence/`.
 |---|---|---|---|---|---|
 | Baseline (`baseline-before-bitpacking`) | 393796 | 2608 | 53368 | 55976 | |
 | Stage 1: controller flags + fault mask | see `evidence/size_stage1.txt` | 2608 | 53368 (map: 53176, unchanged) | 55976 | 0 B (flash +224 B) |
-| Stage 2: Buddy 5 structs | to measure | | | | |
+| Stage 2: Buddy 5 structs | 394904 | 2608 | 53336 | 55944 | -32 B (flash +1108 B vs baseline) |
 
 Stage 1 saves no RAM on its own: seven one-byte flags become two 32-bit words. Its purpose is safe shared access.
 

@@ -19,6 +19,7 @@ const context = {
     statusAvailable: true, telemetryAvailable: true, brokerConnected: true,
     heartbeatFresh: true, heartbeatAge: 0, lastPollAt: Date.now(),
     observationLabel: () => "Received", ageLabel: () => "0 s",
+    updateBarcodeMapReadout: () => {},   // defined elsewhere in dashboard.js; not part of what this test checks
 };
 vm.createContext(context);
 vm.runInContext(keys + rendering + "this.parseEnvelope = parseEnvelope; this.updateMeasurements = updateMeasurements;", context);
