@@ -26,6 +26,14 @@
 #include "pico/time.h"
 #endif
 
+/* Packed yes/no flags shared between tasks. Writes use the same critical section as the command queue below. */
+static uint32_t critical_enter(void);
+static void critical_exit(uint32_t saved);
+#define ROBOT_FLAGS_IRQ_T uint32_t
+#define ROBOT_FLAGS_LOCK(s) ((s) = critical_enter())
+#define ROBOT_FLAGS_UNLOCK(s) critical_exit(s)
+#include "../robot_flags.h"
+
 /* ------------------------------------------------------------------ */
 /* Private constants and types                                         */
 /* ------------------------------------------------------------------ */
@@ -58,11 +66,14 @@ typedef struct
 /* ------------------------------------------------------------------ */
 /* Private state (single writer: motion_update, except where noted)    */
 /* ------------------------------------------------------------------ */
-static bool s_initialised = false;
-static volatile motion_state_t s_state = MOTION_STATE_IDLE;
-static volatile motion_fault_t s_fault = MOTION_FAULT_NONE;
-static volatile bool s_estop_request = false;   /* written by any task */
-static volatile bool s_pending_valid = false;   /* written by any task */
+#define MF_INITIALISED (1u << 0)
+#define MF_ESTOP_REQUEST (1u << 1)   /* written by any task */
+#define MF_PENDING_VALID (1u << 2)   /* written by any task */
+#define MF_TERRAIN_HAVE (1u << 3)    /* written by the IMU task */
+static robot_flags_t s_flags = 0u;
+#define MF(mask) robot_flags_test(&s_flags, (mask))
+static volatile uint8_t s_state = MOTION_STATE_IDLE;    /* motion_state_t, 2 bits needed */
+static volatile uint8_t s_fault = MOTION_FAULT_NONE;    /* motion_fault_t, 2 bits needed */
 static command_t s_pending;
 static command_t s_active;
 static float s_cruise_cm_s = MOTION_DEFAULT_SPEED_CM_S;
@@ -74,7 +85,7 @@ static float s_previous_position_cm[MOTION_SIDE_COUNT];
 static float s_start_position_cm[MOTION_SIDE_COUNT];
 static float s_speed_cm_s[MOTION_SIDE_COUNT];
 static float s_setpoint_cm_s[MOTION_SIDE_COUNT];
-static int32_t s_direction[MOTION_SIDE_COUNT];
+static int8_t s_direction[MOTION_SIDE_COUNT];   /* -1 or +1 */
 static motion_pid_t s_pid[MOTION_SIDE_COUNT];
 static uint32_t s_stall_ms[MOTION_SIDE_COUNT];
 static uint32_t s_settle_cycles = 0u;
@@ -84,8 +95,7 @@ static uint64_t s_last_update_us = 0u;
 /* Terrain compensation (input written by the IMU task, rest by motion_update). */
 static motion_terrain_input_t s_terrain_input;
 static volatile uint64_t s_terrain_time_us = 0u;
-static volatile bool s_terrain_have = false;
-static motion_terrain_t s_terrain = MOTION_TERRAIN_FLAT;
+static uint8_t s_terrain = MOTION_TERRAIN_FLAT;   /* motion_terrain_t, 3 bits needed */
 static float s_terrain_scale = 1.0f;
 static float s_terrain_duty[MOTION_SIDE_COUNT];        /* slewed assist, applied */
 static float s_terrain_grade_duty = 0.0f;               /* wanted gravity term */
@@ -227,7 +237,7 @@ static void update_terrain(uint64_t now, float dt_s)
     saved = critical_enter();
     input = s_terrain_input;
     /* A report stamped after 'now' (written by another task meanwhile) is fresh. */
-    fresh = s_terrain_have && input.valid &&
+    fresh = MF(MF_TERRAIN_HAVE) && input.valid &&
             ((s_terrain_time_us >= now) ||
              ((now - s_terrain_time_us) <= ((uint64_t)MOTION_TERRAIN_STALE_MS * US_PER_MS)));
     critical_exit(saved);
@@ -417,7 +427,7 @@ static void enter_error(motion_fault_t fault)
 {
     motion_motor_set_latch(true);   /* also brakes both motors */
     reset_controllers();
-    s_pending_valid = false;
+    robot_flags_clear(&s_flags, MF_PENDING_VALID);
     s_active.type = COMMAND_NONE;
     s_fault = fault;
     s_state = MOTION_STATE_ERROR;
@@ -660,7 +670,7 @@ motion_result_t motion_init(void)
     uint32_t i;
     float circumference_cm = MOTION_PI * MOTION_WHEEL_DIAMETER_CM;
 
-    if (s_initialised)
+    if (MF(MF_INITIALISED))
     {
         return MOTION_OK;
     }
@@ -688,19 +698,18 @@ motion_result_t motion_init(void)
         s_terrain_hump_duty[i] = 0.0f;
     }
 
-    s_terrain_have = false;
+    robot_flags_clear(&s_flags, MF_TERRAIN_HAVE);
     s_terrain_input.valid = false;
     s_terrain = MOTION_TERRAIN_FLAT;
     s_terrain_scale = 1.0f;
     s_terrain_grade_duty = 0.0f;
-    s_pending_valid = false;
-    s_estop_request = false;
+    robot_flags_clear(&s_flags, MF_PENDING_VALID | MF_ESTOP_REQUEST);
     s_active.type = COMMAND_NONE;
     s_fault = MOTION_FAULT_NONE;
     s_state = MOTION_STATE_IDLE;
     s_cruise_cm_s = MOTION_DEFAULT_SPEED_CM_S;
     s_last_update_us = now_us();
-    s_initialised = true;
+    robot_flags_set(&s_flags, MF_INITIALISED);
     return MOTION_OK;
 }
 
@@ -712,7 +721,7 @@ void motion_update(void)
     bool have_command;
     uint32_t saved;
 
-    if (!s_initialised)
+    if (!MF(MF_INITIALISED))
     {
         return;
     }
@@ -725,16 +734,16 @@ void motion_update(void)
     read_sensors(dt_s);
     update_terrain(now, dt_s);
 
-    if (s_estop_request && ((s_state != MOTION_STATE_ERROR) ||
+    if (MF(MF_ESTOP_REQUEST) && ((s_state != MOTION_STATE_ERROR) ||
                             (s_fault != MOTION_FAULT_ESTOP)))
     {
         enter_error(MOTION_FAULT_ESTOP);
     }
 
     saved = critical_enter();
-    have_command = s_pending_valid;
+    have_command = MF(MF_PENDING_VALID);
     command = s_pending;
-    s_pending_valid = false;
+    robot_flags_clear_nl(&s_flags, MF_PENDING_VALID);
     critical_exit(saved);
 
     if (have_command && (s_state != MOTION_STATE_ERROR))
@@ -762,18 +771,18 @@ static motion_result_t queue_command(const command_t *p_command)
 {
     uint32_t saved;
 
-    if (!s_initialised)
+    if (!MF(MF_INITIALISED))
     {
         return MOTION_ERR_NOT_INIT;
     }
-    if ((s_state == MOTION_STATE_ERROR) || s_estop_request)
+    if ((s_state == MOTION_STATE_ERROR) || MF(MF_ESTOP_REQUEST))
     {
         return MOTION_ERR_FAULT;
     }
 
     saved = critical_enter();
     s_pending = *p_command;
-    s_pending_valid = true;
+    robot_flags_set_nl(&s_flags, MF_PENDING_VALID);
     critical_exit(saved);
     return MOTION_OK;
 }
@@ -867,14 +876,14 @@ bool motion_get_tilt(float *p_pitch_deg, float *p_roll_deg)
     uint64_t now;
     uint32_t saved;
 
-    if ((p_pitch_deg == (float *)0) || (p_roll_deg == (float *)0) || (!s_initialised))
+    if ((p_pitch_deg == (float *)0) || (p_roll_deg == (float *)0) || (!MF(MF_INITIALISED)))
     {
         return false;
     }
     now = now_us();
     saved = critical_enter();
     input = s_terrain_input;
-    have = s_terrain_have;
+    have = MF(MF_TERRAIN_HAVE);
     stamp = s_terrain_time_us;
     critical_exit(saved);
 
@@ -892,7 +901,7 @@ motion_result_t motion_set_terrain(const motion_terrain_input_t *p_input)
 {
     uint32_t saved;
 
-    if (!s_initialised)
+    if (!MF(MF_INITIALISED))
     {
         return MOTION_ERR_NOT_INIT;
     }
@@ -911,7 +920,7 @@ motion_result_t motion_set_terrain(const motion_terrain_input_t *p_input)
     saved = critical_enter();
     s_terrain_input = *p_input;
     s_terrain_time_us = now_us();
-    s_terrain_have = true;
+    robot_flags_set_nl(&s_flags, MF_TERRAIN_HAVE);
     critical_exit(saved);
     return MOTION_OK;
 }
@@ -929,7 +938,7 @@ void motion_stop(void)
 
 void motion_emergency_stop(void)
 {
-    s_estop_request = true;
+    robot_flags_set(&s_flags, MF_ESTOP_REQUEST);
     motion_motor_set_latch(true);   /* brakes both motors immediately */
 }
 
@@ -937,7 +946,7 @@ motion_result_t motion_reset(void)
 {
     uint32_t saved;
 
-    if (!s_initialised)
+    if (!MF(MF_INITIALISED))
     {
         return MOTION_ERR_NOT_INIT;
     }
@@ -947,8 +956,7 @@ motion_result_t motion_reset(void)
     }
 
     saved = critical_enter();
-    s_estop_request = false;
-    s_pending_valid = false;
+    robot_flags_clear_nl(&s_flags, MF_ESTOP_REQUEST | MF_PENDING_VALID);
     s_fault = MOTION_FAULT_NONE;
     reset_controllers();
     motion_motor_set_latch(false);
@@ -962,11 +970,11 @@ motion_result_t motion_reset_odometry(void)
     uint32_t i;
     uint32_t saved;
 
-    if (!s_initialised)
+    if (!MF(MF_INITIALISED))
     {
         return MOTION_ERR_NOT_INIT;
     }
-    if ((s_state != MOTION_STATE_IDLE) || s_pending_valid)
+    if ((s_state != MOTION_STATE_IDLE) || MF(MF_PENDING_VALID))
     {
         return MOTION_ERR_BUSY;
     }
@@ -986,7 +994,7 @@ motion_result_t motion_reset_odometry(void)
 
 bool motion_is_idle(void)
 {
-    return (s_state == MOTION_STATE_IDLE) && !s_pending_valid;
+    return (s_state == MOTION_STATE_IDLE) && !MF(MF_PENDING_VALID);
 }
 
 void motion_get_status(motion_status_t *p_status)

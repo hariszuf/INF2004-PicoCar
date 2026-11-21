@@ -25,3 +25,18 @@ Stage 1 saves no RAM on its own: seven one-byte flags become two 32-bit words. I
 
 Fields deliberately left at 32 bits: millimetre values that carry sentinels (`INT32_MAX` for "nothing ahead") and
 millisecond timestamps that must not wrap.
+
+## Stage 4 struct sizes (host build, 64-bit, bytes; relative saving is what matters)
+| Struct | Before | After | How |
+|---|---|---|---|
+| `buddy4_output_t` | 552 | 480 | 6 bools as 1-bit fields, `quality` 3 bits, `terrain`/`side` one byte each, packed together at the end |
+| `side_event_t` | 216 | 192 | `side` one byte, `median_count` one byte, 3 bools as 1-bit fields |
+| `buddy4_imu_t` | 664 | 584 | 6 bools as 1-bit fields; contains one `buddy4_output_t` |
+| `buddy4_config_t` | 52 | 48 | 2 bools as 1-bit fields |
+
+Static variables changed without a struct: Buddy 2 `s_initialised`, `s_estop_request`, `s_pending_valid`,
+`s_terrain_have` (4 bools) became one 32-bit flag word; its state, fault and terrain enums are one byte each;
+`s_direction[2]` went from 4 bytes to 1 byte each. Buddy 3 `barcode_scan.c` 4 bools became one flag word.
+
+The firmware RAM figure for Stage 4 comes from the next build (`arm-none-eabi-size`); it is added to the table
+above as the "Stage 4" row.
