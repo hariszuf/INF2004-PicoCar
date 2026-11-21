@@ -14,7 +14,8 @@ line by line yet. "Min bits" is the smallest width that holds the valid range. "
 | MQTT telemetry payload | text, `src=%u type=%u seq=%u <name>=%d <name>=%d flags=%u`, buffer 192 bytes | `lib/libnet/lwip/mqtt_utk.c` |
 | MQTT status payload | text, buffer 48 bytes | `lib/libnet/lwip/mqtt_utk.c` |
 | MQTT commands | text: `START`, `STOP`, `MAP <26 letters>`, `MAPRESET` | `buddy1/command.c` |
-| Static RAM (.data + .bss) | measure with `arm-none-eabi-size` on the tagged build | Step 1 |
+| Static RAM (.data + .bss) | **2608 + 53368 = 55976 bytes (54.7 KiB)** | `arm-none-eabi-size` on `picocar_integration_headless_mqtt.elf`, tag `baseline-before-bitpacking` |
+| Flash (.text) | 393796 bytes | same command |
 
 ## 2. Fields by area
 
