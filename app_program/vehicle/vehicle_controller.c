@@ -9,11 +9,11 @@
 #include "auto_start.h"
 #include "../buddy1/telemetry.h"
 #include "../buddy2/motion_encoder.h"
-#include "../buddy5/rtos/buddy5_servo.h"
 #include "../buddy2/motion_control.h"
 #include "../buddy3/line_follow.h"
 #include "../buddy3/line_sensors.h"
 #include "../buddy3/line_config.h"
+#include "../buddy3/junction_map.h"
 #include "../buddy4/rtos/buddy4_task.h"
 #if TM_WIFI_MQTT
 #include "../../lib/libnet/lwip/mqtt_dashboard_ready.h"
@@ -22,7 +22,7 @@
 #define B5_HEADLESS 0
 #endif
 #ifndef B5_DISABLED
-#define B5_DISABLED 0 /* 1 = Buddy 1-4 only: ultrasonic/servo/scan off, front always clear */
+#define B5_DISABLED 1 /* Buddy 5 removed: ultrasonic/servo/scan off, front always clear */
 #endif
 #ifndef B3_BARCODE_ONLY
 #define B3_BARCODE_ONLY 0 /* 1 = bench test: never auto-start, never move */
@@ -40,6 +40,7 @@ static volatile bool run_enabled;
 static volatile bool buddy4_ready;
 
 #if TM_WIFI_MQTT
+extern int32_t buddy1_barcode_map_result(void);
 static ER report_measurement(uint8_t source, uint8_t type, uint16_t flags,
                                int32_t first, int32_t second, uint32_t sequence)
 {
@@ -113,6 +114,8 @@ static int b5_line_take_command(void) {
  EI(irq); return c;
 }
 /* MQTT bridge (network owner): non-blocking intent only, never touches the motors. 'S' = STOP, 'R' = START. */
+/* Used by the MQTT bridge to refuse a barcode-map change while the car is driving. */
+int b5_run_active(void) { return run_enabled ? 1 : 0; }
 void b5_remote_command_intent(unsigned c) {
  UW irq;
  DI(irq);
@@ -178,8 +181,11 @@ static void controller_task(INT stacd,void *exinf) {
  uint8_t last_reported_mask=0;
  line_state_t last_reported_state=LINE_STATE_IDLE;
  uint32_t line_reacquired_count=0;
- uint32_t last_lift_report=now-1000u,last_lift_count_reported=0;
+ uint32_t last_lift_report=now-1000u,last_lift_count_reported=0,last_map_report=now-1000u;
  bool last_lift_reported=false;
+#if TM_WIFI_MQTT && !B5_DISABLED
+ uint32_t b5_seq=0,b5_next=now+500u,b5_last_sent=0; int32_t b5_last_state=-1,b5_last_fault=-1;
+#endif
 #endif
  uint32_t lost_since=0,last_guard_clear=0;
 #if TM_CONSOLE_USB_CDC || TM_WIFI_MQTT
@@ -364,6 +370,9 @@ static void controller_task(INT stacd,void *exinf) {
 #if B3_BARCODE_ONLY
   ready=false; /* barcode-only test: the car must never start moving */
 #endif
+#if B5_SCAN_ONLY
+  ready=false; /* obstacle-measuring build: the car must never start moving */
+#endif
   const bool restarting=start.restarting;
   if(restarting) {
    ready=ready && scan.state==B5_MONITORING && guard_fresh &&
@@ -414,6 +423,19 @@ static void controller_task(INT stacd,void *exinf) {
   }
 #endif
 #if TM_WIFI_MQTT
+  /* Barcode map read-back (3/21: letters A-J, K-T; 3/22: letters U-Z, map version | last MAP command result << 16),
+   * once a second so the dashboard can show what the car really holds. */
+  if(mqtt_dashboard_ready() && (uint32_t)(now-last_map_report)>=1000u) {
+   int32_t packed[3];
+   junction_map_pack(packed);
+   if(report_measurement(TELEMETRY_SOURCE_BUDDY3,21,0,packed[0],packed[1],report_sequence)==E_OK) {
+    (void)report_measurement(TELEMETRY_SOURCE_BUDDY3,22,0,packed[2],
+        (int32_t)((uint32_t)junction_map_version()|((uint32_t)buddy1_barcode_map_result()<<16)),report_sequence);
+    last_map_report=now;
+   }
+  }
+#endif
+#if TM_WIFI_MQTT
   /* Lift state is time critical for the dashboard: report on change, at most every 200 ms, else every second. */
   if(buddy4_ready && mqtt_dashboard_ready() && (uint32_t)(now-last_lift_report)>=200u &&
      (lift_active!=last_lift_reported || lift_count!=last_lift_count_reported ||
@@ -422,6 +444,53 @@ static void controller_task(INT stacd,void *exinf) {
        lift_active?lift_reason:0,(int32_t)((lift_count&0xFFFFu)|((uint32_t)lift_tilt_dec<<16)),report_sequence)==E_OK) {
     last_lift_report=now; last_lift_reported=lift_active; last_lift_count_reported=lift_count;
    }
+  }
+#endif
+#if TM_WIFI_MQTT && !B5_DISABLED
+  /* Buddy 5 telemetry (source 5, types 50-56, 58-60). Every message of one group shares one sequence number, which
+   * is how the dashboard matches the estimates to their validity bits. Sent every second, and at once when the
+   * state or fault changes (at most every 200 ms). */
+  if(mqtt_dashboard_ready() &&
+     ((int32_t)(now-b5_next)>=0 ||
+      (((int32_t)scan.state!=b5_last_state || (int32_t)scan.fault!=b5_last_fault) && (uint32_t)(now-b5_last_sent)>=200u))) {
+   ++b5_seq;
+   b5_next=now+(B5_SCAN_ONLY?500u:1000u); b5_last_sent=now; b5_last_state=(int32_t)scan.state; b5_last_fault=(int32_t)scan.fault;
+   const b5_profile_t *pr=&scan.profile;
+#if !B5_SCAN_ONLY
+   report_measurement(5,50,0,(int32_t)scan.state,(int32_t)scan.fault,b5_seq);
+   report_measurement(5,54,0,scan.front_valid?scan.front_clearance_mm:-1,scan.angle,b5_seq);
+   report_measurement(5,58,0,scan.raw_range_mm,scan.raw_status,b5_seq);
+   report_measurement(5,55,0,(int32_t)scan.obstacle_id,(int32_t)now,b5_seq);
+#endif
+   if(pr->valid) {
+    int32_t mask=(pr->width_valid?1:0)|(pr->depth_valid?2:0)|((pr->left_seen&&pr->right_seen)?4:0);
+#if B5_SCAN_ONLY
+    if(!pr->width_valid && pr->width_mm>0) mask|=8;   /* width is a lower bound: an edge is beyond the scan window */
+#endif
+    static const uint8_t why_code[6]={0,6,3,4,4,0};   /* B5_WHY_* -> dashboard reason code */
+    uint32_t reason=(uint32_t)pr->side_reason<6u?why_code[pr->side_reason]:0u;
+    uint32_t info=reason|(pr->left_seen?16u:0u)|(pr->right_seen?32u:0u)|(scan.rescans>0u?64u:0u)|
+                  ((uint32_t)f.turn_fixes<<8)|((uint32_t)f.block_fixes<<16)|((uint32_t)(scan.rescans&15u)<<24);
+    uint32_t edges=((uint32_t)(int32_t)pr->left_edge_mm&0xFFFFu)|(((uint32_t)(-(int32_t)pr->right_edge_mm)&0xFFFFu)<<16);
+    report_measurement(5,51,0,pr->width_mm,pr->depth_high_mm,b5_seq);
+#if !B5_SCAN_ONLY
+    report_measurement(5,53,0,pr->depth_low_mm,pr->depth_high_mm,b5_seq);
+    report_measurement(5,52,0,pr->side,pr->side*pr->offset_mm,b5_seq);
+#endif
+    report_measurement(5,56,0,mask,f.extends,b5_seq);
+    report_measurement(5,59,0,(int32_t)edges,(int32_t)info,b5_seq);
+   } else {
+    report_measurement(5,56,0,0,f.extends,b5_seq);
+   }
+#if B5_SCAN_ONLY
+   /* Result first (above), then the live values: the saved width is the one thing that must get through. */
+   report_measurement(5,50,0,(int32_t)scan.state,(int32_t)scan.fault,b5_seq);
+   report_measurement(5,54,0,scan.front_valid?scan.front_clearance_mm:-1,scan.angle,b5_seq);
+   report_measurement(5,58,0,scan.raw_range_mm,scan.raw_status,b5_seq);
+   report_measurement(5,55,0,(int32_t)scan.obstacle_id,(int32_t)now,b5_seq);
+#else
+   report_measurement(5,60,0,state,start.reason,b5_seq);
+#endif
   }
 #endif
   if((uint32_t)(now-last_report)>=1000u
@@ -440,7 +509,7 @@ static void controller_task(INT stacd,void *exinf) {
    if(buddy4_ready) {
     buddy4_task_snapshot_t imu;
     if(buddy4_task_get(&imu)>=E_OK) {
-#if TM_WIFI_MQTT
+#if TM_WIFI_MQTT && !B5_SCAN_ONLY   /* measuring build: keep the telemetry channel free for Buddy 5 */
      report_measurement(4,11,imu.valid?1:0,
          imu.sample_age_ms==UINT32_MAX?-1:(int32_t)imu.sample_age_ms,imu.io_errors,report_sequence);
      report_measurement(4,12,0,imu.clipped_samples,imu.unsuitable_samples,report_sequence);
@@ -471,7 +540,7 @@ static void controller_task(INT stacd,void *exinf) {
     }
    }
    line_status_t line; line_follow_get_status(&line);
-#if TM_WIFI_MQTT
+#if TM_WIFI_MQTT && !B5_SCAN_ONLY
    report_measurement(TELEMETRY_SOURCE_BUDDY2,TELEMETRY_TYPE_MOTOR_SPEED,0,
        (int32_t)(motor.left_speed_cm_s*10),(int32_t)(motor.right_speed_cm_s*10),report_sequence);
    report_measurement(2,TELEMETRY_TYPE_ENCODER,B2_ENC_FLAGS,
