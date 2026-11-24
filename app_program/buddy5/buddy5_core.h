@@ -57,7 +57,7 @@ static inline int32_t b5_front_clearance(const b5_range_t *r) {
  return b5_range_no_echo(r)?B5_CLEAR_FRONT_MM:
         r && r->valid?(int32_t)r->distance_mm-B5_FRONT_OVERHANG_MM:-1;
 }
-#define B5_SCAN_POINTS 13 /* -35..+25, slots every 5 degrees */
+#define B5_SCAN_POINTS ((B5_SCAN_MAX_DEG-B5_SCAN_MIN_DEG)/B5_SCAN_STEP_DEG+1) /* 25 slots: -60..+60 every 5 degrees */
 /* Packed scan: per slot a 13-bit distance (0..8191 mm, the sonar tops out near 4116 mm) and a 2-bit state
  * (0 not measured / invalid, B5_SCAN_ECHO, B5_SCAN_NO_ECHO), 15 bits per slot, stored in a byte array. */
 #define B5_SCAN_DIST_BITS 13u
@@ -78,7 +78,7 @@ static inline void b5_scan_set(b5_scan_t *s,int i,uint8_t state,uint32_t dist) {
  bitpack_put(s->bits,(unsigned)i*B5_SCAN_SLOT_BITS,B5_SCAN_DIST_BITS,dist);
  bitpack_put(s->bits,(unsigned)i*B5_SCAN_SLOT_BITS+B5_SCAN_DIST_BITS,B5_SCAN_STATE_BITS,state);
 }
-static inline int b5_slot_angle(int slot) { return B5_SCAN_MIN_DEG+5*slot; }
+static inline int b5_slot_angle(int slot) { return B5_SCAN_MIN_DEG+B5_SCAN_STEP_DEG*slot; }
 
 /* What the planner decided (also reported through the status for telemetry/printing). */
 typedef struct {
@@ -115,7 +115,7 @@ typedef struct {
  uint32_t state_since_ms, request_since_ms, avoid_since_ms, next_request_id, now_ms;
  int32_t front_clearance_mm;      /* latest filtered forward reading (angle 0) */
  uint32_t front_ms; uint32_t front_seq;
- uint8_t slot:4;                  /* SCANNING: current servo slot (0..13) */
+ uint8_t slot:5;                  /* SCANNING: current servo slot (0..B5_SCAN_POINTS) */
  uint8_t phase:4;
  uint8_t hit_count, false_alarms;
  uint32_t scan_count, noface_count;   /* scan-only: completed scans with a front face / scans that saw none */
@@ -134,7 +134,7 @@ typedef struct {
   uint8_t adv_close;      /* consecutive close echoes while passing the box */
 } b5_core_t;
 /* The packed fields above must hold every value they are given. */
-_Static_assert(B5_SCAN_POINTS<=15,"slot field is 4 bits");
+_Static_assert(B5_SCAN_POINTS<=31,"slot field is 5 bits");
 _Static_assert(B5_ERROR<8,"b5_state_t fits 3 bits");
 _Static_assert(B5_FAULT_SERVO<16,"b5_fault_t fits 4 bits");
 _Static_assert(sizeof(b5_scan_t)==(B5_SCAN_POINTS*B5_SCAN_SLOT_BITS+7)/8,"packed scan size");

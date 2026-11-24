@@ -116,8 +116,10 @@ static void scan_task(INT stacd, void *exinf) {
   }
   int want=b5_core_angle(&core);
   if(want!=servo) {
+   int step=want-servo; if(step<0) step=-step;
    servo=want; servo_set_angle(servo); b5_sampler_reset(&sampler);
-   settle_until=now+B5_SERVO_SETTLE_MS; last.valid=false;
+   /* One scan step needs less settling than a big swing; keeps the wider 25-slot scan about as quick. */
+   settle_until=now+(step<=B5_SCAN_STEP_DEG?B5_SERVO_STEP_SETTLE_MS:B5_SERVO_SETTLE_MS); last.valid=false;
   }
   b5_range_t out; bool have=false;
   if((int32_t)(now-next_ping)>=0) {

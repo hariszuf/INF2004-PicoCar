@@ -44,7 +44,7 @@ bool b5_car_hits_box(float x,float u,float phi_deg,float bx0,float bx1,float bu0
 int32_t b5_pass_x(int32_t x_face_mm,int32_t depth_mm,int32_t near_edge_mm,int32_t far_edge_mm,int32_t offset_mm) {
 #if B5_PASS_SIMPLE
  (void)depth_mm; (void)near_edge_mm; (void)far_edge_mm; (void)offset_mm;
- return x_face_mm+B5_BOX_LENGTH_MM+B5_PASS_PAST_REAR_MM;   /* distance to the box + box length + room past its rear face */
+ return x_face_mm+B5_BOX_LENGTH_MM+B5_PASS_SAFETY_EXTRA_MM;   /* distance to the box + box length + room past its rear face */
 #else
  float bx0=(float)x_face_mm, bx1=(float)(x_face_mm+depth_mm);
  float bu0=(float)(-far_edge_mm), bu1=(float)near_edge_mm, m=(float)B5_SWEEP_MARGIN_MM;
@@ -99,44 +99,67 @@ void b5_plan_make(const b5_scan_t *scan,int32_t front_hint_mm,uint8_t blocked_ma
   if(b5_scan_state(scan,i)==B5_SCAN_NO_ECHO) { cls[i]=RAY_CLEAR; continue; }
   if(b5_scan_state(scan,i)!=B5_SCAN_ECHO) continue;
   float d=(float)b5_scan_dist(scan,i), expect=(float)out->face_dist_mm/cosf(a);
+  /* The wide cone hears the nearest part of the face inside it, B5_BEAM_HALF_DEG nearer the centre than the servo
+   * angle, so a face echo can be as short as F/cos(|a|-beam). Only shorter than that is something in front
+   * of the face (or the box corner, once the servo has turned past the edge). */
+  float a_near=fabsf(a)-(float)B5_BEAM_HALF_DEG*DEG2RAD;
+  float expect_near=(float)out->face_dist_mm/cosf(a_near>0.0f?a_near:0.0f);
   lat[i]=round_f(d*sinf(a));   /* + = left of the sonar axis */
-  if(d<expect-(float)B5_FACE_TOL_MM) cls[i]=RAY_NEAR;
+  if(d<expect_near-(float)B5_FACE_TOL_MM) cls[i]=RAY_NEAR;
   else if(d>expect+(float)B5_FACE_TOL_MM) cls[i]=RAY_FAR;
   else cls[i]=RAY_BOX;
  }
  /* 3. per side: box edge (the measured scan edge; the specified width is only the fallback when the edge is not seen) and the room beyond it */
+ int32_t f_perp;
+ {
+  /* Perpendicular distance to the face: the cone hears the nearest face point (straight ahead) for small angles,
+   * so use the raw echo distances there (not distance x cos, which reads short). */
+  int32_t v[5]; int n=0;
+  for(int i=0;i<B5_SCAN_POINTS && n<5;i++) {
+   int a=b5_slot_angle(i);
+   if(a<-10 || a>10 || b5_scan_state(scan,i)!=B5_SCAN_ECHO) continue;
+   v[n++]=(int32_t)b5_scan_dist(scan,i);
+  }
+  f_perp=n?median_i(v,n):out->face_dist_mm;
+ }
  const int32_t spec_edge=B5_BOX_WIDTH_MM/2+B5_BOX_POS_TOL_MM;
  const int32_t depth=B5_BOX_LENGTH_MM+B5_BOX_DEPTH_TOL_MM;
  for(int s=0;s<2;s++) {
   int dir=s==0?1:-1;       /* slot step toward the left (+) or right (-) */
-  int centre=-B5_SCAN_MIN_DEG/5;
-  int first_miss=-1;
+  int centre=B5_SCAN_ZERO_SLOT;
+  /* Edge from the echo DISTANCE, not the servo angle, so the (unknown, wide) sonar cone does not matter.
+   * Turning outward, the sonar first hears the face straight ahead (distance F), then the box corner, which is
+   * the nearest part of the box once the face is out of the cone: corner distance^2 = F^2 + edge^2. Echoes
+   * never get longer than the corner, so the longest box echo on that side gives edge = sqrt(d^2 - F^2).
+   * A smooth face only echoes straight back, so there can be a silent gap between the face and the corner echo:
+   * gaps are skipped. Echoes behind the face plane (FAR) or nearer than the face are not the box. The edge counts
+   * as seen when a silent or non-box ray follows the last box echo on that side (the corner left the cone). */
+  int32_t edge=spec_edge;
+  float F=(float)f_perp, dmax=0.0f, d_last=0.0f, d_prev=0.0f;
+  bool ended=false;
   for(int i=centre;i>=0 && i<B5_SCAN_POINTS;i+=dir) {
-   if(cls[i]==RAY_BOX || cls[i]==RAY_NONE) continue;
-   first_miss=i; break;
+   int st=b5_scan_state(scan,i);
+   if(st==B5_SCAN_NO_ECHO) { ended=true; continue; }
+   if(st!=B5_SCAN_ECHO) continue;
+   float a=(float)b5_slot_angle(i)*DEG2RAD, d=(float)b5_scan_dist(scan,i);
+   if(d>F/cosf(a)+(float)B5_FACE_TOL_MM || d<F-(float)B5_FACE_TOL_MM) { ended=true; continue; }
+   if(d>dmax) dmax=d;
+   d_prev=d_last; d_last=d;
+   ended=false;   /* a box echo after a gap: the corner is still in view */
   }
-  int32_t edge=spec_edge;   /* fallback only: used when the sonar never finds this side's edge */
-  out->seen[s]=false;
-  out->meas_edge_mm[s]=0;
-  {
-   /* outermost ray that still hit the box: the box reaches at least that far */
-   int last_box=-1;
-   for(int i=centre;i>=0 && i<B5_SCAN_POINTS && i!=first_miss;i+=dir) if(cls[i]==RAY_BOX) last_box=i;
-   if(last_box>=0) {
-    float a_lo=(float)i_abs(b5_slot_angle(last_box))-(float)B5_BEAM_HALF_DEG;
-    if(a_lo>0.0f) out->meas_edge_mm[s]=round_f((float)out->face_dist_mm*tanf(a_lo*DEG2RAD));
-   }
+  out->seen[s]=ended;
+  out->meas_edge_mm[s]=dmax>F?round_f(sqrtf(dmax*dmax-F*F)):0;
+  if(ended && d_last>F+(float)B5_EDGE_RISE_MM &&
+     (d_last-d_prev>(float)B5_EDGE_RISE_MM || d_prev<=F+(float)B5_EDGE_RISE_MM)) {
+   /* No steady corner echo (two equal long echoes) before the box dropped out: the sonar may have been hearing
+    * face points short of the corner, so the corner lies up to one scan step further out. Add half a step. */
+   float th=acosf(F/d_last)+0.5f*(float)B5_SCAN_STEP_DEG*DEG2RAD;
+   out->meas_edge_mm[s]=round_f(F*tanf(th));
   }
-  if(first_miss>=0) {
-   float a_miss=(float)i_abs(b5_slot_angle(first_miss));
-   float a_edge=a_miss-(float)B5_BEAM_HALF_DEG;
-   if(a_edge>0.0f) {
-    int32_t e=round_f((float)out->face_dist_mm*tanf(a_edge*DEG2RAD));
-    out->seen[s]=true;
-    out->meas_edge_mm[s]=e;
-    edge=e;   /* the sonar found where the box ends on this side: use that, not the specified width */
-   } else out->seen[s]=true;
-  }
+  /* Use the measured edge when the sonar found where the box ends on this side; the specified width is only the
+   * fallback (and a floor) when the edge was not seen. */
+  if(out->seen[s] && out->meas_edge_mm[s]>0) edge=out->meas_edge_mm[s];
+  else if(out->meas_edge_mm[s]>edge) edge=out->meas_edge_mm[s];
   out->edge_mm[s]=edge;
   /* room: nearest thing beyond the edge on that side (NEAR rays, or far rays that are not in the box shadow) */
   int32_t room=B5_ROOM_FAR_MM;
@@ -148,6 +171,11 @@ void b5_plan_make(const b5_scan_t *scan,int32_t front_hint_mm,uint8_t blocked_ma
    int32_t x_hit=B5_AXLE_TO_SENSOR_MM+round_f((float)b5_scan_dist(scan,i)*cosf((float)a*DEG2RAD));
    if(x_hit>out->x_face_mm+depth+B5_AXLE_TO_FRONT_MM+250) continue;   /* beyond the pass: not in the way */
    if(u<=edge) continue;                                              /* inside the box width: not "beside" */
+   {
+    /* an echo at the box-corner distance is the corner heard by the wide cone, not something beside the box */
+    float corner=sqrtf((float)out->face_dist_mm*(float)out->face_dist_mm+(float)edge*(float)edge);
+    if(fabsf((float)b5_scan_dist(scan,i)-corner)<=(float)B5_FACE_TOL_MM) continue;
+   }
    room=i_min(room,u-edge);
   }
   out->room_mm[s]=room;

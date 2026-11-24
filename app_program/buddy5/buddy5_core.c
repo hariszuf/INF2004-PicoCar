@@ -80,7 +80,7 @@ int b5_core_angle(const b5_core_t *c) {
  if(c->state==B5_LINE_RECOVERY && (c->phase==PH_RECOVER || c->phase==PH_RETURN) && !c->fb_front_ok) {
   /* Looks the navigation asks for after it turns to face the line: ahead, half back, fully back toward the box.
    * The box is on the side the car came from, i.e. servo + when it passed on the right, - when on the left. */
-  int far=c->side>0?B5_SCAN_MIN_DEG:B5_SCAN_MAX_DEG, half=c->side>0?-15:15;
+  int far=c->side>0?B5_LOOK_BACK_RIGHT_DEG:B5_LOOK_BACK_LEFT_DEG, half=c->side>0?-15:15;
   uint32_t k=((c->now_ms-c->recover_since_ms)/B5_LOOK_PERIOD_MS)%3u;
   return k==0u?0:(k==1u?half:far);
  }
