@@ -182,7 +182,7 @@
  * line, the car is still beside the box. It reverses a little, faces forward, drives a little further and
  * tries again (up to B5_MAX_EXTENDS times). */
 #define B5_RETURN_REVERSE_MM 60
-#define B5_EXTEND_MM 60
+#define B5_EXTEND_MM 155
 #define B5_MAX_EXTENDS 8
 /* Extra distance past the box rear so the car's tail clears it before turning back (mm). */
 #define B5_BYPASS_END_MARGIN_MM 40
@@ -280,7 +280,7 @@
 #define B5_SWEEP_MARGIN_MM 25       /* the car outline must stay this far from the box while it turns and drives to the line */
 #define B5_PASS_EXTRA_MM 20         /* added on top of the swept-outline result */
 #define B5_TRIGGER_COUNT 2u         /* consecutive close forward readings that start a stop */
-#define B5_RESUME_COOLDOWN_MS 1500u /* after the line is resumed, ignore the box behind for this long */
+#define B5_RESUME_COOLDOWN_MS 5000u /* after the line is resumed, ignore the box behind for this long (1500 let the car re-detect the box it had just passed and bypass it again) */
 #define B5_MAX_FALSE_ALARMS 3u
 #define B5_ROUTE_CHECK_TIMEOUT_MS 3000u
 #define B5_ROUTE_CHECK_READINGS 2u
@@ -288,6 +288,13 @@
 /* 1 = pass distance is exactly (distance to the box + box length). 0 = computed from the car outline (longer, collision-checked). */
 #ifndef B5_PASS_SIMPLE
 #define B5_PASS_SIMPLE 1
+#endif
+/* Simple pass only: drive this far (mm) PAST the box rear face before turning back toward the line. With the axle
+ * exactly at the rear face, the car's side (85 mm half-width) and front corner still overlap the box when it turns
+ * and drives to the line, and the sonar cannot see that strip beside the car (its servo only reaches -35/+25 deg).
+ * Half width 85 + sweep margin 25 = 110 minimum; the margin also covers open-loop turn and drive drift. TUNE. */
+#ifndef B5_PASS_PAST_REAR_MM
+#define B5_PASS_PAST_REAR_MM 100
 #endif
 /* 1 = measuring only: the car never moves. Obstacles in front are scanned and their width/edges reported. */
 #ifndef B5_SCAN_ONLY

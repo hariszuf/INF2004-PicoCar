@@ -864,6 +864,7 @@ const telemetryValueLabels = {
     "4/20": ["Lift reason (0 none, 1 tilted, 2 overturned, 3 lift motion)", "Lift count | tilt in 0.1° << 16"],
     "4/19": ["Highest stable peak (mm)", "Run ID"],
     "6/57": ["Line reacquisition count", "Reserved"],
+    "6/58": ["Telemetry queue drops", "MQTT outbox drops"],
 };
 
 function updateTelemetryDisplay() {

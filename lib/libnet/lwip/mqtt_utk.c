@@ -1,5 +1,6 @@
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #include "lwip/apps/mqtt.h"
 #include "lwip/ip4_addr.h"
@@ -309,7 +310,7 @@ static void connection_callback(
  * This is a network heartbeat, separate
  * from the µT-Kernel heartbeat telemetry.
  */
-static void publish_heartbeat(void)
+static bool publish_heartbeat(void)
 {
     uint8_t payload[TF_TELEMETRY_MAX];
     unsigned int length;
@@ -337,14 +338,11 @@ static void publish_heartbeat(void)
         );
 
         heartbeat_sequence++;
-
-    } else {
-
-        tm_printf(
-            (UB *)"[MQTT] Publish request failed=%d\n",
-            (int)result
-        );
+        return true;
     }
+
+    /* Refused (send buffer full of telemetry): no print, the caller retries on the next poll. */
+    return false;
 }
 
 /*
@@ -529,9 +527,12 @@ void mqtt_utk_poll(struct netif *netif)
                 now - last_heartbeat_ms
             ) >= MQTT_HEARTBEAT_MS) {
 
-            last_heartbeat_ms = now;
-
-            publish_heartbeat();
+            /* Restart the 5 s timer only once the heartbeat was accepted. A refused publish (the send buffer is
+               full of telemetry) used to wait another 5 s, so heartbeats arrived 25-50 s apart and the dashboard
+               called the car stale. Now it is retried on every poll until it goes out. */
+            if (publish_heartbeat()) {
+                last_heartbeat_ms = now;
+            }
         }
 
         /*

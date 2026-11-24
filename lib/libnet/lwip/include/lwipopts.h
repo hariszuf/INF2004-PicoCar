@@ -71,6 +71,12 @@
 #define MEMP_NUM_TCP_SEG                16
 #define TCP_MSS                         1460
 #define TCP_SND_BUF                     (2 * TCP_MSS)
+/* MQTT output ring (lwIP default 256 bytes). Each telemetry publish is about 45 bytes and the ring only frees when
+ * the broker ACKs, so 256 bytes held about 5 packets per round trip: the car makes ~25 packets a second, so the
+ * ring stayed full and publishes (including readings that arrived "Stale") were refused. 1024 holds ~22. */
+#ifndef MQTT_OUTPUT_RINGBUF_SIZE
+#define MQTT_OUTPUT_RINGBUF_SIZE        1024
+#endif
 #define TCP_WND                         (2 * TCP_MSS)
 #define TCP_LISTEN_BACKLOG              0
 #endif

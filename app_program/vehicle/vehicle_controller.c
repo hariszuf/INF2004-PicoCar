@@ -301,6 +301,11 @@ static void controller_task(INT stacd,void *exinf) {
      (!barcode_seen || barcode_read_ms!=last_barcode_action_ms)) {
    barcode_seen=true;
    last_barcode_action_ms=barcode_read_ms;
+#if TM_WIFI_MQTT && !B5_SCAN_ONLY
+   /* Report a new barcode letter at once (age 0). The once-a-second report below sits at the end of a long burst
+    * and was being dropped when the telemetry queue filled, so the dashboard never showed a letter the car used. */
+   report_measurement(TELEMETRY_SOURCE_BUDDY3,TELEMETRY_TYPE_BARCODE,0,(int32_t)barcode_letter,0,report_sequence);
+#endif
    /* A scan read while stopped, turning, or avoiding an obstacle is display-only. */
    /* With the "+" junction logic on, line_follow.c owns barcode-based turns. */
    if(!LINE_JUNCTION && !B3_BARCODE_ONLY && CTL(CF_RUN_ENABLED) && !got && !nav.active && scan.state==B5_MONITORING && barcode_clear &&
@@ -523,37 +528,55 @@ static void controller_task(INT stacd,void *exinf) {
   ) {
 #if TM_WIFI_MQTT
    ++report_sequence;
+#if !B5_SCAN_ONLY
+   {  /* first in the burst: the last packets of a burst are the ones dropped when the queue is full */
+    char letter;
+    uint32_t read_ms;
+    if(buddy3_barcode_latest(&letter,&read_ms)) {
+     uint32_t age_ms=(uint32_t)(b5p_time_us_64()/1000u)-read_ms;
+     report_measurement(TELEMETRY_SOURCE_BUDDY3,TELEMETRY_TYPE_BARCODE,0,
+         (int32_t)letter,age_ms>INT32_MAX ? INT32_MAX : (int32_t)age_ms,report_sequence);
+    }
+   }
+#endif
 #if B5_DISABLED
    report_measurement(5,60,0,state,start.reason,report_sequence);
 #endif
-   bool tilt_valid=false;
+   bool tilt_valid=false,imu_sent=false;
    int32_t pitch=0,roll=0;
 #endif
    if(CTL(CF_BUDDY4_READY)) {
     buddy4_task_snapshot_t imu;
     if(buddy4_task_get(&imu)>=E_OK) {
 #if TM_WIFI_MQTT && !B5_SCAN_ONLY   /* measuring build: keep the telemetry channel free for Buddy 5 */
+     /* Tilt (4/7) goes first: the dashboard calls the IMU stale when it is older than 3 s, and the last packets of a
+      * burst are the ones lost when the telemetry queue is full. */
+     tilt_valid=imu.valid && imu.tilt_valid;
+     if(tilt_valid) {
+      pitch=(int32_t)(imu.pitch_deg*100);
+      roll=(int32_t)(imu.roll_deg*100);
+     }
+     report_measurement(4,TELEMETRY_TYPE_IMU,tilt_valid?TELEMETRY_IMU_TILT_VALID:0,pitch,roll,report_sequence);
+     imu_sent=true;
      report_measurement(4,11,imu.valid?1:0,
          imu.sample_age_ms==UINT32_MAX?-1:(int32_t)imu.sample_age_ms,imu.io_errors,report_sequence);
-     report_measurement(4,12,0,imu.clipped_samples,imu.unsuitable_samples,report_sequence);
+     if(report_sequence%5u==0u)   /* counters change slowly: every 5th report keeps the queue short */
+      report_measurement(4,12,0,imu.clipped_samples,imu.unsuitable_samples,report_sequence);
      report_measurement(4,13,imu.valid && imu.tilt_valid?1:0,
          imu.terrain,imu.side,report_sequence);
      report_measurement(4,14,(imu.motion_valid?1:0)|(imu.yaw_valid?2:0),
          imu.motion_state,imu.yaw_valid?(int32_t)(imu.encoder_yaw_deg_s*100):0,report_sequence);
      report_measurement(4,15,imu.valid && imu.tilt_valid?1:0,
          imu.valid && imu.tilt_valid?(int32_t)(imu.height_cm*10):0,imu.measurement_quality,report_sequence);
-     report_measurement(4,16,(imu.last_event.stable_valid?1:0)|(imu.last_event.median_valid?2:0),
-         imu.last_event.stable_valid?(int32_t)(imu.last_event.stable_cm*10):0,
-         imu.last_event.median_valid?(int32_t)(imu.last_event.median_cm*10):0,report_sequence);
-     report_measurement(4,17,imu.last_event.end_us?1:0,imu.last_event.side,
-         (int32_t)(imu.last_event.end_us/1000u),report_sequence);
-     report_measurement(4,TELEMETRY_TYPE_HIGHEST_HUMP,imu.highest_hump_valid?1:0,
-         imu.highest_hump_valid?(int32_t)(imu.highest_hump_cm*10):0,
-         (int32_t)imu.run_id,report_sequence);
-     tilt_valid=imu.valid && imu.tilt_valid;
-     if(tilt_valid) {
-      pitch=(int32_t)(imu.pitch_deg*100);
-      roll=(int32_t)(imu.roll_deg*100);
+     if(report_sequence%5u==0u) {   /* saved ramp results: every 5th report */
+      report_measurement(4,16,(imu.last_event.stable_valid?1:0)|(imu.last_event.median_valid?2:0),
+          imu.last_event.stable_valid?(int32_t)(imu.last_event.stable_cm*10):0,
+          imu.last_event.median_valid?(int32_t)(imu.last_event.median_cm*10):0,report_sequence);
+      report_measurement(4,17,imu.last_event.end_us?1:0,imu.last_event.side,
+          (int32_t)(imu.last_event.end_us/1000u),report_sequence);
+      report_measurement(4,TELEMETRY_TYPE_HIGHEST_HUMP,imu.highest_hump_valid?1:0,
+          imu.highest_hump_valid?(int32_t)(imu.highest_hump_cm*10):0,
+          (int32_t)imu.run_id,report_sequence);
      }
 #endif
      tm_printf((UB*)"[B4] imu=%d tilt=%d age_ms=%u terrain=%d side=%d lifted=%d lifts=%u motion=%d yaw=%d io_errors=%u\n",
@@ -573,17 +596,14 @@ static void controller_task(INT stacd,void *exinf) {
        motion_encoder_get_count(MOTION_SIDE_LEFT),motion_encoder_get_count(MOTION_SIDE_RIGHT),report_sequence);
 #endif
    report_measurement(6,57,0,line_reacquired_count,0,report_sequence);
+   /* Dropped packets: telemetry input queue, and MQTT outbox. Climbing numbers mean the link cannot keep up. */
+   report_measurement(6,58,0,(int32_t)buddy1_telemetry_get_dropped_count(),
+       (int32_t)buddy1_mqtt_telemetry_get_dropped_count(),report_sequence);
    report_measurement(TELEMETRY_SOURCE_BUDDY2,TELEMETRY_TYPE_ODOMETRY,0,
        (int32_t)(motor.distance_cm*10),motor.fault,report_sequence);
-   char letter;
-   uint32_t read_ms;
-   if(buddy3_barcode_latest(&letter,&read_ms)) {
-    uint32_t age_ms=(uint32_t)(b5p_time_us_64()/1000u)-read_ms;
-    report_measurement(TELEMETRY_SOURCE_BUDDY3,TELEMETRY_TYPE_BARCODE,0,
-        (int32_t)letter,age_ms>INT32_MAX ? INT32_MAX : (int32_t)age_ms,report_sequence);
-   }
-   report_measurement(TELEMETRY_SOURCE_BUDDY4,TELEMETRY_TYPE_IMU,
-       tilt_valid?TELEMETRY_IMU_TILT_VALID:0,pitch,roll,report_sequence);
+   if(!imu_sent)   /* no IMU snapshot this time: still report "tilt unavailable" */
+    report_measurement(TELEMETRY_SOURCE_BUDDY4,TELEMETRY_TYPE_IMU,
+        tilt_valid?TELEMETRY_IMU_TILT_VALID:0,pitch,roll,report_sequence);
 #endif
    tm_printf((UB*)"[LINE] state=%d mask=%u target_mm_s=%d/%d actual_mm_s=%d/%d\n",
     line.state,(unsigned)mask,(int)(line.left_cmd_cm_s*10),(int)(line.right_cmd_cm_s*10),

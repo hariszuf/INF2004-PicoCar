@@ -55,6 +55,11 @@ static bool s_junction_halted;         /* stopped at a junction with no barcode 
 static junction_action_t s_junction_action;
 static uint32_t s_junction_ms;         /* time in the current junction step, for the timeout */
 /* Rejoin: the same junction turn, used by the obstacle bypass to get back onto the line. */
+/* After line_follow_start() the tilt freeze is ignored for this long: a freeze keeps the last wheel commands,
+   which are zero right after the bypass hand-back, so a car that finished the turn slightly tilted would sit
+   still on the tape and never follow it. */
+#define LINE_START_FREEZE_GRACE_MS (1500u)
+static uint32_t s_freeze_grace_ms;
 static bool s_rejoin;
 static int8_t s_rejoin_result;         /* 0 running / not started, 1 done (centred, stopped), -1 failed */
 #if LINE_JUNCTION_USE_BARCODE
@@ -148,7 +153,10 @@ static void junction_abort(void)
 {
     if (s_rejoin)
     {
-        rejoin_finish(-1);
+        /* The search gave up, but a sensor is on the tape: the car IS on the line. Report success so the
+           bypass hands back to normal line following (which steers onto the tape) instead of failing,
+           which restarted the whole obstacle process and left the car turning around. */
+        rejoin_finish(((s_mask & (LINE_SENSOR_LEFT | LINE_SENSOR_RIGHT)) != 0u) ? 1 : -1);
         return;
     }
     s_junction = J_NONE;
@@ -507,6 +515,7 @@ bool line_follow_start(void)
     s_last_side = 0;
     s_lost_ms = 0u;
     s_side_ms = 0u;
+    s_freeze_grace_ms = LINE_START_FREEZE_GRACE_MS;
     s_state = LINE_STATE_STOPPED;
 #if LINE_JUNCTION
     s_junction = J_NONE;
@@ -609,6 +618,11 @@ void line_follow_update(void)
     }
 #endif
 #if LINE_TERRAIN_HOLD
+    if (s_freeze_grace_ms > 0u)
+    {
+        s_freeze_grace_ms = (s_freeze_grace_ms > LINE_UPDATE_PERIOD_MS) ? (s_freeze_grace_ms - LINE_UPDATE_PERIOD_MS) : 0u;
+    }
+    else
     /* Hump/slope freeze: a raised wheel lifts its sensor (reads black). While tilted, keep the last
        commands and ignore the sensors. No timer: released the moment the tilt is gone. */
     {

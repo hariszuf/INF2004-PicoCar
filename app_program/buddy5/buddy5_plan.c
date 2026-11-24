@@ -44,7 +44,7 @@ bool b5_car_hits_box(float x,float u,float phi_deg,float bx0,float bx1,float bu0
 int32_t b5_pass_x(int32_t x_face_mm,int32_t depth_mm,int32_t near_edge_mm,int32_t far_edge_mm,int32_t offset_mm) {
 #if B5_PASS_SIMPLE
  (void)depth_mm; (void)near_edge_mm; (void)far_edge_mm; (void)offset_mm;
- return x_face_mm+B5_BOX_LENGTH_MM;   /* distance to the box + box length, nothing else */
+ return x_face_mm+B5_BOX_LENGTH_MM+B5_PASS_PAST_REAR_MM;   /* distance to the box + box length + room past its rear face */
 #else
  float bx0=(float)x_face_mm, bx1=(float)(x_face_mm+depth_mm);
  float bu0=(float)(-far_edge_mm), bu1=(float)near_edge_mm, m=(float)B5_SWEEP_MARGIN_MM;
@@ -104,7 +104,7 @@ void b5_plan_make(const b5_scan_t *scan,int32_t front_hint_mm,uint8_t blocked_ma
   else if(d>expect+(float)B5_FACE_TOL_MM) cls[i]=RAY_FAR;
   else cls[i]=RAY_BOX;
  }
- /* 3. per side: box edge (scan edge only ever ENLARGES the specified box) and the room beyond it */
+ /* 3. per side: box edge (the measured scan edge; the specified width is only the fallback when the edge is not seen) and the room beyond it */
  const int32_t spec_edge=B5_BOX_WIDTH_MM/2+B5_BOX_POS_TOL_MM;
  const int32_t depth=B5_BOX_LENGTH_MM+B5_BOX_DEPTH_TOL_MM;
  for(int s=0;s<2;s++) {
@@ -115,7 +115,7 @@ void b5_plan_make(const b5_scan_t *scan,int32_t front_hint_mm,uint8_t blocked_ma
    if(cls[i]==RAY_BOX || cls[i]==RAY_NONE) continue;
    first_miss=i; break;
   }
-  int32_t edge=spec_edge;
+  int32_t edge=spec_edge;   /* fallback only: used when the sonar never finds this side's edge */
   out->seen[s]=false;
   out->meas_edge_mm[s]=0;
   {
@@ -134,7 +134,7 @@ void b5_plan_make(const b5_scan_t *scan,int32_t front_hint_mm,uint8_t blocked_ma
     int32_t e=round_f((float)out->face_dist_mm*tanf(a_edge*DEG2RAD));
     out->seen[s]=true;
     out->meas_edge_mm[s]=e;
-    if(e>edge) edge=e;
+    edge=e;   /* the sonar found where the box ends on this side: use that, not the specified width */
    } else out->seen[s]=true;
   }
   out->edge_mm[s]=edge;

@@ -11,6 +11,10 @@
 #define TM_WIFI_MQTT 0
 #endif
 
+#ifndef TELEMETRY_USB_ECHO
+#define TELEMETRY_USB_ECHO       0
+#endif
+
 #define TELEMETRY_QUEUE_DEPTH    48U
 #define TELEMETRY_TASK_PRIORITY  7
 #define TELEMETRY_STACK_SIZE     4096
@@ -103,8 +107,11 @@ LOCAL void telemetry_task(INT stacd, void *exinf)
             continue;
         }
 
+#if TELEMETRY_USB_ECHO
         /*
-         * Existing USB serial diagnostics.
+         * USB serial diagnostics, one line per packet. Off by default: a blocking print per packet made this
+         * task too slow to drain the input queue, so the packets at the end of each report burst (e.g. the
+         * barcode letter) were dropped before they reached MQTT. Build with -DTELEMETRY_USB_ECHO=1 to bring it back.
          */
         tm_printf(
             (UB *)"[Telemetry-2Phase] "
@@ -116,6 +123,7 @@ LOCAL void telemetry_task(INT stacd, void *exinf)
             (int)message.value_1,
             (int)message.value_2
         );
+#endif
 
 #if TM_WIFI_MQTT
         /*
