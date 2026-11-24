@@ -175,6 +175,9 @@ integrated car also reports line reacquisition count on source 6/type 57.
   this browser. Polling can miss messages, and the API stores only the latest
   payload per topic. This is not a complete broker log. Internal telemetry
   validity flags are not transmitted by the current firmware.
+- The car and the dashboard exchange compact binary MQTT frames (telemetry, heartbeat and commands). The dashboard
+  decodes them into the same text fields the page shows. Only the connection handshake stays text. Frame layout:
+  `app_program/telemetry_frame.h`; sizes: `docs/data-representation/MESSAGE_SIZES.md`.
 - START/STOP posts to `/api/command/{command}` and publishes to
   `picocar/vehicle1/command` using QoS 0 without retain. Success means publishing
   was queued; it does not acknowledge delivery or controller execution.

@@ -4,15 +4,31 @@
  */
 #include "barcode_scan.h"
 
+/* Packed yes/no flags. On the host (no T-Kernel headers) the lock does nothing. */
+#if !defined(__has_include)
+#define ROBOT_FLAGS_IRQ_T unsigned
+#define ROBOT_FLAGS_LOCK(s) ((void)((s) = 0u))
+#define ROBOT_FLAGS_UNLOCK(s) ((void)(s))
+#elif !__has_include(<tk/tkernel.h>)
+#define ROBOT_FLAGS_IRQ_T unsigned
+#define ROBOT_FLAGS_LOCK(s) ((void)((s) = 0u))
+#define ROBOT_FLAGS_UNLOCK(s) ((void)(s))
+#endif
+#include "../robot_flags.h"
+
 static barcode39_t s_decoder;
-static bool s_started;
-static bool s_level;            /* accepted level, true = black */
+/* s_have_result is set by the barcode task and cleared by whoever calls barcode_scan_take(), so all four flags
+ * share one word that is only changed with locked updates. */
+#define BS_STARTED (1u << 0)
+#define BS_LEVEL (1u << 1)          /* accepted level, set = black */
+#define BS_PENDING (1u << 2)        /* a different level is being tested */
+#define BS_HAVE_RESULT (1u << 3)
+static robot_flags_t s_flags;
+#define BS(mask) robot_flags_test(&s_flags, (mask))
 static uint32_t s_level_since;  /* when the accepted level began */
-static bool s_pending;          /* a different level is being tested */
 static uint32_t s_pending_since;
 static uint32_t s_last_edge_us;
 static barcode39_result_t s_result;
-static bool s_have_result;
 static uint32_t s_count;
 
 __attribute__((weak)) void barcode_scan_on_decoded(const barcode39_result_t *p_result)
@@ -29,9 +45,7 @@ __attribute__((weak)) void barcode_scan_on_run(bool black, uint32_t width_us)
 void barcode_scan_init(void)
 {
     barcode39_init(&s_decoder, true);   /* the track barcodes are letters A-Z */
-    s_started = false;
-    s_pending = false;
-    s_have_result = false;
+    robot_flags_update(&s_flags, BS_STARTED | BS_PENDING | BS_HAVE_RESULT, 0u);
     s_count = 0u;
 }
 
@@ -39,22 +53,21 @@ void barcode_scan_update(bool black, uint32_t now_us)
 {
     barcode39_result_t decoded;
 
-    if (!s_started)
+    if (!BS(BS_STARTED))
     {
-        s_started = true;
-        s_level = black;
+        robot_flags_update(&s_flags, BS_STARTED | BS_LEVEL, BS_STARTED | (black ? BS_LEVEL : 0u));
         s_level_since = now_us;
         s_last_edge_us = now_us;
         return;
     }
 
-    if (black == s_level)
+    if (black == BS(BS_LEVEL))
     {
-        s_pending = false;      /* the other level was only a glitch */
+        robot_flags_clear(&s_flags, BS_PENDING);      /* the other level was only a glitch */
     }
-    else if (!s_pending)
+    else if (!BS(BS_PENDING))
     {
-        s_pending = true;
+        robot_flags_set(&s_flags, BS_PENDING);
         s_pending_since = now_us;
     }
     else if ((uint32_t)(now_us - s_pending_since) >= BARCODE_DEBOUNCE_US)
@@ -62,17 +75,16 @@ void barcode_scan_update(bool black, uint32_t now_us)
         /* Real edge. It happened when the new level first appeared. */
         uint32_t width = s_pending_since - s_level_since;
 
-        barcode_scan_on_run(s_level, width);
-        if (barcode39_feed(&s_decoder, s_level, width, &decoded))
+        barcode_scan_on_run(BS(BS_LEVEL), width);
+        if (barcode39_feed(&s_decoder, BS(BS_LEVEL), width, &decoded))
         {
             s_result = decoded;
-            s_have_result = true;
+            robot_flags_set(&s_flags, BS_HAVE_RESULT);
             s_count++;
             barcode_scan_on_decoded(&s_result);
         }
-        s_level = black;
+        robot_flags_update(&s_flags, BS_LEVEL | BS_PENDING, black ? BS_LEVEL : 0u);
         s_level_since = s_pending_since;
-        s_pending = false;
         s_last_edge_us = now_us;
     }
 
@@ -84,7 +96,7 @@ void barcode_scan_update(bool black, uint32_t now_us)
 
 bool barcode_scan_take(barcode39_result_t *out)
 {
-    if (!s_have_result)
+    if (!BS(BS_HAVE_RESULT))
     {
         return false;
     }
@@ -92,7 +104,7 @@ bool barcode_scan_take(barcode39_result_t *out)
     {
         *out = s_result;
     }
-    s_have_result = false;
+    robot_flags_clear(&s_flags, BS_HAVE_RESULT);
     return true;
 }
 

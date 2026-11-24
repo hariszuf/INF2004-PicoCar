@@ -38,51 +38,47 @@ typedef enum {
 } buddy4_quality_t;
 
 typedef struct {
-    bool valid; /* Last verification succeeded; not continuous verification. */
     uint8_t who_am_i, ctrl[6]; /* CTRL0,1,2,3,4,7, in that order. */
+    bool valid : 1; /* Last verification succeeded; not continuous verification. */
 } buddy4_sensor_config_t;
 
 typedef struct {
     /* Sensor XYZ: corrected = (uncorrected - bias) * scale. Identity: 0, 1. */
     float accel_bias_g[3];
     float accel_scale[3];
-    bool mounting_offsets_need_recalibration;
     float pitch_sign;
     float pitch_offset_deg;
     float roll_sign;
     float roll_offset_deg;
     /* Confirmed default wheel-centre spacing: 11.3 cm. */
     float centre_spacing_cm;
-    bool centre_spacing_confirmed;
+    bool mounting_offsets_need_recalibration : 1;
+    bool centre_spacing_confirmed : 1;
 } buddy4_config_t;
 
 typedef struct {
-    int side;
     uint64_t start_us;
-    bool peak_confirmed;
     float peak_roll_deg;
     float peak_height_cm;
     /* Experimental moving peak, independent of stability confirmation.
      * Numeric fields are meaningful only when median_candidate_valid is true. */
-    bool median_candidate_valid;
     float median_candidate_roll_deg;
     float median_candidate_height_cm;
-    uint8_t median_count;
     float median_roll[11];
     uint64_t median_time_us[11];
-    bool window_active;
     uint64_t window_start_us;
     uint64_t last_sample_us;
     float window_min_roll;
     float window_max_roll;
     float window_min_height;
+    int8_t side;            /* -1, 0 or +1 */
+    uint8_t median_count;   /* 0..11 */
+    bool peak_confirmed : 1;
+    bool median_candidate_valid : 1;
+    bool window_active : 1;
 } side_event_t;
 
 typedef struct {
-    bool valid;             /* Acquisition only: latest complete, fresh poll. */
-    bool acceleration_valid; /* Finite, non-clipped; usable by impact observer. */
-    bool tilt_valid;        /* Gravity-like input; still not proof of static tilt. */
-    buddy4_quality_t quality;
     uint8_t clipped_axes;   /* XYZ bit mask: exact signed ADC endpoints. */
     uint8_t status_a;       /* Last status read; overrun is not clipping. */
     uint32_t clipped_samples, unsuitable_samples; /* Saturating history. */
@@ -96,30 +92,34 @@ typedef struct {
     float roll_deg;
     float filtered_pitch_deg;
     float filtered_roll_deg;
-    int terrain;
-    int side;
     float transient_g;
-    bool transient_event;
     float wheel_height_cm;
-    bool height_geometry_confirmed;
     side_event_t event;
     side_event_t ended_event;
-    bool event_ended;       /* One fresh-sample pulse; ended_event holds summary. */
+    int8_t terrain;         /* -1 (unknown) .. 4, fits in one byte */
+    int8_t side;            /* -1, 0 or +1 */
+    uint8_t quality : 3;    /* buddy4_quality_t, 5 values */
+    bool valid : 1;             /* Acquisition only: latest complete, fresh poll. */
+    bool acceleration_valid : 1; /* Finite, non-clipped; usable by impact observer. */
+    bool tilt_valid : 1;        /* Gravity-like input; still not proof of static tilt. */
+    bool transient_event : 1;
+    bool height_geometry_confirmed : 1;
+    bool event_ended : 1;       /* One fresh-sample pulse; ended_event holds summary. */
 } buddy4_output_t;
 
 typedef struct {
     buddy4_bus_t bus;
     buddy4_config_t config;
     buddy4_output_t output;
-    bool ready;
-    bool has_sample;
-    bool filter_valid;
-    bool tilt_filter_valid;
     buddy4_sensor_config_t sensor_config;
-    bool bump_armed;
-    bool had_bump;
     float baseline;
     uint64_t last_bump_us;
+    bool ready : 1;
+    bool has_sample : 1;
+    bool filter_valid : 1;
+    bool tilt_filter_valid : 1;
+    bool bump_armed : 1;
+    bool had_bump : 1;
 } buddy4_imu_t;
 
 /* Preliminary acceleration calibration; preserve the configured mounting offsets.

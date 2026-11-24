@@ -14,6 +14,7 @@
 
 #include "../../../app_program/buddy1/mqtt_command_bridge.h"
 #include "../../../app_program/buddy1/mqtt_telemetry_bridge.h"
+#include "../../../app_program/telemetry_frame.h"
 
 #define MQTT_HEARTBEAT_MS 5000U
 #define MQTT_RETRY_MS     3000U
@@ -149,11 +150,20 @@ static void incoming_data(
 
         if (rx_overflow == 0U) {
 
-            tm_printf(
-                (UB *)"[MQTT] RX topic=%s payload=%s\n",
-                (UB *)rx_topic,
-                (UB *)rx_payload
-            );
+            if (((uint8_t)rx_payload[0] & TF_BINARY_MARK) != 0U) {
+                tm_printf(
+                    (UB *)"[MQTT] RX topic=%s binary frame, %u bytes, opcode %u\n",
+                    (UB *)rx_topic,
+                    (unsigned int)rx_length,
+                    (unsigned int)((uint8_t)rx_payload[0] & 0x7FU)
+                );
+            } else {
+                tm_printf(
+                    (UB *)"[MQTT] RX topic=%s payload=%s\n",
+                    (UB *)rx_topic,
+                    (UB *)rx_payload
+                );
+            }
 
             if (mqtt_topic_matches(
                     rx_topic,
@@ -301,20 +311,12 @@ static void connection_callback(
  */
 static void publish_heartbeat(void)
 {
-    UB payload[48];
-    INT length;
+    uint8_t payload[TF_TELEMETRY_MAX];
+    unsigned int length;
     err_t result;
 
-    length = tm_sprintf(
-        payload,
-        (const UB *)"heartbeat seq=%u",
-        (unsigned int)heartbeat_sequence
-    );
-
-    if (length <= 0 ||
-        length >= (INT)sizeof(payload)) {
-        return;
-    }
+    /* Heartbeat as a binary frame: source 1, type 1, sequence only (5 bytes instead of a text line). */
+    length = tf_encode_telemetry(payload, 1U, 1U, 0U, 0, 0, (uint32_t)heartbeat_sequence);
 
     result = mqtt_publish(
         mqtt_client,
@@ -330,8 +332,8 @@ static void publish_heartbeat(void)
     if (result == ERR_OK) {
 
         tm_printf(
-            (UB *)"[MQTT] TX %s\n",
-            payload
+            (UB *)"[MQTT] TX heartbeat seq=%u\n",
+            (unsigned int)heartbeat_sequence
         );
 
         heartbeat_sequence++;
@@ -353,49 +355,11 @@ static void publish_heartbeat(void)
  * Receives one message from the MQTT outbox
  * and publishes it to the telemetry topic.
  */
-static const struct {
-    uint8_t source;
-    uint8_t type;
-    const char *first;
-    const char *second;
-} telemetry_fields[] = {
-    {1, 1, "heartbeat_marker", "reserved"},
-    {2, 3, "left_speed_mm_s", "right_speed_mm_s"},
-    {2, 10, "odometry_mm", "motor_fault"},
-    {3, 5, "ir_mask", "line_state"},
-    {3, 6, "barcode_ascii", "barcode_age_ms"},
-    {3, 21, "map_a_to_j", "map_k_to_t"},
-    {3, 22, "map_u_to_z", "map_version_result"},
-    {4, 7, "pitch_cdeg", "roll_cdeg"},
-    {5, 50, "obstacle_state", "obstacle_fault"},
-    {5, 51, "width_mm", "depth_high_mm"},
-    {5, 52, "bypass_side", "bypass_offset_mm"},
-    {5, 53, "depth_low_mm", "depth_high_mm"},
-    {5, 54, "front_clearance_mm", "servo_command_deg"},
-    {5, 55, "obstacle_id", "report_uptime_ms"},
-    {5, 56, "obstacle_validity_mask", "telemetry_drops"},
-    {5, 58, "raw_range_mm", "raw_range_status"},
-    {5, 59, "box_edges_packed", "decision_info"},
-    {5, 61, "scan_m35_to_m20", "scan_m15_to_0"},
-    {5, 62, "scan_p5_to_p20", "scan_p25_and_looks"},
-    {2, 4, "left_encoder_ticks", "right_encoder_ticks"},
-    {4, 11, "sample_age_ms", "imu_errors"},
-    {4, 12, "clipped_samples", "unsuitable_samples"},
-    {4, 13, "terrain_state", "side_state"},
-    {4, 14, "motion_state", "yaw_rate_cdeg_s"},
-    {4, 15, "wheel_height_mm", "measurement_quality"},
-    {4, 16, "stable_peak_mm", "median_peak_mm"},
-    {4, 17, "peak_side", "peak_end_ms"},
-    {4, 20, "lift_reason", "lift_count_and_tilt"},
-    {4, 19, "highest_hump_mm", "run_id"},
-    {6, 57, "line_reacquired_count", "reserved"},
-};
-
 static void publish_telemetry(void)
 {
-    UB payload[192];
+    uint8_t payload[TF_TELEMETRY_MAX];
 
-    INT length;
+    unsigned int length;
     err_t publish_result;
 
     /*
@@ -409,32 +373,11 @@ static void publish_telemetry(void)
     }
     const mqtt_telemetry_data_t message = pending_telemetry;
 
-    const char *first = "value1";
-    const char *second = "value2";
-    for (unsigned int i = 0; i < sizeof(telemetry_fields) / sizeof(telemetry_fields[0]); ++i) {
-        if (telemetry_fields[i].source == message.source &&
-            telemetry_fields[i].type == message.type) {
-            first = telemetry_fields[i].first;
-            second = telemetry_fields[i].second;
-            if (message.source == 5 && message.type == 56 && (message.value_1 & 16)) {
-                second = "reserved";
-            }
-            break;
-        }
-    }
-
-    length = tm_sprintf(
-        payload, (const UB *)"src=%u type=%u seq=%u %s=%d %s=%d flags=%u",
-        (unsigned int)message.source, (unsigned int)message.type,
-        (unsigned int)message.sequence,
-        first, (int)message.value_1, second, (int)message.value_2,
-        (unsigned int)message.flags
+    /* One compact binary frame per message (see app_program/telemetry_frame.h). */
+    length = tf_encode_telemetry(
+        payload, message.source, message.type, message.flags,
+        message.value_1, message.value_2, message.sequence
     );
-    if (length <= 0 || length >= (INT)sizeof(payload)) {
-        telemetry_pending = 0U;
-        tm_printf((UB *)"[MQTT] Invalid telemetry payload length\n");
-        return;
-    }
 
     /*
      * Publish on the configured telemetry topic.

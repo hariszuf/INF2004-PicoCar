@@ -149,8 +149,8 @@ static void scan_task(INT stacd, void *exinf) {
     seen_dump=core.scan_count; seen_nofaces_dump=core.noface_count;
     tm_printf((UB*)"[B5-SCAN] raw scan -35..+25 (E=echo mm, N=no echo, -=invalid):");
     for(int i=0;i<B5_SCAN_POINTS;i++) {
-     if(core.scan.state[i]==B5_SCAN_ECHO) tm_printf((UB*)" E%u",(unsigned)core.scan.distance[i]);
-     else if(core.scan.state[i]==B5_SCAN_NO_ECHO) tm_printf((UB*)" N");
+     if(b5_scan_state(&core.scan,i)==B5_SCAN_ECHO) tm_printf((UB*)" E%u",(unsigned)b5_scan_dist(&core.scan,i));
+     else if(b5_scan_state(&core.scan,i)==B5_SCAN_NO_ECHO) tm_printf((UB*)" N");
      else tm_printf((UB*)" -");
     }
     tm_printf((UB*)"\n");

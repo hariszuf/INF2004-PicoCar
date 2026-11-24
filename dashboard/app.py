@@ -12,6 +12,8 @@ from fastapi.staticfiles import StaticFiles
 import time
 from fastapi import HTTPException
 
+import telemetry_frame as frames_codec
+
 BROKER_HOST = os.getenv("MQTT_BROKER_HOST", "127.0.0.1")
 BROKER_PORT = int(os.getenv("MQTT_BROKER_PORT", "1883"))
 
@@ -46,7 +48,19 @@ def on_connect(client, userdata, flags, reason_code, properties):
 
 
 def on_message(client, userdata, message):
-    payload = message.payload.decode("utf-8", errors="replace")
+    raw = message.payload
+    if frames_codec.is_binary(raw):
+        # Compact binary frame from the car: decode it and keep the text form the dashboard page already reads.
+        frame = frames_codec.decode_telemetry(raw)
+        if frame is None or message.topic not in (TOPIC_STATUS, TOPIC_TELEMETRY):
+            print(f"[MQTT] Ignored malformed binary frame on {message.topic}: {raw.hex()}")
+            return
+        if message.topic == TOPIC_STATUS and (frame.source, frame.type) == (1, 1):
+            payload = f"heartbeat seq={frame.sequence}"
+        else:
+            payload = frames_codec.canonical_text(frame)
+    else:
+        payload = raw.decode("utf-8", errors="replace")
     if message.topic == TOPIC_TELEMETRY and not getattr(message, "retain", False):
         probe = startup_probe.fullmatch(payload)
         if probe and int(probe[1]) <= 0xFFFFFFFF:
@@ -148,8 +162,10 @@ def set_barcode_map(codes: str):
 
     if codes == "RESET":
         payload = "MAPRESET"
+        frame = frames_codec.encode_command(frames_codec.CMD_MAPRESET)
     elif re.fullmatch(r"[LSRUN]{26}", codes):
         payload = f"MAP {codes}"
+        frame = frames_codec.encode_map(codes)
     else:
         raise HTTPException(
             status_code=400,
@@ -164,7 +180,7 @@ def set_barcode_map(codes: str):
 
     result = mqtt_client.publish(
         TOPIC_COMMAND,
-        payload=payload,
+        payload=frame,
         qos=0,
         retain=False,
     )
@@ -199,7 +215,8 @@ def send_command(command: str):
 
     result = mqtt_client.publish(
         TOPIC_COMMAND,
-        payload=command,
+        payload=frames_codec.encode_command(
+            frames_codec.CMD_START if command == "START" else frames_codec.CMD_STOP),
         qos=0,
         retain=False,
     )

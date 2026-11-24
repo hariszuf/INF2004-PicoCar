@@ -15,6 +15,8 @@
 #include "../buddy3/line_config.h"
 #include "../buddy3/junction_map.h"
 #include "../buddy4/rtos/buddy4_task.h"
+#include "../robot_flags.h"
+#include "../robot_faults.h"
 #if TM_WIFI_MQTT
 #include "../../lib/libnet/lwip/mqtt_dashboard_ready.h"
 #endif
@@ -35,9 +37,18 @@ IMPORT UW tm_usb_state(void);
 #endif
 static b5_feedback_t feedback_shared;
 static b5_request_t pending_request;
-static bool request_pending;
-static volatile bool run_enabled;
-static volatile bool buddy4_ready;
+/* Controller flags packed into one word (robot_flags.h): every write takes the DI/EI lock, a read is one load. */
+static robot_flags_t ctl_flags;
+#define CF_RUN_ENABLED     (1u<<0)   /* the car is driving */
+#define CF_BUDDY4_READY    (1u<<1)   /* IMU task is running */
+#define CF_USER_STOP       (1u<<2)   /* STOP requested (USB or dashboard) */
+#define CF_START_PENDING   (1u<<3)   /* START intent: dashboard (MQTT) or USB R */
+#define CF_START_REJECTED  (1u<<4)   /* START arrived before the dashboard handshake */
+#define CF_FAULT_LATCHED   (1u<<5)   /* motor stall latch: cleared only by a power cycle */
+#define CF_REQUEST_PENDING (1u<<6)   /* a Buddy 5 request is waiting for the controller */
+#define CTL(m) robot_flags_test(&ctl_flags,(m))
+/* Shared fault bitmask (robot_faults.h), refreshed by the controller task. */
+static robot_flags_t fault_mask;
 
 #if TM_WIFI_MQTT
 extern int32_t buddy1_barcode_map_result(void);
@@ -71,15 +82,12 @@ static uint16_t enc_diag_flags(void)
 #define B2_ENC_FLAGS 0
 #endif
 #endif
-static volatile bool user_stop_pending;
-static bool remote_start_rejected;
-static volatile bool remote_start_pending;   /* START intent: dashboard (MQTT) or USB R */
-static bool fault_latched;                   /* motor stall latch: cleared only by a power cycle */
 /* Packed values for the existing source 5, type 60 telemetry. */
 static int32_t execution_state, execution_reason;
 static unsigned char commands[8];
 static unsigned command_head,command_tail;
-bool line_controller_active(void) { return run_enabled; }
+bool line_controller_active(void) { return CTL(CF_RUN_ENABLED); }
+uint32_t vehicle_fault_mask(void) { return fault_mask; }
 static bool b5_line_usb_connected(void) {
 #if TM_CONSOLE_USB_CDC
  return tm_usb_state()>=3;
@@ -92,18 +100,16 @@ void b5_line_command_received(unsigned c) {
  if(c!='R' && c!='S' && c!=' ') return;
  DI(irq);
  if(c=='S' || c==' ') {
-  user_stop_pending=true; command_tail=command_head; remote_start_pending=false;
+  robot_flags_set_nl(&ctl_flags,CF_USER_STOP); command_tail=command_head; robot_flags_clear_nl(&ctl_flags,CF_START_PENDING);
  } else if(b5_line_usb_connected()) {
   unsigned next=(command_head+1u)%8u;
-  if(next==command_tail) { user_stop_pending=true; command_tail=command_head; }
+  if(next==command_tail) { robot_flags_set_nl(&ctl_flags,CF_USER_STOP); command_tail=command_head; }
   else { commands[command_head]=(unsigned char)c; command_head=next; }
  }
  EI(irq);
 }
 static bool b5_line_take_stop(void) {
- UW irq; bool stop;
- DI(irq); stop=user_stop_pending; user_stop_pending=false; EI(irq);
- return stop;
+ return robot_flags_test_and_clear(&ctl_flags,CF_USER_STOP);
 }
 static int b5_line_take_command(void) {
  UW irq; int c=-1;
@@ -115,25 +121,26 @@ static int b5_line_take_command(void) {
 }
 /* MQTT bridge (network owner): non-blocking intent only, never touches the motors. 'S' = STOP, 'R' = START. */
 /* Used by the MQTT bridge to refuse a barcode-map change while the car is driving. */
-int b5_run_active(void) { return run_enabled ? 1 : 0; }
+int b5_run_active(void) { return CTL(CF_RUN_ENABLED) ? 1 : 0; }
 void b5_remote_command_intent(unsigned c) {
  UW irq;
  DI(irq);
  if(c=='S') {
-  user_stop_pending=true; command_tail=command_head; remote_start_pending=false; remote_start_rejected=false;
- } else if(c=='R' && !user_stop_pending) {
+  robot_flags_set_nl(&ctl_flags,CF_USER_STOP); command_tail=command_head;
+  robot_flags_clear_nl(&ctl_flags,CF_START_PENDING|CF_START_REJECTED);
+ } else if(c=='R' && !CTL(CF_USER_STOP)) {
 #if TM_WIFI_MQTT
   /* Subscription-time messages must not arm a restart on a later dashboard handshake. */
-  if(!mqtt_dashboard_ready_after_connect(10000u)) remote_start_rejected=true;
+  if(!mqtt_dashboard_ready_after_connect(10000u)) robot_flags_set_nl(&ctl_flags,CF_START_REJECTED);
   else
 #endif
-  remote_start_pending=true;
+  robot_flags_set_nl(&ctl_flags,CF_START_PENDING);
  }
  EI(irq);
 }
 static void discard_commands(void) {
  UW irq;
- DI(irq); command_tail=command_head; remote_start_pending=false; EI(irq);
+ DI(irq); command_tail=command_head; robot_flags_clear_nl(&ctl_flags,CF_START_PENDING); EI(irq);
 }
 bool line_controller_feedback(b5_feedback_t *f) {
  UW irq; DI(irq); *f=feedback_shared; EI(irq); return f->valid;
@@ -141,8 +148,8 @@ bool line_controller_feedback(b5_feedback_t *f) {
 bool line_controller_request(const b5_request_t *r) {
  UW irq; bool accepted=false;
  DI(irq);
- if((run_enabled || r->kind==B5_REQ_STOP) && (!request_pending || r->kind==B5_REQ_STOP)) {
-  pending_request=*r; request_pending=true; accepted=true;
+ if((CTL(CF_RUN_ENABLED) || r->kind==B5_REQ_STOP) && (!CTL(CF_REQUEST_PENDING) || r->kind==B5_REQ_STOP)) {
+  pending_request=*r; robot_flags_set_nl(&ctl_flags,CF_REQUEST_PENDING); accepted=true;
  }
  EI(irq); return accepted;
 }
@@ -162,9 +169,9 @@ static void halt(full_nav_t *nav,auto_start_t *start,const char *why) {
   while(*a && *a==*b) { a++; b++; }
   if(*a==0 && *b==0) { code=(int32_t)i+1; break; }
  }
- bool persistent=(code==8 && fault_latched) || code==11;
+ bool persistent=(code==8 && CTL(CF_FAULT_LATCHED)) || code==11;
  auto_start_halt(start,code,persistent);
- run_enabled=false; nav->active=false; nav->moving=false; nav->forward_moving=false;
+ robot_flags_clear(&ctl_flags,CF_RUN_ENABLED); nav->active=false; nav->moving=false; nav->forward_moving=false;
  nav->settled=0;
  line_follow_stop(); motion_emergency_stop(); line_scan_abort(); discard_commands();
  tm_printf((UB*)"[AUTO] STOPPED: %s (code %d). %s\n",(UB*)why,(int)code,
@@ -192,7 +199,7 @@ static void controller_task(INT stacd,void *exinf) {
  uint32_t last_barcode_action_ms=0;
  bool barcode_seen=false;
 #endif
- uint8_t mask=0; fault_latched=false;
+ uint8_t mask=0; robot_flags_clear(&ctl_flags,CF_FAULT_LATCHED);
  /* Buddy 4 lift/overturn state, refreshed every 20 ms motor slot. */
  bool lift_active=false,lift_fresh=false; uint8_t lift_reason=0; uint32_t lift_count=0; int32_t lift_tilt_dec=0;
  (void)stacd; (void)exinf;
@@ -210,52 +217,52 @@ static void controller_task(INT stacd,void *exinf) {
   int command=stop_cmd?'S':b5_line_take_command();
   if(command=='S') {
    /* STOP always wins over a pending START. A fault is never downgraded and a repeat STOP is not re-counted. */
-   { UW sirq; DI(sirq); remote_start_pending=false; remote_start_rejected=false; EI(sirq); }
+   robot_flags_clear(&ctl_flags,CF_START_PENDING|CF_START_REJECTED);
    if(start.phase!=AUTO_FAULTED && (start.phase!=AUTO_LATCHED || start.reason!=B5_HALT_USER_STOP))
     halt(&nav,&start,"user stop");
   } else {
-   if(command=='R') { UW sirq; DI(sirq); remote_start_pending=true; EI(sirq); }
+   if(command=='R') robot_flags_set(&ctl_flags,CF_START_PENDING);
    bool want_start;
    { UW sirq; DI(sirq);
-     want_start=remote_start_pending;
-     if(remote_start_rejected) {
-      start.last_start=START_REJECTED_NOT_READY; remote_start_rejected=false;
+     want_start=CTL(CF_START_PENDING);
+     if(CTL(CF_START_REJECTED)) {
+      start.last_start=START_REJECTED_NOT_READY; robot_flags_clear_nl(&ctl_flags,CF_START_REJECTED);
      }
      EI(sirq); }
    /* START is a restart request: it leaves a stop (waiting for the stop to settle first), is ignored while
     * starting or running (never resets a running maneuver) and is rejected after a persistent fault. */
    if(want_start && !(start.phase==AUTO_LATCHED && nav.settled<3)) {
-    { UW sirq; DI(sirq); remote_start_pending=false; EI(sirq); }
+    robot_flags_clear(&ctl_flags,CF_START_PENDING);
     auto_start_result_t r=auto_start_request(&start,now);
     if(r==START_ACCEPTED) discard_commands();
     tm_printf((UB*)"[AUTO] START request: %s\n",(UB*)(r==START_ACCEPTED?"accepted, resetting and waiting for readiness":
      r==START_ALREADY_ACTIVE?"ignored, already starting or running":"rejected, operator action (power-cycle) needed"));
    }
   }
-  if(run_enabled && (uint32_t)(now-scan.heartbeat_ms)>400u)
+  if(CTL(CF_RUN_ENABLED) && (uint32_t)(now-scan.heartbeat_ms)>400u)
    halt(&nav,&start,"obstacle scanner heartbeat timeout");
-  if(run_enabled && scan.state==B5_ERROR) halt(&nav,&start,"obstacle subsystem fault (see SCAN)");
+  if(CTL(CF_RUN_ENABLED) && scan.state==B5_ERROR) halt(&nav,&start,"obstacle subsystem fault (see SCAN)");
   if((uint32_t)(now-last_line)>=5u) {
    last_line=now; mask=line_sensors_read();
-   if(run_enabled && scan.state==B5_MONITORING && !nav.active) {
+   if(CTL(CF_RUN_ENABLED) && scan.state==B5_MONITORING && !nav.active) {
     if(!LINE_SENSORS_STRADDLE && !(mask&(LINE_SENSOR_LEFT|LINE_SENSOR_RIGHT))) {
      if(!lost_since) lost_since=now;
      if((uint32_t)(now-lost_since)>=700u)
       halt(&nav,&start,"line lost outside recovery");
     } else lost_since=0;
-    if(run_enabled) {
+    if(CTL(CF_RUN_ENABLED)) {
      line_follow_update();
      if(line_follow_restart_required()) halt(&nav,&start,"junction stopped without a barcode action");
     }
    } else {
     lost_since=0;
     /* Bypass hand-back: the line follower runs the junction turn and centring at its normal 5 ms rate. */
-    if(run_enabled && full_nav_rejoining(&nav)) line_follow_update();
+    if(CTL(CF_RUN_ENABLED) && full_nav_rejoining(&nav)) line_follow_update();
    }
   }
   UW irq; bool got; b5_request_t request={0};
-  DI(irq); got=request_pending; if(got) { request=pending_request; request_pending=false; } EI(irq);
-  if(got && run_enabled) {
+  DI(irq); got=CTL(CF_REQUEST_PENDING); if(got) { request=pending_request; robot_flags_clear_nl(&ctl_flags,CF_REQUEST_PENDING); } EI(irq);
+  if(got && CTL(CF_RUN_ENABLED)) {
    if(!full_nav_accept(&nav,&request,now)) halt(&nav,&start,"request rejected");
    else tm_printf((UB*)"[NAV] request=%d id=%u target_x/y=%d/%d\n",request.kind,(unsigned)request.id,request.forward_mm,request.lateral_mm);
   }
@@ -296,7 +303,7 @@ static void controller_task(INT stacd,void *exinf) {
    last_barcode_action_ms=barcode_read_ms;
    /* A scan read while stopped, turning, or avoiding an obstacle is display-only. */
    /* With the "+" junction logic on, line_follow.c owns barcode-based turns. */
-   if(!LINE_JUNCTION && !B3_BARCODE_ONLY && run_enabled && !got && !nav.active && scan.state==B5_MONITORING && barcode_clear &&
+   if(!LINE_JUNCTION && !B3_BARCODE_ONLY && CTL(CF_RUN_ENABLED) && !got && !nav.active && scan.state==B5_MONITORING && barcode_clear &&
       (barcode_letter=='A' || barcode_letter=='B')) {
     b5_request_t turn={.kind=barcode_letter=='A'?B5_REQ_BARCODE_LEFT:B5_REQ_BARCODE_RIGHT};
     if(!full_nav_accept(&nav,&turn,now)) halt(&nav,&start,"barcode turn rejected");
@@ -305,9 +312,9 @@ static void controller_task(INT stacd,void *exinf) {
   if(full_nav_barcode_turn_active(&nav)) guard=barcode_clear;
 #endif
   if((uint32_t)(now-last_motor)>=20u) {
-   if((uint32_t)(now-last_motor)>60u && run_enabled) halt(&nav,&start,"motor scheduling delay");
+   if((uint32_t)(now-last_motor)>60u && CTL(CF_RUN_ENABLED)) halt(&nav,&start,"motor scheduling delay");
    last_motor=now; motion_update(); motion_get_status(&motor);
-   if(buddy4_ready) {
+   if(CTL(CF_BUDDY4_READY)) {
     uint64_t sample_us;
     /* motion_update() has just sampled both encoders. Timestamp that fresh
      * pair in Buddy 4's monotonic clock domain, never a later cached getter. */
@@ -332,14 +339,14 @@ static void controller_task(INT stacd,void *exinf) {
      lift_count=imu.lift_count; lift_tilt_dec=(int32_t)(imu.tilt_deg*10.0f);
      if(lift_tilt_dec<0) lift_tilt_dec=0;
      if(lift_tilt_dec>1800) lift_tilt_dec=1800;
-     if(lift_active && run_enabled) halt(&nav,&start,"robot lifted or overturned");
+     if(lift_active && CTL(CF_RUN_ENABLED)) halt(&nav,&start,"robot lifted or overturned");
     }
    }
-   if(motor.fault==MOTION_FAULT_STALL) fault_latched=true;
-   if(run_enabled && motor.fault!=MOTION_FAULT_NONE)
+   if(motor.fault==MOTION_FAULT_STALL) robot_flags_set(&ctl_flags,CF_FAULT_LATCHED);
+   if(CTL(CF_RUN_ENABLED) && motor.fault!=MOTION_FAULT_NONE)
     halt(&nav,&start,"motor fault");
    /* Bypass sideways leg: a blocked front means the car did not turn enough; stop and correct instead of halting. */
-   if(run_enabled && nav.forward_moving && !guard && !full_nav_block_stop(&nav))
+   if(CTL(CF_RUN_ENABLED) && nav.forward_moving && !guard && !full_nav_block_stop(&nav))
     halt(&nav,&start,"forward range unavailable while moving");
    {
     /* Any fresh reading with its servo angle (the return to the line looks back toward the box). */
@@ -347,7 +354,7 @@ static void controller_task(INT stacd,void *exinf) {
     full_nav_set_front(&nav,scan.angle==0?guard_fresh:range_fresh,scan.front_clearance_mm,scan.angle);
    }
    full_nav_update(&nav,now,&motor,mask,guard);
-   if(run_enabled && nav.failed) halt(&nav,&start,"navigation failed/pose mismatch");
+   if(CTL(CF_RUN_ENABLED) && nav.failed) halt(&nav,&start,"navigation failed/pose mismatch");
 #if TM_WIFI_MQTT
    if(nav.resumed) ++line_reacquired_count;
 #endif
@@ -357,7 +364,7 @@ static void controller_task(INT stacd,void *exinf) {
    * The scanner continues in parallel and will take control on an obstacle.
    * Do not make motor start depend on a first ultrasonic/IR sample: a missed
    * first sample otherwise leaves the car permanently stationary. */
-  bool ready=motor.fault==MOTION_FAULT_NONE && !fault_latched;
+  bool ready=motor.fault==MOTION_FAULT_NONE && !CTL(CF_FAULT_LATCHED);
 #if TM_WIFI_MQTT
   ready=ready && mqtt_dashboard_ready_after_connect(10000u) && report_sequence!=0;
 #endif
@@ -378,7 +385,7 @@ static void controller_task(INT stacd,void *exinf) {
    ready=ready && scan.state==B5_MONITORING && guard_fresh &&
          (uint32_t)(scan.front_timestamp_ms-start.since)<=(uint32_t)(now-start.since);
   }
-  auto_action_t action=auto_start_update(&start,now,nav.settled>=3,ready && !user_stop_pending && !lift_active);
+  auto_action_t action=auto_start_update(&start,now,nav.settled>=3,ready && !CTL(CF_USER_STOP) && !lift_active);
   if(action==AUTO_RESET) {
    line_follow_stop();
    if(motion_reset()!=MOTION_OK) halt(&nav,&start,"motor reset failed");
@@ -386,25 +393,41 @@ static void controller_task(INT stacd,void *exinf) {
     motion_update(); motion_get_status(&motor); last_motor=now;
     full_nav_init(&nav,&motor); nav.settled=3; line_scan_reset();   /* the stall latch is never cleared here */
     if(restarting) { lost_since=0; last_guard_clear=0; }
-    DI(irq); request_pending=false; EI(irq);
+    robot_flags_clear(&ctl_flags,CF_REQUEST_PENDING);
     tm_printf((UB*)"[AUTO] Waiting for line and fresh forward observations; no keyboard command needed.\n");
    }
   }
   if(action==AUTO_START) {
    if(restarting) line_follow_discard_barcode();
-   run_enabled=true;
+   robot_flags_set(&ctl_flags,CF_RUN_ENABLED);
    /* If already 15..20cm from an obstacle, remain stationary and let the
     * first active front sample request STOP/SCAN. Never drive into it. */
    if(scan.front_clearance_mm>B5_STOP_FRONT_MM && !line_follow_start())
     halt(&nav,&start,"line follower could not start");
    else {
-    if(buddy4_ready) (void)buddy4_task_begin_run();
+    if(CTL(CF_BUDDY4_READY)) (void)buddy4_task_begin_run();
     tm_printf((UB*)"[AUTO] RUNNING %s; front=%dmm (-1=out of range).\n",
      (UB*)(restarting?"after START":"automatically"),scan.front_clearance_mm==B5_CLEAR_FRONT_MM?-1:scan.front_clearance_mm);
    }
   }
+  {
+   uint32_t fm=0;
+   if(CTL(CF_FAULT_LATCHED) || motor.fault==MOTION_FAULT_STALL) fm|=ROBOT_FAULT_MOTOR_STALL;
+   if(motor.fault==MOTION_FAULT_ESTOP) fm|=ROBOT_FAULT_ESTOP;
+   if(lift_active) fm|=ROBOT_FAULT_LIFTED;
+   if(nav.failed) fm|=ROBOT_FAULT_NAV;
+   if(scan.state==B5_ERROR) {
+    if(scan.fault==B5_FAULT_SENSOR) fm|=ROBOT_FAULT_SONAR;
+    else if(scan.fault==B5_FAULT_SERVO) fm|=ROBOT_FAULT_SERVO;
+    else fm|=ROBOT_FAULT_B5_OTHER;
+   }
+#if TM_WIFI_MQTT
+   if(!mqtt_dashboard_ready()) fm|=ROBOT_FAULT_MQTT_LOST;
+#endif
+   robot_flags_update(&fault_mask,(1u<<ROBOT_FAULT_MASK_BITS)-1u,fm);
+  }
   b5_feedback_t f;
-  full_nav_feedback(&nav,last_motor,&f); f.fault=fault_latched;
+  full_nav_feedback(&nav,last_motor,&f); f.fault=CTL(CF_FAULT_LATCHED);
   int32_t state=(int32_t)auto_start_exec_state(&start)|((int32_t)start.last_start<<4);
   DI(irq); feedback_shared=f; execution_state=state; execution_reason=start.reason; EI(irq);
 #if TM_WIFI_MQTT
@@ -437,7 +460,7 @@ static void controller_task(INT stacd,void *exinf) {
 #endif
 #if TM_WIFI_MQTT
   /* Lift state is time critical for the dashboard: report on change, at most every 200 ms, else every second. */
-  if(buddy4_ready && mqtt_dashboard_ready() && (uint32_t)(now-last_lift_report)>=200u &&
+  if(CTL(CF_BUDDY4_READY) && mqtt_dashboard_ready() && (uint32_t)(now-last_lift_report)>=200u &&
      (lift_active!=last_lift_reported || lift_count!=last_lift_count_reported ||
       (uint32_t)(now-last_lift_report)>=1000u)) {
    if(report_measurement(4,TELEMETRY_TYPE_LIFT,(uint16_t)((lift_fresh?1u:0u)|(lift_active?2u:0u)),
@@ -506,7 +529,7 @@ static void controller_task(INT stacd,void *exinf) {
    bool tilt_valid=false;
    int32_t pitch=0,roll=0;
 #endif
-   if(buddy4_ready) {
+   if(CTL(CF_BUDDY4_READY)) {
     buddy4_task_snapshot_t imu;
     if(buddy4_task_get(&imu)>=E_OK) {
 #if TM_WIFI_MQTT && !B5_SCAN_ONLY   /* measuring build: keep the telemetry channel free for Buddy 5 */
@@ -566,7 +589,7 @@ static void controller_task(INT stacd,void *exinf) {
     line.state,(unsigned)mask,(int)(line.left_cmd_cm_s*10),(int)(line.right_cmd_cm_s*10),
     (int)(motor.left_speed_cm_s*10),(int)(motor.right_speed_cm_s*10));
    tm_printf((UB*)"[AUTO] phase=%d enabled=%d line_mask=%u scan=%s fault=%d nominal_servo=%d front=%d guard=%d fresh=%d x/y=%d/%d heading=%d width=%d depth=%d..%d\n",
-    start.phase,run_enabled,(unsigned)mask,(UB*)b5_state_name(scan.state),scan.fault,scan.angle,scan.front_clearance_mm==B5_CLEAR_FRONT_MM?-1:scan.front_clearance_mm,
+    start.phase,CTL(CF_RUN_ENABLED),(unsigned)mask,(UB*)b5_state_name(scan.state),scan.fault,scan.angle,scan.front_clearance_mm==B5_CLEAR_FRONT_MM?-1:scan.front_clearance_mm,
     guard,guard_fresh,
     (int)nav.x,(int)nav.y,(int)nav.heading,scan.profile.width_valid?scan.profile.width_mm:-1,
     scan.profile.depth_valid?scan.profile.depth_low_mm:-1,scan.profile.depth_valid?scan.profile.depth_high_mm:-1);
@@ -576,7 +599,7 @@ static void controller_task(INT stacd,void *exinf) {
  }
 }
 int32_t vehicle_controller_start(bool imu_ready) {
- buddy4_ready=imu_ready;
+ robot_flags_assign(&ctl_flags,CF_BUDDY4_READY,imu_ready);
  /* Motor timing must outrank the 2 ms Wi-Fi poll task (priority 4). */
  T_CTSK cfg={0};
  cfg.tskatr=TA_HLNG|TA_RNG3; cfg.task=controller_task; cfg.itskpri=2; cfg.stksz=4096;
@@ -588,6 +611,6 @@ int32_t vehicle_controller_start(bool imu_ready) {
 }
 
 void vehicle_controller_disable_imu(void) {
- buddy4_ready=false;
+ robot_flags_clear(&ctl_flags,CF_BUDDY4_READY);
 }
 #endif
