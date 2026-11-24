@@ -35,20 +35,16 @@ int main(void)
 
     CHECK(BITPACK_BYTES(1u) == 1u && BITPACK_BYTES(8u) == 1u && BITPACK_BYTES(9u) == 2u, "BITPACK_BYTES rounds up");
 
-    /* Packed scan: B5_SCAN_POINTS slots (25: -60..+60 every 5 deg), edge values, no slot disturbs another. */
+    /* Packed scan: 13 slots, edge values, no slot disturbs another. */
     b5_scan_t scan;
     memset(&scan, 0, sizeof scan);
-    uint32_t dist[B5_SCAN_POINTS]; uint8_t state[B5_SCAN_POINTS];
-    {
-        static const uint32_t d0[13] = { 0u, 1u, 80u, 300u, 4116u, 8191u, 4095u, 4096u, 150u, 2047u, 2048u, 7u, 8190u };
-        static const uint8_t s0[13] = { 0u, 1u, 2u, 1u, 2u, 1u, 0u, 2u, 1u, 2u, 0u, 1u, 2u };
-        for (int i = 0; i < B5_SCAN_POINTS; i++) { dist[i] = d0[(i * 5) % 13]; state[i] = s0[(i * 7) % 13]; }
-    }
+    const uint32_t dist[B5_SCAN_POINTS] = { 0u, 1u, 80u, 300u, 4116u, 8191u, 4095u, 4096u, 150u, 2047u, 2048u, 7u, 8190u };
+    const uint8_t state[B5_SCAN_POINTS] = { 0u, 1u, 2u, 1u, 2u, 1u, 0u, 2u, 1u, 2u, 0u, 1u, 2u };
     for (int i = 0; i < B5_SCAN_POINTS; i++) b5_scan_set(&scan, i, state[i], dist[i]);
     ok = 1;
     for (int i = 0; i < B5_SCAN_POINTS; i++)
         if (b5_scan_dist(&scan, i) != dist[i] || b5_scan_state(&scan, i) != state[i]) ok = 0;
-    CHECK(ok, "every scan slot keeps its own distance and state");
+    CHECK(ok, "13 scan slots keep their own distance and state");
 
     b5_scan_set(&scan, 6, B5_SCAN_ECHO, 123u);
     ok = b5_scan_dist(&scan, 6) == 123u && b5_scan_state(&scan, 6) == B5_SCAN_ECHO;
@@ -59,7 +55,7 @@ int main(void)
     b5_scan_set(&scan, 0, B5_SCAN_ECHO, 100000u);
     CHECK(b5_scan_dist(&scan, 0) == B5_SCAN_DIST_MAX, "a distance above 8191 mm is clamped, not wrapped");
 
-    CHECK(sizeof(b5_scan_t) == (B5_SCAN_POINTS * 15u + 7u) / 8u, "packed scan is 15 bits per slot (47 bytes for 25 slots; unpacked would be 75)");
+    CHECK(sizeof(b5_scan_t) == 25u, "packed scan is 25 bytes (was 39)");
     CHECK(sizeof(b5_feedback_t) <= 20u, "feedback struct is 20 bytes or less (was 28)");
     CHECK(sizeof(b5_profile_t) <= 52u, "profile struct is 52 bytes or less (was 56)");
 

@@ -90,11 +90,8 @@ static void steer(int32_t side, float inner)
 }
 
 #if LINE_JUNCTION
-static bool s_junction_from_barcode;   /* the action for this junction came from a barcode letter */
-
 static junction_action_t junction_choose(void)
 {
-    s_junction_from_barcode = false;
 #if LINE_JUNCTION_USE_BARCODE
     char letter = 0;
     uint32_t read_ms = 0u;
@@ -107,7 +104,6 @@ static junction_action_t junction_choose(void)
         {
             s_barcode_used = true;
             s_barcode_used_ms = read_ms;
-            s_junction_from_barcode = true;
             return from_barcode;
         }
     }
@@ -120,15 +116,6 @@ static void junction_begin(void)
     s_junction_action = junction_choose();
     s_junction_ms = 0u;
     s_junction_armed = false;
-    if ((!s_junction_from_barcode) && (s_junction_action == JUNCTION_STRAIGHT))
-    {
-        /* No barcode for this junction: drive straight through without stopping. Detection stays off until
-           both sensors read white again, so the cross bar does not trigger it twice. */
-        s_junction = J_NONE;
-        s_state = LINE_STATE_STRAIGHT;
-        drive(LINE_STRAIGHT_SPEED_CM_S, LINE_STRAIGHT_SPEED_CM_S);
-        return;
-    }
     s_state = LINE_STATE_JUNCTION;
     s_left_cmd = 0.0f;
     s_right_cmd = 0.0f;

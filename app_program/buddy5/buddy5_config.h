@@ -40,27 +40,15 @@
  * Geometry remains provisional until angles and bracket clearance are checked. */
 /* Provisional photo estimates; pulses retain the previous uncalibrated slope.
  * These are NOT measured mechanical stops. Full test needs physical validation. */
-/* Scan window. Was -35..+25, which could not see past either edge of a 25 cm box from 30 cm (the sound cone is
- * ~15 deg wide each way, so it needs ~37 deg). The SG90 mapping below reaches +/-90 electrically.
- * CHECK BY HAND that the bracket and wires let the sonar turn this far before flashing. */
-#ifndef B5_SCAN_MIN_DEG
-#define B5_SCAN_MIN_DEG (-60)
-#endif
-#ifndef B5_SCAN_MAX_DEG
-#define B5_SCAN_MAX_DEG 60
-#endif
-#define B5_SCAN_STEP_DEG 5
-#define B5_SCAN_ZERO_SLOT ((-B5_SCAN_MIN_DEG)/B5_SCAN_STEP_DEG)
-/* Look-back angles used while returning to the line (unchanged from the old window limits). */
-#define B5_LOOK_BACK_LEFT_DEG 25
-#define B5_LOOK_BACK_RIGHT_DEG (-35)
+#define B5_SCAN_MIN_DEG (-35)
+#define B5_SCAN_MAX_DEG 25
+#define B5_SCAN_ZERO_SLOT 7
 #define B5_TURN_CLEARANCE_MM (B5_SENSOR_TO_REAR_MM+B5_CAR_LENGTH_MM+B5_CAR_WIDTH_MM/2+B5_CLEARANCE_MM)
 #define B5_SERVO_PIN 12u
 #define B5_SERVO_RIGHT_US 2000u
 #define B5_SERVO_CENTRE_US 1500u
 #define B5_SERVO_LEFT_US 1000u
 #define B5_SERVO_SETTLE_MS 300u
-#define B5_SERVO_STEP_SETTLE_MS 120u   /* settle after a small (one scan step) servo move */
 #define B5_PING_INTERVAL_MS 70u
 #define B5_SAMPLE_COUNT 3u
 #define B5_MIN_VALID_SAMPLES 2u
@@ -274,12 +262,8 @@
 #endif
 #define B5_BOX_DEPTH_TOL_MM 20      /* the box may be this much deeper than B5_BOX_LENGTH_MM */
 #ifndef B5_BEAM_HALF_DEG
-#define B5_BEAM_HALF_DEG 15         /* sonar cone half-angle used to turn "first ray that missed the box" into an edge.
-                                       Was 10: the HC-SR04 still hears the box corner up to ~15 deg off its axis, so
-                                       10 made the box ~10 cm wider than measured on the car. TUNE: raise if the width
-                                       still reads big, lower if it reads small (SCAN_ONLY=1 build to check). */
+#define B5_BEAM_HALF_DEG 10         /* sonar cone half-angle used to turn "first ray that missed the box" into an edge */
 #endif
-#define B5_EDGE_RISE_MM 8           /* box echoes still lengthening by more than this at the edge: add half a step */
 #define B5_FACE_TOL_MM 45           /* an echo within this of the box-face plane counts as the box */
 #define B5_SIDE_GAP_MM 60           /* planned gap between the car's inner side and the box edge */
 #define B5_SIDE_GAP_MIN_MM 30       /* smallest gap that still counts as "room" */
@@ -301,7 +285,7 @@
 #define B5_ROUTE_CHECK_TIMEOUT_MS 3000u
 #define B5_ROUTE_CHECK_READINGS 2u
 
-/* 1 = pass distance is (distance to the box + box length + B5_PASS_SAFETY_EXTRA_MM). 0 = computed from the car outline (longer, collision-checked). */
+/* 1 = pass distance is exactly (distance to the box + box length). 0 = computed from the car outline (longer, collision-checked). */
 #ifndef B5_PASS_SIMPLE
 #define B5_PASS_SIMPLE 1
 #endif
@@ -309,8 +293,8 @@
  * exactly at the rear face, the car's side (85 mm half-width) and front corner still overlap the box when it turns
  * and drives to the line, and the sonar cannot see that strip beside the car (its servo only reaches -35/+25 deg).
  * Half width 85 + sweep margin 25 = 110 minimum; the margin also covers open-loop turn and drive drift. TUNE. */
-#ifndef B5_PASS_SAFETY_EXTRA_MM
-#define B5_PASS_SAFETY_EXTRA_MM 100
+#ifndef B5_PASS_PAST_REAR_MM
+#define B5_PASS_PAST_REAR_MM 100
 #endif
 /* 1 = measuring only: the car never moves. Obstacles in front are scanned and their width/edges reported. */
 #ifndef B5_SCAN_ONLY

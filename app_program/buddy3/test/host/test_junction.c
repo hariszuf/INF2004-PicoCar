@@ -126,11 +126,10 @@ int main(void)
     line_follow_get_status(&st);
     CHECK(st.state == LINE_STATE_JUNCTION && s_stop_calls == 1, "both white, then both black again -> next junction");
 #else
-    /* Default junction map (junction_map.c): A = left, W = right; letters without an instruction go straight. */
-    char letters[] = {'A', 'W', 'A', 'W', 'A'};
-    int exp_left[] = {1, 0, 1, 0, 1};
-    int exp_right[] = {0, 1, 0, 1, 0};
-    int exp_cross[] = {0, 0, 0, 0, 0};
+    char letters[] = {'A', 'B', 'C', 'D', 'Z'};
+    int exp_left[] = {1, 0, 0, 1, 0};
+    int exp_right[] = {0, 0, 1, 0, 0};
+    int exp_cross[] = {0, 1, 0, 0, 1};
 
     for (int i = 0; i < 5; i++)
     {
@@ -160,21 +159,6 @@ int main(void)
         line_follow_get_status(&st);
         CHECK(st.state == LINE_STATE_STRAIGHT, "back to following the line");
         tick(0u);
-    }
-    if (LINE_JUNCTION_DEFAULT_ACTION == JUNCTION_STRAIGHT)
-    {
-        /* No new scan: drive straight through the junction without stopping. */
-        int stops = s_stop_calls;
-        tick(BOTH);
-        line_follow_get_status(&st);
-        CHECK(st.state == LINE_STATE_STRAIGHT && s_stop_calls == stops && s_drive_calls > 0,
-              "no new barcode -> drives straight through, no stop");
-        CHECK(!line_follow_restart_required(), "no barcode at a junction does not wait for a restart");
-        tick(BOTH);
-        line_follow_get_status(&st);
-        CHECK(st.state == LINE_STATE_STRAIGHT && s_stop_calls == stops, "still on the cross bar -> keeps going");
-        printf("%s\n", s_failures == 0 ? "ALL PASSED" : "SOME FAILED");
-        return s_failures == 0 ? 0 : 1;
     }
     /* No new scan: stop at the junction and stay stopped, no turn, no driving. */
     tick(BOTH);
