@@ -1,3 +1,4 @@
+#include "../barrc_types.h"
 #include "buddy4_encoder_yaw.h"
 #include <float.h>
 #include <math.h>
@@ -35,8 +36,8 @@ bool buddy4_encoder_yaw_init (buddy4_encoder_yaw_t * d,
     return d->configured;
 }
 
-void buddy4_encoder_yaw_update (buddy4_encoder_yaw_t * d, float left,
-                                float right,
+void buddy4_encoder_yaw_update (buddy4_encoder_yaw_t * d, float32_t left,
+                                float32_t right,
                                 bool valid, uint64_t sample, uint64_t now)
 {
     d->output.valid = false;
@@ -52,10 +53,10 @@ void buddy4_encoder_yaw_update (buddy4_encoder_yaw_t * d, float left,
 
     /* Double intermediates avoid overflow in right-left for finite float
      * inputs. */
-    double rad =
-            ((double)right - (double)left)
-            / (double)d->config.centre_spacing_cm;
-    double deg = rad * (180.0/3.14159265358979323846);
+    float64_t rad =
+            ((float64_t)right - (float64_t)left)
+            / (float64_t)d->config.centre_spacing_cm;
+    float64_t deg = rad * (180.0/3.14159265358979323846);
 
     if ((!isfinite(rad)) || (!isfinite(deg)) || (fabs(rad) > FLT_MAX)
         || (fabs(deg) > FLT_MAX))
@@ -65,8 +66,8 @@ void buddy4_encoder_yaw_update (buddy4_encoder_yaw_t * d, float left,
 
     d->has_sample_time = true;
     d->last_sample_us = sample;
-    d->output = (buddy4_encoder_yaw_output_t){true, sample, (float)rad,
-        (float)deg};
+    d->output = (buddy4_encoder_yaw_output_t){true, sample, (float32_t)rad,
+        (float32_t)deg};
 }
 
 buddy4_encoder_yaw_output_t buddy4_encoder_yaw_get (buddy4_encoder_yaw_t * d,

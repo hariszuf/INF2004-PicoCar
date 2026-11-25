@@ -2,11 +2,12 @@
  * @file motion_pid.c
  * @brief PID controller implementation. See motion_pid.h.
  */
+#include "../barrc_types.h"
 #include "motion_pid.h"
 
-static float clamp_f (float value, float low, float high)
+static float32_t clamp_f (float32_t value, float32_t low, float32_t high)
 {
-    float result = value;
+    float32_t result = value;
 
     if (result < low)
     {
@@ -21,8 +22,10 @@ static float clamp_f (float value, float low, float high)
     return result;
 }
 
-void motion_pid_init (motion_pid_t * p_pid, float kp, float ki, float kd,
-                      float integral_limit, float out_min, float out_max)
+void motion_pid_init (motion_pid_t * p_pid, float32_t kp, float32_t ki,
+                      float32_t kd,
+                      float32_t integral_limit, float32_t out_min,
+                              float32_t out_max)
 {
     if (p_pid == (motion_pid_t *)0)
     {
@@ -50,12 +53,12 @@ void motion_pid_reset (motion_pid_t * p_pid)
     p_pid->primed = 0;
 }
 
-float motion_pid_update (motion_pid_t * p_pid, float setpoint,
-                         float measurement, float dt_s)
+float32_t motion_pid_update (motion_pid_t * p_pid, float32_t setpoint,
+                         float32_t measurement, float32_t dt_s)
 {
-    float error;
-    float derivative = 0.0f;
-    float output;
+    float32_t error;
+    float32_t derivative = 0.0f;
+    float32_t output;
 
     if ((p_pid == (motion_pid_t *)0) || (dt_s <= 0.0f))
     {

@@ -9,6 +9,7 @@
  * -I../.. -I../../../buddy2 ../../line_follow.c ../../junction_map.c
  * test_junction.c -o /tmp/junction_bc && /tmp/junction_bc
  */
+#include "../../../barrc_types.h"
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -19,14 +20,14 @@
 
 static uint8_t s_mask;
 static bool s_idle = true;
-static int s_stop_calls;
-static int s_drive_calls;
-static int s_forward_calls;
-static int s_left_calls;
-static int s_right_calls;
-static float s_last_forward;
-static float s_last_turn;
-static int s_failures;
+static int32_t s_stop_calls;
+static int32_t s_drive_calls;
+static int32_t s_forward_calls;
+static int32_t s_left_calls;
+static int32_t s_right_calls;
+static float32_t s_last_forward;
+static float32_t s_last_turn;
+static int32_t s_failures;
 
 void line_sensors_init (void)
 {
@@ -37,7 +38,7 @@ uint8_t line_sensors_read (void)
     return s_mask;
 }
 
-bool motion_get_tilt (float * p, float * r)
+bool motion_get_tilt (float32_t * p, float32_t * r)
 {
     (void)p;
     (void)r;
@@ -60,7 +61,7 @@ void motion_stop (void)
     s_stop_calls++;
 }
 
-motion_result_t motion_drive (float l, float r)
+motion_result_t motion_drive (float32_t l, float32_t r)
 {
     (void)l;
     (void)r;
@@ -68,7 +69,7 @@ motion_result_t motion_drive (float l, float r)
     return MOTION_OK;
 }
 
-motion_result_t motion_move_forward (float d)
+motion_result_t motion_move_forward (float32_t d)
 {
     s_forward_calls++;
     s_last_forward = d;
@@ -76,14 +77,14 @@ motion_result_t motion_move_forward (float d)
     return MOTION_OK;
 }
 
-motion_result_t motion_move_backward (float d)
+motion_result_t motion_move_backward (float32_t d)
 {
     (void)d;
     s_idle = false;
     return MOTION_OK;
 }
 
-motion_result_t motion_turn_left (float a)
+motion_result_t motion_turn_left (float32_t a)
 {
     s_left_calls++;
     s_last_turn = a;
@@ -91,7 +92,7 @@ motion_result_t motion_turn_left (float a)
     return MOTION_OK;
 }
 
-motion_result_t motion_turn_right (float a)
+motion_result_t motion_turn_right (float32_t a)
 {
     s_right_calls++;
     s_last_turn = a;
@@ -219,11 +220,11 @@ int main (void)
           "both white, then both black again -> next junction");
 #else
     char letters[] = {'A', 'B', 'C', 'D', 'Z'};
-    int exp_left[] = {1, 0, 0, 1, 0};
-    int exp_right[] = {0, 0, 1, 0, 0};
-    int exp_cross[] = {0, 1, 0, 0, 1};
+    int32_t exp_left[] = {1, 0, 0, 1, 0};
+    int32_t exp_right[] = {0, 0, 1, 0, 0};
+    int32_t exp_cross[] = {0, 1, 0, 0, 1};
 
-    for (int idx = 0; idx < 5; idx++)
+    for (int32_t idx = 0; idx < 5; idx++)
     {
         char name[64];
 
@@ -267,9 +268,9 @@ int main (void)
           "no new barcode -> stops at the junction");
     CHECK(line_follow_restart_required(),
           "controller can detect a junction waiting for a barcode");
-    int moved = 0;
+    int32_t moved = 0;
 
-    for (int idx = 0; idx < 2000; idx++)
+    for (int32_t idx = 0; idx < 2000; idx++)
     {
         s_idle = true;
         tick((0 == idx % 3) ? 0u : BOTH);

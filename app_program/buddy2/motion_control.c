@@ -8,6 +8,7 @@
  * writer of the control state. motion_emergency_stop() is the exception: it
  * brakes the motors straight away, then lets motion_update() record the fault.
  */
+#include "../barrc_types.h"
 #include "motion_control.h"
 
 #include <math.h>
@@ -62,9 +63,9 @@ typedef struct
 {
     command_type_t type;
     /* MOVE: signed cm (+ forward). TURN: signed deg (+ left) */
-    float value;
-    float left_cm_s;    /* DRIVE only */
-    float right_cm_s;
+    float32_t value;
+    float32_t left_cm_s;    /* DRIVE only */
+    float32_t right_cm_s;
 } command_t;
 
 /* ------------------------------------------------------------------ */
@@ -82,15 +83,15 @@ static volatile uint8_t s_state = MOTION_STATE_IDLE;
 static volatile uint8_t s_fault = MOTION_FAULT_NONE;
 static command_t s_pending;
 static command_t s_active;
-static float s_cruise_cm_s = MOTION_DEFAULT_SPEED_CM_S;
+static float32_t s_cruise_cm_s = MOTION_DEFAULT_SPEED_CM_S;
 
-static float s_cm_per_count[MOTION_SIDE_COUNT];
+static float32_t s_cm_per_count[MOTION_SIDE_COUNT];
 static int32_t s_base_count[MOTION_SIDE_COUNT];
-static float s_position_cm[MOTION_SIDE_COUNT];
-static float s_previous_position_cm[MOTION_SIDE_COUNT];
-static float s_start_position_cm[MOTION_SIDE_COUNT];
-static float s_speed_cm_s[MOTION_SIDE_COUNT];
-static float s_setpoint_cm_s[MOTION_SIDE_COUNT];
+static float32_t s_position_cm[MOTION_SIDE_COUNT];
+static float32_t s_previous_position_cm[MOTION_SIDE_COUNT];
+static float32_t s_start_position_cm[MOTION_SIDE_COUNT];
+static float32_t s_speed_cm_s[MOTION_SIDE_COUNT];
+static float32_t s_setpoint_cm_s[MOTION_SIDE_COUNT];
 static int8_t s_direction[MOTION_SIDE_COUNT];   /* -1 or +1 */
 static motion_pid_t s_pid[MOTION_SIDE_COUNT];
 static uint32_t s_stall_ms[MOTION_SIDE_COUNT];
@@ -104,13 +105,13 @@ static motion_terrain_input_t s_terrain_input;
 static volatile uint64_t s_terrain_time_us = 0u;
 /* motion_terrain_t, 3 bits needed */
 static uint8_t s_terrain = MOTION_TERRAIN_FLAT;
-static float s_terrain_scale = 1.0f;
+static float32_t s_terrain_scale = 1.0f;
 /* slewed assist, applied */
-static float s_terrain_duty[MOTION_SIDE_COUNT];
+static float32_t s_terrain_duty[MOTION_SIDE_COUNT];
 /* wanted gravity term */
-static float s_terrain_grade_duty = 0.0f;
+static float32_t s_terrain_grade_duty = 0.0f;
 /* wanted hump term (magnitude) */
-static float s_terrain_hump_duty[MOTION_SIDE_COUNT];
+static float32_t s_terrain_hump_duty[MOTION_SIDE_COUNT];
 
 /* Latest values for motion_get_status(). */
 static int32_t s_status_count[MOTION_SIDE_COUNT];
@@ -154,19 +155,19 @@ static void critical_exit (uint32_t saved)
 /* ------------------------------------------------------------------ */
 /* Small maths helpers                                                 */
 /* ------------------------------------------------------------------ */
-static float abs_f (float value)
+static float32_t abs_f (float32_t value)
 {
     return (value < 0.0f) ? -value : value;
 }
 
-static float sign_f (float value)
+static float32_t sign_f (float32_t value)
 {
     return (value < 0.0f) ? -1.0f : 1.0f;
 }
 
-static float clamp_f (float value, float low, float high)
+static float32_t clamp_f (float32_t value, float32_t low, float32_t high)
 {
-    float result = value;
+    float32_t result = value;
 
     if (result < low)
     {
@@ -181,9 +182,10 @@ static float clamp_f (float value, float low, float high)
     return result;
 }
 
-static float approach (float current, float target, float max_step)
+static float32_t approach (float32_t current, float32_t target,
+                           float32_t max_step)
 {
-    float delta = target - current;
+    float32_t delta = target - current;
 
     if (delta > max_step)
     {
@@ -201,20 +203,20 @@ static float approach (float current, float target, float max_step)
 /* ------------------------------------------------------------------ */
 /* Sensing                                                             */
 /* ------------------------------------------------------------------ */
-static void read_sensors (float dt_s)
+static void read_sensors (float32_t dt_s)
 {
     uint32_t idx;
     motion_side_t side;
     int32_t counts;
-    float position;
-    float raw_speed;
+    float32_t position;
+    float32_t raw_speed;
 
     for (idx = 0u; idx < (uint32_t)MOTION_SIDE_COUNT; idx++)
     {
         side = (motion_side_t)idx;
         counts = motion_encoder_get_count(side) - s_base_count[idx];
         s_status_count[idx] = counts;
-        position = (float)counts * s_cm_per_count[idx];
+        position = (float32_t)counts * s_cm_per_count[idx];
         raw_speed = (position - s_previous_position_cm[idx]) / dt_s;
         s_speed_cm_s[idx] += MOTION_SPEED_FILTER_ALPHA
                 * (raw_speed - s_speed_cm_s[idx]);
@@ -223,7 +225,7 @@ static void read_sensors (float dt_s)
     }
 }
 
-static float heading_deg_from (float left_cm, float right_cm)
+static float32_t heading_deg_from (float32_t left_cm, float32_t right_cm)
 {
     return ((right_cm - left_cm) / MOTION_WHEEL_BASE_CM) * RAD_TO_DEG;
 }
@@ -239,16 +241,16 @@ static float heading_deg_from (float left_cm, float right_cm)
  *    on the raised wheel on a one-side hump. The assist is rate limited.
  * A missing, invalid or stale report means flat ground: normal behaviour.
  */
-static void update_terrain (uint64_t now, float dt_s)
+static void update_terrain (uint64_t now, float32_t dt_s)
 {
     motion_terrain_input_t input;
     bool fresh;
     uint32_t saved;
     uint32_t idx;
-    float pitch;
-    float roll;
-    float scale = 1.0f;
-    float wanted;
+    float32_t pitch;
+    float32_t roll;
+    float32_t scale = 1.0f;
+    float32_t wanted;
 
     saved = critical_enter();
     input = s_terrain_input;
@@ -340,10 +342,10 @@ static void update_terrain (uint64_t now, float dt_s)
  * driven direction. Never flip that direction while the wheel is still
  * turning: brake instead and wait.
  */
-static float drive_wheel (motion_side_t side, float duty)
+static float32_t drive_wheel (motion_side_t side, float32_t duty)
 {
     int32_t wanted_direction = (duty < 0.0f) ? -1 : 1;
-    float applied = duty;
+    float32_t applied = duty;
 
     if (abs_f(duty) < DUTY_ZERO)
     {
@@ -379,9 +381,10 @@ static void reset_controllers (void)
 }
 
 /* Speed loop for one wheel. Returns the duty actually applied. */
-static float wheel_control (motion_side_t side, float setpoint, float dt_s)
+static float32_t wheel_control (motion_side_t side, float32_t setpoint,
+                                float32_t dt_s)
 {
-    float duty;
+    float32_t duty;
 
     if (abs_f(setpoint) <= ZERO_SPEED_CM_S)
     {
@@ -438,9 +441,9 @@ static float wheel_control (motion_side_t side, float setpoint, float dt_s)
  * driving direction. The second case matters at slow line-following speeds,
  * where feed-forward + PID can never reach MOTION_STALL_DUTY.
  */
-static bool pushing_hard (uint32_t idx, float applied)
+static bool pushing_hard (uint32_t idx, float32_t applied)
 {
-    float drive_sign = sign_f(s_setpoint_cm_s[idx]);
+    float32_t drive_sign = sign_f(s_setpoint_cm_s[idx]);
 
     if (abs_f(applied) >= MOTION_STALL_DUTY)
     {
@@ -532,37 +535,37 @@ static void start_command (const command_t * p_command)
 /* ------------------------------------------------------------------ */
 
 /* Distance the robot still travels after the brake is applied. */
-static float stop_lead_cm (void)
+static float32_t stop_lead_cm (void)
 {
-    float mean_speed = 0.5f * (abs_f(s_speed_cm_s[MOTION_SIDE_LEFT]) +
+    float32_t mean_speed = 0.5f * (abs_f(s_speed_cm_s[MOTION_SIDE_LEFT]) +
                                abs_f(s_speed_cm_s[MOTION_SIDE_RIGHT]));
 
     return mean_speed * MOTION_STOP_LEAD_S;
 }
 
-static float straight_trim (float distance_difference, float limit)
+static float32_t straight_trim (float32_t distance_difference, float32_t limit)
 {
     return clamp_f(MOTION_STRAIGHT_KP * distance_difference, -limit, limit);
 }
 
-static bool profile_move (float target[MOTION_SIDE_COUNT])
+static bool profile_move (float32_t target[MOTION_SIDE_COUNT])
 {
-    float direction = sign_f(s_active.value);
-    float goal = abs_f(s_active.value);
-    float left =
+    float32_t direction = sign_f(s_active.value);
+    float32_t goal = abs_f(s_active.value);
+    float32_t left =
             s_position_cm[MOTION_SIDE_LEFT]
             - s_start_position_cm[MOTION_SIDE_LEFT];
-    float right =
+    float32_t right =
             s_position_cm[MOTION_SIDE_RIGHT]
             - s_start_position_cm[MOTION_SIDE_RIGHT];
-    float travelled = (left + right) * 0.5f;
-    float remaining = goal - (direction * travelled);
-    float minimum =
+    float32_t travelled = (left + right) * 0.5f;
+    float32_t remaining = goal - (direction * travelled);
+    float32_t minimum =
             (MOTION_MIN_SPEED_CM_S < s_cruise_cm_s) ? MOTION_MIN_SPEED_CM_S
             : s_cruise_cm_s;
-    float speed;
-    float trim;
-    float lead = stop_lead_cm();
+    float32_t speed;
+    float32_t trim;
+    float32_t lead = stop_lead_cm();
 
     if (remaining <= (MOTION_DISTANCE_TOL_CM + lead))
     {
@@ -580,21 +583,21 @@ static bool profile_move (float target[MOTION_SIDE_COUNT])
     return false;
 }
 
-static bool profile_turn (float target[MOTION_SIDE_COUNT])
+static bool profile_turn (float32_t target[MOTION_SIDE_COUNT])
 {
-    float direction = sign_f(s_active.value);
-    float goal_deg = abs_f(s_active.value) * MOTION_TURN_SCALE;
-    float left =
+    float32_t direction = sign_f(s_active.value);
+    float32_t goal_deg = abs_f(s_active.value) * MOTION_TURN_SCALE;
+    float32_t left =
             s_position_cm[MOTION_SIDE_LEFT]
             - s_start_position_cm[MOTION_SIDE_LEFT];
-    float right =
+    float32_t right =
             s_position_cm[MOTION_SIDE_RIGHT]
             - s_start_position_cm[MOTION_SIDE_RIGHT];
-    float turned_deg = heading_deg_from(left, right);
-    float remaining_deg = goal_deg - (direction * turned_deg);
-    float arc_cm;
-    float speed;
-    float lead_deg =
+    float32_t turned_deg = heading_deg_from(left, right);
+    float32_t remaining_deg = goal_deg - (direction * turned_deg);
+    float32_t arc_cm;
+    float32_t speed;
+    float32_t lead_deg =
             (stop_lead_cm() / (MOTION_WHEEL_BASE_CM * 0.5f)) * RAD_TO_DEG;
 
     if (remaining_deg <= (MOTION_ANGLE_TOL_DEG + lead_deg))
@@ -612,25 +615,25 @@ static bool profile_turn (float target[MOTION_SIDE_COUNT])
     return false;
 }
 
-static void profile_drive (float target[MOTION_SIDE_COUNT])
+static void profile_drive (float32_t target[MOTION_SIDE_COUNT])
 {
     target[MOTION_SIDE_LEFT] = s_active.left_cm_s;
     target[MOTION_SIDE_RIGHT] = s_active.right_cm_s;
 
     if (s_active.left_cm_s == s_active.right_cm_s)
     {
-        float left =
+        float32_t left =
                 s_position_cm[MOTION_SIDE_LEFT]
                 - s_start_position_cm[MOTION_SIDE_LEFT];
-        float right =
+        float32_t right =
                 s_position_cm[MOTION_SIDE_RIGHT]
                 - s_start_position_cm[MOTION_SIDE_RIGHT];
-        float speed = abs_f(s_active.left_cm_s);
+        float32_t speed = abs_f(s_active.left_cm_s);
         /* At crawl speed, keep the correction small enough for both wheels to
          * drive. */
-        float limit = clamp_f((speed - ZERO_SPEED_CM_S) * 0.5f,
+        float32_t limit = clamp_f((speed - ZERO_SPEED_CM_S) * 0.5f,
                               0.0f, MOTION_STRAIGHT_TRIM_MAX_CM_S);
-        float trim = straight_trim(left - right, limit);
+        float32_t trim = straight_trim(left - right, limit);
         target[MOTION_SIDE_LEFT] -= trim;
         target[MOTION_SIDE_RIGHT] += trim;
     }
@@ -639,14 +642,14 @@ static void profile_drive (float target[MOTION_SIDE_COUNT])
 /* ------------------------------------------------------------------ */
 /* State handlers                                                      */
 /* ------------------------------------------------------------------ */
-static void run_executing (float dt_s)
+static void run_executing (float32_t dt_s)
 {
-    float target[MOTION_SIDE_COUNT] = { 0.0f, 0.0f };
+    float32_t target[MOTION_SIDE_COUNT] = { 0.0f, 0.0f };
     bool done = false;
     uint32_t idx;
     motion_side_t side;
-    float rate;
-    float applied;
+    float32_t rate;
+    float32_t applied;
 
     switch (s_active.type)
     {
@@ -737,7 +740,7 @@ static void run_stopping (void)
 motion_result_t motion_init (void)
 {
     uint32_t idx;
-    float circumference_cm = MOTION_PI * MOTION_WHEEL_DIAMETER_CM;
+    float32_t circumference_cm = MOTION_PI * MOTION_WHEEL_DIAMETER_CM;
 
     if (MF(MF_INITIALISED))
     {
@@ -788,7 +791,7 @@ motion_result_t motion_init (void)
 void motion_update (void)
 {
     uint64_t now;
-    float dt_s;
+    float32_t dt_s;
     command_t command;
     bool have_command;
     uint32_t saved;
@@ -799,7 +802,7 @@ void motion_update (void)
     }
 
     now = now_us();
-    dt_s = (float)(now - s_last_update_us) / US_PER_SECOND;
+    dt_s = (float32_t)(now - s_last_update_us) / US_PER_SECOND;
     s_last_update_us = now;
     dt_s = clamp_f(dt_s, 0.5f * PERIOD_S, 2.0f * PERIOD_S);
 
@@ -860,7 +863,7 @@ static motion_result_t queue_command (const command_t * p_command)
     return MOTION_OK;
 }
 
-static motion_result_t queue_move (float signed_distance_cm)
+static motion_result_t queue_move (float32_t signed_distance_cm)
 {
     command_t command;
 
@@ -876,7 +879,7 @@ static motion_result_t queue_move (float signed_distance_cm)
     return queue_command(&command);
 }
 
-static motion_result_t queue_turn (float signed_angle_deg)
+static motion_result_t queue_turn (float32_t signed_angle_deg)
 {
     command_t command;
 
@@ -893,29 +896,29 @@ static motion_result_t queue_turn (float signed_angle_deg)
     return queue_command(&command);
 }
 
-motion_result_t motion_move_forward (float distance_cm)
+motion_result_t motion_move_forward (float32_t distance_cm)
 {
     return (distance_cm > 0.0f) ? queue_move(distance_cm)
             : MOTION_ERR_INVALID_ARG;
 }
 
-motion_result_t motion_move_backward (float distance_cm)
+motion_result_t motion_move_backward (float32_t distance_cm)
 {
     return (distance_cm > 0.0f) ? queue_move(-distance_cm)
             : MOTION_ERR_INVALID_ARG;
 }
 
-motion_result_t motion_turn_left (float angle_deg)
+motion_result_t motion_turn_left (float32_t angle_deg)
 {
     return (angle_deg > 0.0f) ? queue_turn(angle_deg) : MOTION_ERR_INVALID_ARG;
 }
 
-motion_result_t motion_turn_right (float angle_deg)
+motion_result_t motion_turn_right (float32_t angle_deg)
 {
     return (angle_deg > 0.0f) ? queue_turn(-angle_deg) : MOTION_ERR_INVALID_ARG;
 }
 
-motion_result_t motion_drive (float left_cm_s, float right_cm_s)
+motion_result_t motion_drive (float32_t left_cm_s, float32_t right_cm_s)
 {
     command_t command;
 
@@ -938,7 +941,7 @@ motion_result_t motion_drive (float left_cm_s, float right_cm_s)
     return queue_command(&command);
 }
 
-motion_result_t motion_set_speed (float speed_cm_s)
+motion_result_t motion_set_speed (float32_t speed_cm_s)
 {
     if ((speed_cm_s <= 0.0f) || (speed_cm_s > MOTION_MAX_SPEED_CM_S))
     {
@@ -949,7 +952,7 @@ motion_result_t motion_set_speed (float speed_cm_s)
     return MOTION_OK;
 }
 
-bool motion_get_tilt (float * p_pitch_deg, float * p_roll_deg)
+bool motion_get_tilt (float32_t * p_pitch_deg, float32_t * p_roll_deg)
 {
     motion_terrain_input_t input;
     bool have;
@@ -957,7 +960,7 @@ bool motion_get_tilt (float * p_pitch_deg, float * p_roll_deg)
     uint64_t now;
     uint32_t saved;
 
-    if ((p_pitch_deg == (float *)0) || (p_roll_deg == (float *)0)
+    if ((p_pitch_deg == (float32_t *)0) || (p_roll_deg == (float32_t *)0)
         || (!MF(MF_INITIALISED)))
     {
         return false;

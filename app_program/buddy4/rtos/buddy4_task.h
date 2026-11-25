@@ -1,5 +1,6 @@
 #ifndef BUDDY4_TASK_H
 #define BUDDY4_TASK_H
+#include "../../barrc_types.h"
 #include <stdbool.h>
 #include <stdint.h>
 #ifdef BUDDY4_MTK_HOST_TEST
@@ -14,18 +15,18 @@ typedef struct
 {
     bool valid;
     uint64_t sample_us;
-    float left_cm_s;
-    float right_cm_s;
+    float32_t left_cm_s;
+    float32_t right_cm_s;
 } buddy4_task_speed_t;
 typedef struct
 {
-    int side;
+    int32_t side;
     uint64_t start_us;
     uint64_t end_us;
     bool stable_valid;
     bool median_valid;
-    float stable_cm;
-    float median_cm;
+    float32_t stable_cm;
+    float32_t median_cm;
 } buddy4_task_event_t;
 typedef struct
 {
@@ -43,7 +44,7 @@ typedef struct
     bool valid; /* Acquisition freshness only. */
     bool acceleration_valid;
     bool tilt_valid;
-    int measurement_quality;
+    int32_t measurement_quality;
     uint8_t clipped_axes;
     uint8_t status_a;
     uint32_t clipped_samples;
@@ -52,32 +53,32 @@ typedef struct
     uint8_t who_am_i;
     uint8_t sensor_ctrl[6];
     uint64_t config_checked_us;
-    int poll_result;
-    int device_error;
+    int32_t poll_result;
+    int32_t device_error;
     /* Latched until next IMU error or reset, even after successful recovery. */
     bool saved_error_present;
     bool saved_error_read;
     bool saved_error_time_valid;
-    int saved_error_code;
+    int32_t saved_error_code;
     uint8_t saved_error_register;
     uint64_t saved_error_us;
     uint32_t saved_timeout_trace[32];
     int16_t raw[3];
-    float acceleration_g[3];
-    float uncorrected_g[3];
-    float magnitude_g;
-    float pitch_deg;
-    float roll_deg;
-    float height_cm;
-    int terrain;
-    int side;
+    float32_t acceleration_g[3];
+    float32_t uncorrected_g[3];
+    float32_t magnitude_g;
+    float32_t pitch_deg;
+    float32_t roll_deg;
+    float32_t height_cm;
+    int32_t terrain;
+    int32_t side;
     bool bump_event;
     bool side_event_ended;
     buddy4_task_event_t last_event;
     /* Run-wide maximum of valid completed stable peaks. */
     uint32_t run_id;
     bool highest_hump_valid;
-    float highest_hump_cm;
+    float32_t highest_hump_cm;
     /* Robot lifted / overturned (replaces the old impact observer).
      * lifted is a latched state and stays set when the IMU samples go stale. */
     bool lift_valid;
@@ -85,13 +86,13 @@ typedef struct
     uint8_t lift_reason; /* 0 none, 1 tilted, 2 overturned, 3 lift motion */
     uint32_t lift_count;
     uint64_t lift_since_us;
-    float tilt_deg;
-    float lift_deviation_g;
-    int motion_state;
+    float32_t tilt_deg;
+    float32_t lift_deviation_g;
+    int32_t motion_state;
     bool motion_valid;
     bool yaw_valid;
     uint64_t encoder_sample_us;
-    float encoder_yaw_deg_s;
+    float32_t encoder_yaw_deg_s;
 } buddy4_task_snapshot_t;
 
 ER buddy4_task_init (void);

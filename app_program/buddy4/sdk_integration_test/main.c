@@ -1,3 +1,4 @@
+#include "../../barrc_types.h"
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "pico/stdio_usb.h"
@@ -20,14 +21,14 @@ static drive_control_t control;
 /* Persistent observer storage avoids increasing the main task's stack frame. */
 static buddy4_obstruction_sdk_t obstruction;
 static buddy4_obstruction_output_t po;
-static int bus_write (void * ctx, uint8_t a, const uint8_t * p, size_t n,
+static int32_t bus_write (void * ctx, uint8_t a, const uint8_t * p, size_t n,
                       bool ns)
 {
     (void)ctx;
     return i2c_write_timeout_us(i2c0, a, p, n, ns, BUDDY4_I2C_TIMEOUT_US);
 }
 
-static int bus_read (void * ctx, uint8_t a, uint8_t * p, size_t n, bool ns)
+static int32_t bus_read (void * ctx, uint8_t a, uint8_t * p, size_t n, bool ns)
 {
     (void)ctx;
     return i2c_read_timeout_us(i2c0, a, p, n, ns, BUDDY4_I2C_TIMEOUT_US);
@@ -176,7 +177,7 @@ int main (void)
          * updates.
            Uppercase G starts; S/space stops; R explicitly clears a stopped
            latch. */
-        int c = usb ? getchar_timeout_us(0) : PICO_ERROR_TIMEOUT;
+        int32_t c = usb ? getchar_timeout_us(0) : PICO_ERROR_TIMEOUT;
         drive_command(&control, c, usb, (drive_imu_usable(&imu)) &&
                       has_usable && (time_us_64() - last_usable < 100000u),
                               time_us_64());
@@ -243,11 +244,11 @@ int main (void)
             printf("# CONTROL,time_us=%llu,event=%s,original_fault=%lu,mode=%d,"
                    "manual_speed_cm_s=%.2f,selected_target_left_cm_s=%.2f,"
                    "selected_target_right_cm_s=%.2f,turn_test_limit_us=%lu\n",
-                   (unsigned long long)time_us_64(), control.reason,
-                   (unsigned long)control.stop_fault, control.mode,
-                   (double)MANUAL_SPEED_CM_S,
+                   (uint64_t)time_us_64(), control.reason,
+                   (uint32_t)control.stop_fault, control.mode,
+                   (float64_t)MANUAL_SPEED_CM_S,
                    control.selected_left_cm_s, control.selected_right_cm_s,
-                   (unsigned long)TURN_TEST_LIMIT_US);
+                   (uint32_t)TURN_TEST_LIMIT_US);
             control.event_pending = false;
         }
 
@@ -272,8 +273,8 @@ int main (void)
                        "median_candidate_valid=%d,"
                        "median_candidate_roll_deg=%.3f,"
                        "median_candidate_height_cm=%.3f\n",
-                       (unsigned long long)o->ended_event.start_us,
-                       (unsigned long long)o->timestamp_us,
+                       (uint64_t)o->ended_event.start_us,
+                       (uint64_t)o->timestamp_us,
                        o->ended_event.side, o->ended_event.peak_confirmed,
                        o->ended_event.peak_roll_deg,
                                o->ended_event.peak_height_cm,
@@ -289,15 +290,15 @@ int main (void)
                    "%lu,%lu,%lu,%lu,%s,%d,%llu,%d,%d,%lu,%llu,%llu,%.4f,%.4f,"
                    "%.4f,%.5f,%.4f,%d,%llu,%.3f,%.3f,%s,%d,%d,%d,%lu,%llu,%llu,"
                    "%lu\n",
-                   (unsigned long)seq++, (unsigned long long)time_us_64(),
+                   (uint32_t)seq++, (uint64_t)time_us_64(),
                            result,
                    o->valid,
                    o->tilt_valid, o->acceleration_valid,
                    buddy4_quality_name(o->quality),
-                   (unsigned)o->clipped_axes, (unsigned long)o->clipped_samples,
-                   (unsigned long)o->unsuitable_samples,
-                   (unsigned long long)o->timestamp_us,
-                   (unsigned long)o->error_count,
+                   (uint32_t)o->clipped_axes, (uint32_t)o->clipped_samples,
+                   (uint32_t)o->unsuitable_samples,
+                   (uint64_t)o->timestamp_us,
+                   (uint32_t)o->error_count,
                    o->raw[0], o->raw[1], o->raw[2], o->accel_g[0],
                            o->accel_g[1],
                    o->accel_g[2],
@@ -312,42 +313,44 @@ int main (void)
                    o->event.median_candidate_roll_deg,
                    o->event.median_candidate_height_cm,
                    control.running, control.mode, l.state,
-                   (unsigned)line_sensors_read(),
+                   (uint32_t)line_sensors_read(),
                    DRIVE_LINE != control.mode
                    ? (control.running ? control.selected_left_cm_s : 0)
                    : l.left_cmd_cm_s,
                    DRIVE_LINE != control.mode
                    ? (control.running ? control.selected_right_cm_s : 0)
                    : l.right_cmd_cm_s,
-                   (long)m.left_count, (long)m.right_count, m.left_speed_cm_s,
+                   (int32_t)m.left_count, (int32_t)m.right_count,
+                           m.left_speed_cm_s,
                    m.right_speed_cm_s, m.distance_cm,
-                   m.state, m.fault, (unsigned long)control.stop_fault,
-                   (int)m.terrain, m.terrain_speed_scale, m.left_terrain_duty,
+                   m.state, m.fault, (uint32_t)control.stop_fault,
+                   (int32_t)m.terrain, m.terrain_speed_scale,
+                           m.left_terrain_duty,
                    m.right_terrain_duty,
-                   (unsigned long)motor.skipped, (unsigned long)line.skipped,
-                   (unsigned long)sensor.skipped,
-                   (unsigned long)motor.late_max_us,
-                   (unsigned long)line.late_max_us,
-                   (unsigned long)sensor.late_max_us,
-                   (unsigned long)motor.runtime_max_us,
-                   (unsigned long)line.runtime_max_us,
-                   (unsigned long)sensor.runtime_max_us,
+                   (uint32_t)motor.skipped, (uint32_t)line.skipped,
+                   (uint32_t)sensor.skipped,
+                   (uint32_t)motor.late_max_us,
+                   (uint32_t)line.late_max_us,
+                   (uint32_t)sensor.late_max_us,
+                   (uint32_t)motor.runtime_max_us,
+                   (uint32_t)line.runtime_max_us,
+                   (uint32_t)sensor.runtime_max_us,
                    buddy4_motion_name(mc.state), mc.valid,
-                   (unsigned long long)mc.sample_us,
-                   pi.valid, pi.possible_impact, (unsigned long)pi.event_count,
-                   (unsigned long long)pi.sample_us,
-                   (unsigned long long)pi.event_us,
+                   (uint64_t)mc.sample_us,
+                   pi.valid, pi.possible_impact, (uint32_t)pi.event_count,
+                   (uint64_t)pi.sample_us,
+                   (uint64_t)pi.event_us,
                    pi.magnitude_g, pi.baseline_g, pi.deviation_g,
                    ey.encoder_yaw_rate_estimate_rad_s,
                    ey.encoder_yaw_rate_estimate_deg_s,
-                   ey.valid, (unsigned long long)ey.sample_us,
+                   ey.valid, (uint64_t)ey.sample_us,
                    control.selected_left_cm_s, control.selected_right_cm_s,
                    control.reason,
                    po.valid, po.established, po.possible_obstruction,
-                   (unsigned long)po.event_count,
-                   (unsigned long long)po.observation_us,
-                   (unsigned long long)po.event_us,
-                   (unsigned long)po.slow_ms);
+                   (uint32_t)po.event_count,
+                   (uint64_t)po.observation_us,
+                   (uint64_t)po.event_us,
+                   (uint32_t)po.slow_ms);
         }
 
         tight_loop_contents();

@@ -4,6 +4,7 @@
  * Replace it with the new Buddy 5 implementation of the scan_link.h interface.
  */
 #ifdef B5_FULL_TEST
+#include "../../barrc_types.h"
 #include <tk/tkernel.h>
 #include <stdint.h>
 #include <string.h>
@@ -30,7 +31,7 @@ const char * b5_state_name (b5_state_t s)
 {
     static const char * const names[] = {"MONITORING", "WAIT_STOP", "SCANNING",
         "PROCESSING", "AVOIDING", "LINE_RECOVERY", "ERROR"};
-    return (unsigned)s < sizeof(names) / sizeof(names[0]) ? names[s]
+    return (uint32_t)s < sizeof(names) / sizeof(names[0]) ? names[s]
             : "UNKNOWN";
 }
 

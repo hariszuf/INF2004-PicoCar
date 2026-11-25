@@ -1,4 +1,5 @@
 
+#include "../barrc_types.h"
 #include <stdint.h>
 
 #include <tk/tkernel.h>
@@ -122,11 +123,11 @@ LOCAL void telemetry_task (INT stacd, void * exinf)
                   (UB *)"[Telemetry-2Phase] "
                   "src=%u type=%u seq=%u "
                   "value1=%d value2=%d\n",
-                  (unsigned int)message.source,
-                  (unsigned int)message.type,
-                  (unsigned int)message.sequence,
-                  (int)message.value_1,
-                  (int)message.value_2
+                  (uint32_t)message.source,
+                  (uint32_t)message.type,
+                  (uint32_t)message.sequence,
+                  (int32_t)message.value_1,
+                  (int32_t)message.value_2
                   );
 #endif
 

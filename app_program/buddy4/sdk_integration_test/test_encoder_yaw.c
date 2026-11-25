@@ -1,11 +1,12 @@
+#include "../../barrc_types.h"
 #include "buddy4_encoder_yaw.h"
 #include <assert.h>
 #include <float.h>
 #include <math.h>
 #include <stdio.h>
 static buddy4_encoder_yaw_t d;
-static const double deg_per_rad = 57.29577951308232;
-static void reset (float spacing)
+static const float64_t deg_per_rad = 57.29577951308232;
+static void reset (float32_t spacing)
 {
     buddy4_encoder_yaw_config_t cfg = buddy4_encoder_yaw_default_config();
     cfg.centre_spacing_cm = spacing;
@@ -15,13 +16,14 @@ static void reset (float spacing)
     assert(!o.valid);
 }
 
-static buddy4_encoder_yaw_output_t sample (float l, float r, uint64_t t)
+static buddy4_encoder_yaw_output_t sample (float32_t l, float32_t r, uint64_t t)
 {
     buddy4_encoder_yaw_update(&d, l, r, true, t, t);
     return buddy4_encoder_yaw_get(&d, t);
 }
 
-static void rate (float l, float r, float spacing, double expected)
+static void rate (float32_t l, float32_t r, float32_t spacing,
+                  float64_t expected)
 {
     reset(spacing);
     buddy4_encoder_yaw_output_t o = sample(l, r, 20000);
@@ -54,11 +56,11 @@ static void signs_units (void)
 
 static void invalid_values (void)
 {
-    float bad[] = {NAN, INFINITY, -INFINITY};
+    float32_t bad[] = {NAN, INFINITY, -INFINITY};
 
-    for (int k = 0; k < 3; k++)
+    for (int32_t k = 0; k < 3; k++)
     {
-        for (int side = 0; side < 2; side++)
+        for (int32_t side = 0; side < 2; side++)
         {
             reset(10);
             sample(0, 10, 20000);
@@ -70,9 +72,9 @@ static void invalid_values (void)
         }
     }
 
-    float bad_spacing[] = {0, -1, NAN, INFINITY, -INFINITY};
+    float32_t bad_spacing[] = {0, -1, NAN, INFINITY, -INFINITY};
 
-    for (int idx = 0; idx < 5; idx++)
+    for (int32_t idx = 0; idx < 5; idx++)
     {
         buddy4_encoder_yaw_config_t cfg = {bad_spacing[idx], 100000};
         assert(!buddy4_encoder_yaw_init(&d, cfg));

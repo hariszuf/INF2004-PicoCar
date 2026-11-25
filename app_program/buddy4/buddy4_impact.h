@@ -1,5 +1,6 @@
 #ifndef BUDDY4_IMPACT_H
 #define BUDDY4_IMPACT_H
+#include "../barrc_types.h"
 #include <stdbool.h>
 #include <stdint.h>
 /* Preliminary possible-impact observation, not collision detection or safety.
@@ -7,8 +8,8 @@
 typedef struct
 {
     /* Thresholds apply to ||corrected XYZ - tracked XYZ baseline||, in g. */
-    float trigger_g;
-    float release_g;
+    float32_t trigger_g;
+    float32_t release_g;
     uint32_t confirm_us;
     uint32_t max_gap_us;
     uint32_t cooldown_us;
@@ -21,10 +22,11 @@ typedef struct
     uint32_t event_count;
     uint64_t sample_us;
     uint64_t event_us;
-    float magnitude_g; /* ||corrected XYZ||, still includes gravity. */
-    float baseline_g;  /* Norm of the vector reference used for this sample. */
+    float32_t magnitude_g; /* ||corrected XYZ||, still includes gravity. */
+    /* Norm of the vector reference used for this sample. */
+    float32_t baseline_g;
     /* ||corrected XYZ - reference||; NOT |magnitude-baseline|. */
-    float deviation_g;
+    float32_t deviation_g;
 } buddy4_impact_output_t;
 typedef struct
 {
@@ -37,7 +39,7 @@ typedef struct
     bool armed;
     uint8_t pending_samples;
     uint8_t calm_samples;
-    float baseline_xyz_g[3];
+    float32_t baseline_xyz_g[3];
     uint64_t last_time_us;
     uint64_t clock_us;
     uint64_t pending_since_us;
@@ -58,7 +60,8 @@ bool buddy4_impact_init (buddy4_impact_t * d, buddy4_impact_config_t config);
  * history
  * and cooldown. First recovery sample primes baseline and cannot trigger.
  * possible_impact pulses for exactly the triggering input sample. */
-void buddy4_impact_update (buddy4_impact_t * d, float x_g, float y_g, float z_g,
+void buddy4_impact_update (buddy4_impact_t * d, float32_t x_g, float32_t y_g,
+                           float32_t z_g,
                            bool valid, uint64_t sample_us, uint64_t now_us);
 /* Age check for clients without new polls; does not repeat detection/counting.
  */

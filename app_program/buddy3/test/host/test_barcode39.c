@@ -1,12 +1,13 @@
 /* Host tests for barcode39. Build and run with run_tests.sh (needs only gcc).
  */
+#include "../../../barrc_types.h"
 #include "barcode39.h"
 
 #include <stdio.h>
 #include <string.h>
 
-static int g_fail = 0;
-static int g_run = 0;
+static int32_t g_fail = 0;
+static int32_t g_run = 0;
 #define CHECK(cond, ...)                                  \
     do {                                                  \
         g_run++;                                          \
@@ -52,9 +53,9 @@ static const uint32_t DECK_Y[29] = {16, 46, 16, 15, 47, 15, 47, 15, 16, 15, 47,
 
 /* Feed a run list as the sensor would: optional white quiet zone and stray
  * noise first, scale in percent, optional linear speed drift. */
-static bool feed_runs (barcode39_t * d, const uint32_t * w, int n,
-                       int scale_pct,
-                       int drift_pct,
+static bool feed_runs (barcode39_t * d, const uint32_t * w, int32_t n,
+                       int32_t scale_pct,
+                       int32_t drift_pct,
                        bool noise_prefix, bool backwards,
                        barcode39_result_t * out)
 {
@@ -69,13 +70,13 @@ static bool feed_runs (barcode39_t * d, const uint32_t * w, int n,
         barcode39_feed(d, false, 25, out);
     }
 
-    for (int idx = 0; idx < n; idx++)
+    for (int32_t idx = 0; idx < n; idx++)
     {
         uint32_t src = backwards ? w[n - 1 - idx] : w[idx];
-        int      pos = backwards ? (n - 1 - idx) : idx;
+        int32_t      pos = backwards ? (n - 1 - idx) : idx;
         /* drift: scale goes from (100 - drift/2)% to (100 + drift/2)% over the
          * code */
-        int      s =
+        int32_t      s =
                 scale_pct * (1000 + (drift_pct * 10 * (2 * pos - (n - 1)))
                              / (2 * (n - 1))) / 1000;
         uint32_t width = (uint32_t)((int64_t)src * s / 100);
@@ -93,7 +94,7 @@ static bool feed_runs (barcode39_t * d, const uint32_t * w, int n,
 
 static void expect (const char * name, const uint32_t * w, char letter,
                     bool letters_only,
-                    bool backwards, int scale, int drift, bool noise,
+                    bool backwards, int32_t scale, int32_t drift, bool noise,
                     bool want_reversed)
 {
     barcode39_t        d;
@@ -128,11 +129,11 @@ static const char * STAR = "nwnnwnwnn";
 static void build (uint32_t * w, char letter, uint32_t narrow, uint32_t wide)
 {
     const char * p[3] = {STAR, LETTER_PAT[letter - 'A'], STAR};
-    int         k = 0;
+    int32_t         k = 0;
 
-    for (int b = 0; b < 3; b++)
+    for (int32_t b = 0; b < 3; b++)
     {
-        for (int idx = 0; idx < 9; idx++)
+        for (int32_t idx = 0; idx < 9; idx++)
         {
             w[k++] = ('w' == p[b][idx]) ? wide : narrow;
         }
@@ -184,7 +185,7 @@ int main (void)
     }
 
     /* 6. all 26 letters, several narrow/wide ratios, both directions */
-    int ambiguous = 0;
+    int32_t ambiguous = 0;
     char amb[64] = "";
 
     for (char c = 'A'; c <= 'Z'; c++)
@@ -192,7 +193,7 @@ int main (void)
         uint32_t w[29];
         char     nm[32];
 
-        for (int ratio = 2; ratio <= 3; ratio++)
+        for (int32_t ratio = 2; ratio <= 3; ratio++)
         {
             build(w, c, 20, 20 * ratio + (2 == ratio ? 2 : 0));
             snprintf(nm, sizeof nm, "letter %c ratio %d", c, ratio);
@@ -226,7 +227,7 @@ int main (void)
         barcode39_init(&d, true);
         bool got = false;
 
-        for (int idx = 0; idx < 80; idx++)
+        for (int32_t idx = 0; idx < 80; idx++)
         {
             /* all equal widths */
             got |= barcode39_feed(&d, 0 == idx % 2, 20, &r);

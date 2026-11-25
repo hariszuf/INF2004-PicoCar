@@ -2,6 +2,7 @@
  * @file motion_motor.c
  * @brief Robo Pico motor driver (Pico SDK). See motion_motor.h.
  */
+#include "../barrc_types.h"
 #include "motion_motor.h"
 #include "motion_config.h"
 
@@ -87,9 +88,9 @@ void motion_motor_brake_all (void)
     motion_motor_brake(MOTION_SIDE_RIGHT);
 }
 
-void motion_motor_set (motion_side_t side, float duty)
+void motion_motor_set (motion_side_t side, float32_t duty)
 {
-    float magnitude = duty;
+    float32_t magnitude = duty;
     uint16_t level;
 
     if (s_latched)
@@ -108,7 +109,7 @@ void motion_motor_set (motion_side_t side, float duty)
         magnitude = 1.0f;
     }
 
-    level = (uint16_t)(magnitude * (float)s_pwm_wrap);
+    level = (uint16_t)(magnitude * (float32_t)s_pwm_wrap);
 
     if (duty >= 0.0f)
     {

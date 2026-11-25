@@ -1,17 +1,20 @@
 /* Scan-only build: a stationary car measures boxes of different widths. Build:
  * see run_scanonly.sh */
+#include "../../../app_program/barrc_types.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 #include "buddy5_plan.h"
 #define D2R 0.017453292519943295
-static double ray_box (double ox, double oy, double dx, double dy, double x0,
-                       double x1, double y0, double y1)
+static float64_t ray_box (float64_t ox, float64_t oy, float64_t dx,
+                          float64_t dy, float64_t x0,
+                       float64_t x1, float64_t y0, float64_t y1)
 {
-    double t0 = 0, t1 = 1e9, o[2] = {ox, oy}, d[2] = {dx, dy}, lo[2] = {x0, y0},
+    float64_t t0 = 0, t1 = 1e9, o[2] = {ox, oy}, d[2] = {dx, dy}, lo[2] = {x0,
+            y0},
     hi[2] = {x1, y1};
 
-    for (int idx = 0; idx < 2; idx++)
+    for (int32_t idx = 0; idx < 2; idx++)
     {
         if (fabs(d[idx]) < 1e-12)
         {
@@ -22,12 +25,12 @@ static double ray_box (double ox, double oy, double dx, double dy, double x0,
         }
         else
         {
-            double a = (lo[idx] - o[idx]) / d[idx],
+            float64_t a = (lo[idx] - o[idx]) / d[idx],
                     b = (hi[idx] - o[idx]) / d[idx];
 
             if (a > b)
             {
-                double t = a;
+                float64_t t = a;
                 a = b;
                 b = t;
             }
@@ -53,29 +56,31 @@ static double ray_box (double ox, double oy, double dx, double dy, double x0,
 }
 
 static uint32_t rs = 1;
-static double rnd (void)
+static float64_t rnd (void)
 {
     rs = rs * 1664525u + 1013904223u;
     return (rs >> 8) / 16777216.0;
 }
 
-static int run (double face_x, double cy, double width, double noise,
-                int * requests, int32_t * wout, int * valid_out, int32_t * le,
+static int32_t run (float64_t face_x, float64_t cy, float64_t width,
+                    float64_t noise,
+                int32_t * requests, int32_t * wout, int32_t * valid_out,
+                        int32_t * le,
                 int32_t * re)
 {
     b5_core_t c;
     b5_core_init(&c, 0);
     b5_sampler_t sm;
     b5_sampler_reset(&sm);
-    int servo = 0;
+    int32_t servo = 0;
     uint32_t settle = 300;
     uint32_t next = 0;
     *requests = 0;
-    int done = 0;
+    int32_t done = 0;
     *valid_out = 0;
     for (uint32_t now = 0; now < 40000; now++)
     {
-        int ang = b5_core_angle(&c);
+        int32_t ang = b5_core_angle(&c);
 
         if (ang != servo)
         {
@@ -93,13 +98,13 @@ static int run (double face_x, double cy, double width, double noise,
 
             if (now >= settle)
             {
-                double sx = B5_AXLE_TO_SENSOR_MM;
-                double best = 1e9;
+                float64_t sx = B5_AXLE_TO_SENSOR_MM;
+                float64_t best = 1e9;
 
-                for (double off = -B5_BEAM_HALF_DEG; off <= B5_BEAM_HALF_DEG
+                for (float64_t off = -B5_BEAM_HALF_DEG; off <= B5_BEAM_HALF_DEG
                      + 1e-9; off += 1.5)
                 {
-                    double a = (servo + off) * D2R,
+                    float64_t a = (servo + off) * D2R,
                     d = ray_box(sx, 0, cos(a), sin(a), face_x, face_x + 150,
                                 cy - width / 2, cy + width / 2);
 
@@ -157,23 +162,23 @@ static int run (double face_x, double cy, double width, double noise,
 
 int main (void)
 {
-    double widths[] = {60, 100, 140, 200, 260};
-    double offs[] = {0, -20, 25};
-    int bad = 0;
+    float64_t widths[] = {60, 100, 140, 200, 260};
+    float64_t offs[] = {0, -20, 25};
+    int32_t bad = 0;
 
-    for (int w = 0; w < 5; w++)
+    for (int32_t w = 0; w < 5; w++)
     {
-        for (int o = 0; o < 3; o++)
+        for (int32_t o = 0; o < 3; o++)
         {
-            int rq;
-            int val;
+            int32_t rq;
+            int32_t val;
             int32_t wm = 0;
             int32_t le = 0;
             int32_t re = 0;
-            int r = run(300 + B5_AXLE_TO_SENSOR_MM - 80 + 80, offs[o] * -1,
+            int32_t r = run(300 + B5_AXLE_TO_SENSOR_MM - 80 + 80, offs[o] * -1,
                         widths[w],
                         4, &rq, &wm, &val, &le, &re);
-            double err = wm - widths[w];
+            float64_t err = wm - widths[w];
             printf("true width %3.0f  centre offset %+3.0f -> reported %4d mm "
                    "(L "
                    "%4d R %4d) both edges seen=%d  err %+5.0f  requests=%d "

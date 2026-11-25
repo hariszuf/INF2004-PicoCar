@@ -2,6 +2,7 @@
  * against a simple world.
  * Build: see run_tests.sh. World frame: the line is the x axis, +x forward, +y
  * left, degrees + = left (CCW). */
+#include "../../../app_program/barrc_types.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -11,71 +12,72 @@
 #define B5_LINE_ADVANCE_MM_SIM 40.0
 typedef struct
 {
-    double x0;
-    double x1;
-    double y0;
-    double y1;
+    float64_t x0;
+    float64_t x1;
+    float64_t y0;
+    float64_t y1;
 } rect_t;
 typedef struct
 {
     const char * name;
     rect_t obs[6];
-    int nobs;      /* obs[0] is the box */
-    double fr;
-    double rr;
-    double hw;              /* TRUE car outline */
-    double beam;                  /* TRUE sonar cone half angle */
-    double noise;
-    double p_spike;
-    double p_drop;
-    double start_x;               /* axle x at the start (line following) */
+    int32_t nobs;      /* obs[0] is the box */
+    float64_t fr;
+    float64_t rr;
+    float64_t hw;              /* TRUE car outline */
+    float64_t beam;                  /* TRUE sonar cone half angle */
+    float64_t noise;
+    float64_t p_spike;
+    float64_t p_drop;
+    float64_t start_x;               /* axle x at the start (line following) */
     /* 0 don't care, +1 left, -1 right, 99 = expect a stop (no route) */
-    int expect_side;
+    int32_t expect_side;
     uint32_t seed;
-    double stop_overshoot;        /* extra distance the car rolls after STOP */
+    /* extra distance the car rolls after STOP */
+    float64_t stop_overshoot;
     /* spawn an obstacle during the pass (person) */
-    int allow_extra_blocked_at_adv;
+    int32_t allow_extra_blocked_at_adv;
 } scen_t;
 /* ---------- tiny RNG ---------- */
 static uint32_t rs;
-static double rnd (void)
+static float64_t rnd (void)
 {
     rs = rs * 1664525u + 1013904223u;
     return (rs >> 8) / 16777216.0;
 }
 
-static double gauss (void)
+static float64_t gauss (void)
 {
-    double u = rnd() + 1e-9, v = rnd();
+    float64_t u = rnd() + 1e-9, v = rnd();
     return sqrt(-2 * log(u)) * cos(6.283185307*v);
 }
 
 /* ---------- geometry ---------- */
 typedef struct
 {
-    double x[4];
-    double y[4];
+    float64_t x[4];
+    float64_t y[4];
 } quadr_t;
-static int sat (const quadr_t * a, const quadr_t * b)
+static int32_t sat (const quadr_t * a, const quadr_t * b)
 {
     const quadr_t * q[2] = {a, b};
 
-    for (int k = 0; k < 2; k++)
+    for (int32_t k = 0; k < 2; k++)
     {
-        for (int i = 0; i < 4; i++)
+        for (int32_t i = 0; i < 4; i++)
         {
-            int jdx = (i + 1) & 3;
-            double ax = -(q[k]->y[jdx] - q[k]->y[i]),
+            int32_t jdx = (i + 1) & 3;
+            float64_t ax = -(q[k]->y[jdx] - q[k]->y[i]),
             ay = q[k]->x[jdx] - q[k]->x[i];
-            double amin = 1e30;
-            double amax = -1e30;
-            double bmin = 1e30;
-            double bmax = -1e30;
+            float64_t amin = 1e30;
+            float64_t amax = -1e30;
+            float64_t bmin = 1e30;
+            float64_t bmax = -1e30;
 
-            for (int p = 0; p < 4; p++)
+            for (int32_t p = 0; p < 4; p++)
             {
-                double da = ax * a->x[p] + ay * a->y[p];
-                double db = ax * b->x[p] + ay * b->y[p];
+                float64_t da = ax * a->x[p] + ay * a->y[p];
+                float64_t db = ax * b->x[p] + ay * b->y[p];
 
                 if (da < amin)
                 {
@@ -108,15 +110,16 @@ static int sat (const quadr_t * a, const quadr_t * b)
     return 1;
 }
 
-static quadr_t car_quad (const scen_t * s, double px, double py, double ph)
+static quadr_t car_quad (const scen_t * s, float64_t px, float64_t py,
+                         float64_t ph)
 {
-    double c = cos(ph * D2R), sn = sin(ph * D2R);
+    float64_t c = cos(ph * D2R), sn = sin(ph * D2R);
     quadr_t q;
-    double bx[4] = {s->fr, s->fr, -s->rr, -s->rr}, by[4] = {s->hw, -s->hw,
+    float64_t bx[4] = {s->fr, s->fr, -s->rr, -s->rr}, by[4] = {s->hw, -s->hw,
             -s->hw,
         s->hw};
 
-    for (int i = 0; i < 4; i++)
+    for (int32_t i = 0; i < 4; i++)
     {
         q.x[i] = px + bx[i] * c - by[i] * sn;
         q.y[i] = py + bx[i] * sn + by[i] * c;
@@ -125,7 +128,7 @@ static quadr_t car_quad (const scen_t * s, double px, double py, double ph)
     return q;
 }
 
-static quadr_t rect_quad (rect_t r, double m)
+static quadr_t rect_quad (rect_t r, float64_t m)
 {
     quadr_t q = {{r.x0 - m, r.x1 + m, r.x1 + m, r.x0 - m}, {r.y0 - m, r.y0 - m,
             r.y1 + m, r.y1 + m}};
@@ -134,15 +137,16 @@ static quadr_t rect_quad (rect_t r, double m)
 
 /* smallest clearance (mm, 5 mm resolution, -1 = touching) between the car and
  * any obstacle */
-static double clearance (const scen_t * s, double px, double py, double ph)
+static float64_t clearance (const scen_t * s, float64_t px, float64_t py,
+                            float64_t ph)
 {
     quadr_t c = car_quad(s, px, py, ph);
-    double best = 1e9;
+    float64_t best = 1e9;
 
-    for (int o = 0; o < s->nobs; o++)
+    for (int32_t o = 0; o < s->nobs; o++)
     {
-        double m;
-        int hit = 0;
+        float64_t m;
+        int32_t hit = 0;
 
         for (m = 0; m <= 60; m += 5)
         {
@@ -155,7 +159,7 @@ static double clearance (const scen_t * s, double px, double py, double ph)
             }
         }
 
-        double cl = hit ? (0 == m ? -1 : m - 5) : 60;
+        float64_t cl = hit ? (0 == m ? -1 : m - 5) : 60;
 
         if (cl < best)
         {
@@ -166,15 +170,16 @@ static double clearance (const scen_t * s, double px, double py, double ph)
     return best;
 }
 
-static double ray_rect (double ox, double oy, double dx, double dy, rect_t r)
+static float64_t ray_rect (float64_t ox, float64_t oy, float64_t dx,
+                           float64_t dy, rect_t r)
 {
-    double t0 = 0;
-    double t1 = 1e9;
-    double o[2] = {ox, oy}, d[2] = {dx, dy}, lo[2] = {r.x0, r.y0},
+    float64_t t0 = 0;
+    float64_t t1 = 1e9;
+    float64_t o[2] = {ox, oy}, d[2] = {dx, dy}, lo[2] = {r.x0, r.y0},
             hi[2] = {r.x1,
         r.y1};
 
-    for (int i = 0; i < 2; i++)
+    for (int32_t i = 0; i < 2; i++)
     {
         if (fabs(d[i]) < 1e-12)
         {
@@ -185,11 +190,11 @@ static double ray_rect (double ox, double oy, double dx, double dy, rect_t r)
         }
         else
         {
-            double a = (lo[i] - o[i]) / d[i], b = (hi[i] - o[i]) / d[i];
+            float64_t a = (lo[i] - o[i]) / d[i], b = (hi[i] - o[i]) / d[i];
 
             if (a > b)
             {
-                double t = a;
+                float64_t t = a;
                 a = b;
                 b = t;
             }
@@ -215,20 +220,22 @@ static double ray_rect (double ox, double oy, double dx, double dy, rect_t r)
 }
 
 /* ---------- sonar ---------- */
-static b5_range_t ping (const scen_t * s, double px, double py, double ph,
-                        double servo, double extra_obs_x, double extra_obs_y)
+static b5_range_t ping (const scen_t * s, float64_t px, float64_t py,
+                        float64_t ph,
+                        float64_t servo, float64_t extra_obs_x,
+                                float64_t extra_obs_y)
 {
-    double sx = px + B5_AXLE_TO_SENSOR_MM * cos(ph * D2R),
+    float64_t sx = px + B5_AXLE_TO_SENSOR_MM * cos(ph * D2R),
     sy = py + B5_AXLE_TO_SENSOR_MM * sin(ph * D2R);
-    double best = 1e9;
+    float64_t best = 1e9;
 
-    for (double off = -s->beam; off <= s->beam + 1e-9; off += 1.5)
+    for (float64_t off = -s->beam; off <= s->beam + 1e-9; off += 1.5)
     {
-        double a = (ph + servo + off) * D2R;
+        float64_t a = (ph + servo + off) * D2R;
 
-        for (int o = 0; o < s->nobs; o++)
+        for (int32_t o = 0; o < s->nobs; o++)
         {
-            double d = ray_rect(sx, sy, cos(a), sin(a), s->obs[o]);
+            float64_t d = ray_rect(sx, sy, cos(a), sin(a), s->obs[o]);
 
             if (d < best)
             {
@@ -240,7 +247,7 @@ static b5_range_t ping (const scen_t * s, double px, double py, double ph,
         {
             rect_t p = {extra_obs_x, extra_obs_x + 80, extra_obs_y - 40,
                 extra_obs_y + 40};
-            double d = ray_rect(sx, sy, cos(a), sin(a), p);
+            float64_t d = ray_rect(sx, sy, cos(a), sin(a), p);
 
             if (d < best)
             {
@@ -276,81 +283,81 @@ typedef enum
 typedef struct
 {
     akind k;
-    double v;
+    float64_t v;
 } act_t;
 typedef struct
 {
     /* world pose and nav origin */
-    double px;
-    double py;
-    double ph;
-    double ox;
-    double oy;
-    double oh;
+    float64_t px;
+    float64_t py;
+    float64_t ph;
+    float64_t ox;
+    float64_t oy;
+    float64_t oh;
     /* motion */
-    int mot;
-    double mot_target;
-    double mot_rem;
-    double mot_speed;
-    int mot_dir;
-    int still;
+    int32_t mot;
+    float64_t mot_target;
+    float64_t mot_rem;
+    float64_t mot_speed;
+    int32_t mot_dir;
+    int32_t still;
     /* request */
     bool active;
     bool failed;
     b5_request_t req;
     act_t act[12];
-    int n;
-    int idx;
+    int32_t n;
+    int32_t idx;
     bool issued;
     uint32_t completed_id;
-    int turn_tries;
-    double check_since;
-    int look[3];
-    int retries;
+    int32_t turn_tries;
+    float64_t check_since;
+    int32_t look[3];
+    int32_t retries;
     bool front_ok;
-    double recover_side;
+    float64_t recover_side;
     bool tape_in;
-    double tape_enter_y;
-    double tape_y;
+    float64_t tape_enter_y;
+    float64_t tape_y;
     bool tape_meas;
     bool acquired;
     bool resumed;
     bool sweep_stop;
     bool lf;      /* line following */
-    double t_settle;
-    int halted;
+    float64_t t_settle;
+    int32_t halted;
     const char * halt_why;
-    double min_clear;
-    double worst_t;
+    float64_t min_clear;
+    float64_t worst_t;
 } veh_t;
-static double nav_x (const veh_t * v)
+static float64_t nav_x (const veh_t * v)
 {
-    double dx = v->px - v->ox;
-    double dy = v->py - v->oy;
+    float64_t dx = v->px - v->ox;
+    float64_t dy = v->py - v->oy;
     return dx * cos(v->oh * D2R) + dy * sin(v->oh * D2R);
 }
 
-static double nav_y (const veh_t * v)
+static float64_t nav_y (const veh_t * v)
 {
-    double dx = v->px - v->ox;
-    double dy = v->py - v->oy;
+    float64_t dx = v->px - v->ox;
+    float64_t dy = v->py - v->oy;
     return -dx * sin(v->oh * D2R) + dy * cos(v->oh * D2R);
 }
 
-static double nav_h (const veh_t * v)
+static float64_t nav_h (const veh_t * v)
 {
     return v->ph - v->oh;
 }
 
 static bool ir_black (const veh_t * v)
 {
-    double yy = v->py + B5_AXLE_TO_SENSOR_MM * sin(v->ph * D2R);
+    float64_t yy = v->py + B5_AXLE_TO_SENSOR_MM * sin(v->ph * D2R);
     return fabs(yy) <= 10.0;
 }
 
 static void build_recover (veh_t * v, bool extend)
 {
-    int i = 0;
+    int32_t i = 0;
 
     if (extend)
     {
@@ -400,12 +407,12 @@ static bool nav_accept (veh_t * v, const b5_request_t * r)
         v->still = 0;
         break;   /* braking handled in step */
         case B5_REQ_LOOK:
-        v->act[0] = (act_t){A_TURN, (double)r->lateral_mm};
+        v->act[0] = (act_t){A_TURN, (float64_t)r->lateral_mm};
         v->n = 1;
         break;
         case B5_REQ_BYPASS:
         {
-            double d = r->lateral_mm - nav_y(v);
+            float64_t d = r->lateral_mm - nav_y(v);
             v->act[0] = (act_t){A_TURN, d >= 0 ? 90 : -90};
             v->act[1] = (act_t){A_MOVE, fabs(d)};
             v->act[2] = (act_t){A_TURN, 0};
@@ -420,8 +427,9 @@ static bool nav_accept (veh_t * v, const b5_request_t * r)
                 return false;
             }
 
-            double dx = r->forward_mm - nav_x(v), dy = r->lateral_mm - nav_y(v);
-            double b = atan2(dy, dx) / D2R;
+            float64_t dx = r->forward_mm - nav_x(v),
+                    dy = r->lateral_mm - nav_y(v);
+            float64_t b = atan2(dy, dx) / D2R;
 
             if (b > 8)
             {
@@ -453,7 +461,7 @@ static bool nav_accept (veh_t * v, const b5_request_t * r)
     return true;
 }
 
-static void begin_turn (veh_t * v, double by_deg)
+static void begin_turn (veh_t * v, float64_t by_deg)
 {
     v->mot = 1;
     v->mot_target = v->ph + by_deg + gauss() * 1.0;
@@ -462,7 +470,7 @@ static void begin_turn (veh_t * v, double by_deg)
     v->mot_speed = 90.0;
 }
 
-static void begin_move (veh_t * v, double mm, double speed)
+static void begin_move (veh_t * v, float64_t mm, float64_t speed)
 {
     v->mot = 2;
     v->mot_dir = mm >= 0 ? 1 : -1;
@@ -472,12 +480,12 @@ static void begin_move (veh_t * v, double mm, double speed)
 
 typedef struct
 {
-    double ang;
-    double fr_mm;
+    float64_t ang;
+    float64_t fr_mm;
     bool fresh;
 } front_t;
 /* one 10 ms step of the vehicle */
-static void veh_step (const scen_t * s, veh_t * v, double now, double dt,
+static void veh_step (const scen_t * s, veh_t * v, float64_t now, float64_t dt,
                       front_t fr)
 {
     if (v->halted)
@@ -488,8 +496,8 @@ static void veh_step (const scen_t * s, veh_t * v, double now, double dt,
     /* motion */
     if (1 == v->mot)
     {
-        double step = v->mot_speed * dt;
-        double err = v->mot_target - v->ph;
+        float64_t step = v->mot_speed * dt;
+        float64_t err = v->mot_target - v->ph;
 
         if (fabs(err) <= step)
         {
@@ -504,7 +512,7 @@ static void veh_step (const scen_t * s, veh_t * v, double now, double dt,
     }
     else if (2 == v->mot)
     {
-        double step = v->mot_speed * dt;
+        float64_t step = v->mot_speed * dt;
 
         if (step > v->mot_rem)
         {
@@ -530,7 +538,7 @@ static void veh_step (const scen_t * s, veh_t * v, double now, double dt,
     }
 
     /* collision bookkeeping */
-    double cl = clearance(s, v->px, v->py, v->ph);
+    float64_t cl = clearance(s, v->px, v->py, v->ph);
 
     if (cl < v->min_clear)
     {
@@ -602,7 +610,7 @@ static void veh_step (const scen_t * s, veh_t * v, double now, double dt,
             && (fr.fr_mm != B5_CLEAR_FRONT_MM)
             && (fr.fr_mm >= 0))
         {
-            double remain =
+            float64_t remain =
                     fabs(nav_y(v) + B5_AXLE_TO_SENSOR_MM * sin(nav_h(v) * D2R));
 
             if ((fr.fr_mm < remain - B5_CHECK_MARGIN_MM)
@@ -616,7 +624,7 @@ static void veh_step (const scen_t * s, veh_t * v, double now, double dt,
         }
 
         bool black = ir_black(v);
-        double sy = nav_y(v) + B5_AXLE_TO_SENSOR_MM * sin(nav_h(v) * D2R);
+        float64_t sy = nav_y(v) + B5_AXLE_TO_SENSOR_MM * sin(nav_h(v) * D2R);
 
         if (black && (!v->tape_in))
         {
@@ -674,7 +682,7 @@ static void veh_step (const scen_t * s, veh_t * v, double now, double dt,
 
             if (A_TURN == v->act[v->idx].k)
             {
-                double err = v->act[v->idx].v - nav_h(v);
+                float64_t err = v->act[v->idx].v - nav_h(v);
 
                 if ((fabs(err) > 2.0) && (v->turn_tries < 3))
                 {
@@ -749,7 +757,7 @@ static void veh_step (const scen_t * s, veh_t * v, double now, double dt,
 
     if (A_TURN == a.k)
     {
-        double err = a.v - nav_h(v);
+        float64_t err = a.v - nav_h(v);
 
         if (fabs(err) <= 2.0)
         {
@@ -778,13 +786,13 @@ static void veh_step (const scen_t * s, veh_t * v, double now, double dt,
 
         if (fr.fresh)
         {
-            double to_line =
+            float64_t to_line =
                     fabs(nav_y(v)) - B5_AXLE_TO_SENSOR_MM - B5_CHECK_MARGIN_MM
                     + (fr.ang != 0 ? B5_CHECK_BEYOND_MM : 0);
-            double c = cos(fr.ang * D2R);
-            int ok = (fr.fr_mm >= to_line / (c > 0.5 ? c : 0.5)) ? 1 : 2;
-            int aa = (int)fabs(fr.ang);
-            int k = 0 == aa ? 0 : (aa <= 20 ? 1 : 2);
+            float64_t c = cos(fr.ang * D2R);
+            int32_t ok = (fr.fr_mm >= to_line / (c > 0.5 ? c : 0.5)) ? 1 : 2;
+            int32_t aa = (int32_t)fabs(fr.ang);
+            int32_t k = 0 == aa ? 0 : (aa <= 20 ? 1 : 2);
 
             if (v->look[k] != 2)
             {
@@ -832,8 +840,8 @@ static void veh_step (const scen_t * s, veh_t * v, double now, double dt,
 
     if (A_REJOIN == a.k)
     {
-        double adv = B5_LINE_SWEEP_EXTRA_MM * 0;
-        double sn = sin(nav_h(v) * D2R);
+        float64_t adv = B5_LINE_SWEEP_EXTRA_MM * 0;
+        float64_t sn = sin(nav_h(v) * D2R);
 
         if ((v->tape_meas) && (fabs(sn) > 0.5))
         {
@@ -872,26 +880,26 @@ static void veh_step (const scen_t * s, veh_t * v, double now, double dt,
  * one scenario */
 typedef struct
 {
-    int ok;
-    double min_clear;
-    int side;
-    int reason;
-    int fault;
-    int halted;
+    int32_t ok;
+    float64_t min_clear;
+    int32_t side;
+    int32_t reason;
+    int32_t fault;
+    int32_t halted;
     const char * why;
-    double t;
-    int state;
-    double worst_t;
-    double fx;
-    double fy;
-    double fh;
-    int offset;
-    int pass_x;
-    int vfailed;
-    int phase_at_end;
-    int nreq;
+    float64_t t;
+    int32_t state;
+    float64_t worst_t;
+    float64_t fx;
+    float64_t fy;
+    float64_t fh;
+    int32_t offset;
+    int32_t pass_x;
+    int32_t vfailed;
+    int32_t phase_at_end;
+    int32_t nreq;
 } result_t;
-static result_t run (const scen_t * s, int verbose)
+static result_t run (const scen_t * s, int32_t verbose)
 {
     rs = s->seed * 2654435761u + 12345u;
     veh_t v;
@@ -905,21 +913,21 @@ static result_t run (const scen_t * s, int verbose)
     b5_core_init(&core, 0);
     b5_sampler_t smp;
     b5_sampler_reset(&smp);
-    int servo = 0;
+    int32_t servo = 0;
     uint32_t settle_until = 300;
     uint32_t next_ping = 0;
     b5_range_t last = {false, 0};
-    int last_ang = 0;
+    int32_t last_ang = 0;
     uint32_t last_ms = 0;
-    double extra_x = 0;
-    double extra_y = 0;
+    float64_t extra_x = 0;
+    float64_t extra_y = 0;
     result_t R;
     memset(&R, 0, sizeof(R));
-    const double dt = 0.01;
+    const float64_t dt = 0.01;
     uint32_t prev_state = 99;
-    int prev_phase = 99;
+    int32_t prev_phase = 99;
 
-    for (double t = 0; t < 240.0; t += dt)
+    for (float64_t t = 0; t < 240.0; t += dt)
     {
         uint32_t now = (uint32_t)(t * 1000.0+0.5);
         front_t fr;
@@ -930,7 +938,7 @@ static result_t run (const scen_t * s, int verbose)
         /* scan task */
         b5_range_t out;
         bool have = false;
-        int ang = b5_core_angle(&core);
+        int32_t ang = b5_core_angle(&core);
 
         if (ang != servo)
         {
@@ -998,7 +1006,7 @@ static result_t run (const scen_t * s, int verbose)
         }
 
         if (verbose && ((core.state != prev_state)
-                        || ((int)core.phase != prev_phase)))
+                        || ((int32_t)core.phase != prev_phase)))
         {
             printf("   t=%6.2f state=%-13s phase=%d pose x=%6.0f y=%5.0f "
                    "h=%5.1f "
@@ -1078,10 +1086,10 @@ static scen_t base (const char * name)
 
 int main (int argc, char ** argv)
 {
-    int verbose = argc > 1 ? atoi(argv[1]) : 0;
-    int only = argc > 2 ? atoi(argv[2]) : -1;
+    int32_t verbose = argc > 1 ? atoi(argv[1]) : 0;
+    int32_t only = argc > 2 ? atoi(argv[2]) : -1;
     scen_t S[40];
-    int n = 0;
+    int32_t n = 0;
     S[n] = base("centred box, open track (default side)");
     n++;
     S[n] = base("wall close on RIGHT -> must go LEFT");
@@ -1151,30 +1159,30 @@ int main (int argc, char ** argv)
     S[n].nobs = 2;
     S[n].expect_side = -1;
     n++;
-    int total = 0;
-    int passed = 0;
+    int32_t total = 0;
+    int32_t passed = 0;
 
-    for (int i = 0; i < n; i++)
+    for (int32_t i = 0; i < n; i++)
     {
         if ((only >= 0) && (i != only))
         {
             continue;
         }
 
-        int nseed = 10;
-        int okc = 0;
-        int bad = 0;
-        double worst = 1e9;
+        int32_t nseed = 10;
+        int32_t okc = 0;
+        int32_t bad = 0;
+        float64_t worst = 1e9;
         const char * firstfail = NULL;
         char buf[200] = "";
 
-        for (int sd = ((only >= 0)
+        for (int32_t sd = ((only >= 0)
                        && (argc > 3) ? atoi(argv[3]) : 1); sd <= nseed; sd++)
         {
             scen_t sc = S[i];
-            sc.seed = (unsigned)sd;
+            sc.seed = (uint32_t)sd;
             result_t r = run(&sc, only >= 0 ? verbose : 0);
-            int good;
+            int32_t good;
 
             if (99 == sc.expect_side)
             {

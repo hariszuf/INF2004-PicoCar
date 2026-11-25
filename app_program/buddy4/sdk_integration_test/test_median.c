@@ -1,10 +1,11 @@
 /* Reuse calibrated fixtures and run their complete regression suite as well. */
 #define main legacy_regression_main
+#include "../../barrc_types.h"
 #include "../tests/test_imu.c"
 #undef main
 /* Include implementation to exercise exact filtered-roll window boundaries. */
 #include "../buddy4_imu.c"
-static void feed (side_event_t * e, uint64_t t, float roll)
+static void feed (side_event_t * e, uint64_t t, float32_t roll)
 {
     update_median(e, t, fabsf(roll), 11.3f);
 }
@@ -13,7 +14,7 @@ static void test_windows (void)
 {
     side_event_t e = {0};
 
-    for (int idx = 0; idx < 10; idx++)
+    for (int32_t idx = 0; idx < 10; idx++)
     {
         feed(&e, 20000 * idx, 6);
     }
@@ -24,14 +25,14 @@ static void test_windows (void)
     assert(fabsf(e.median_candidate_height_cm
                  - 11.3f*sinf(6 * DEG_TO_RAD)) < 1e-6f);
 
-    for (int idx = 11; idx < 22; idx++)
+    for (int32_t idx = 11; idx < 22; idx++)
     {
         feed(&e, 20000 * idx, 8);
     }
 
     assert(8 == e.median_candidate_roll_deg);
 
-    for (int idx = 22; idx < 40; idx++)
+    for (int32_t idx = 22; idx < 40; idx++)
     {
         feed(&e, 20000 * idx, 5);
     }
@@ -40,14 +41,14 @@ static void test_windows (void)
     assert(8 == e.median_candidate_roll_deg);
     e = (side_event_t){0};
 
-    for (int idx = 0; idx < 11; idx++)
+    for (int32_t idx = 0; idx < 11; idx++)
     {
         feed(&e, 20000 * idx, 4 + idx);
     }
 
     assert((e.median_candidate_valid) && (9 == e.median_candidate_roll_deg));
 
-    for (int span = 189999; span <= 210001; span++)
+    for (int32_t span = 189999; span <= 210001; span++)
     {
         if ((189999 != span) && (190000 != span) && (210000 != span)
             && (210001 != span))
@@ -57,7 +58,7 @@ static void test_windows (void)
 
         e = (side_event_t){0};
 
-        for (int idx = 0; idx < 11; idx++)
+        for (int32_t idx = 0; idx < 11; idx++)
         {
             feed(&e, (uint64_t)span * idx / 10, 6);
         }
@@ -76,7 +77,7 @@ static void test_windows (void)
     assert(1 == e.median_count);
     e = (side_event_t){0};
 
-    for (int idx = 0; idx < 11; idx++)
+    for (int32_t idx = 0; idx < 11; idx++)
     {
         feed(&e, 40000 * idx, 6);
     }
@@ -85,7 +86,7 @@ static void test_windows (void)
     assert(!e.median_candidate_valid);
     e = (side_event_t){0};
 
-    for (int idx = 0; idx < 11; idx++)
+    for (int32_t idx = 0; idx < 11; idx++)
     {
         feed(&e, (idx < 5 ? 20000 * idx : 20000 * idx + 20000), 6);
     }
@@ -99,12 +100,12 @@ static void test_comparison (void)
     side_event_t stable = {0};
     side_event_t changing = {0};
 
-    for (int idx = 0; idx < 11; idx++)
+    for (int32_t idx = 0; idx < 11; idx++)
     {
         uint64_t t = 20000 * idx;
         update_side_event(&stable, 1, t, 6, 11.3f*sinf(6 * DEG_TO_RAD));
         update_median(&stable, t, 6, 11.3f);
-        float r = 4 + idx;
+        float32_t r = 4 + idx;
         update_side_event(&changing, 1, t, r, 11.3f*sinf(r * DEG_TO_RAD));
         update_median(&changing, t, r, 11.3f);
     }
@@ -126,7 +127,7 @@ static void test_lifecycle (void)
     uint64_t t = 0;
     samples(&s, &f, &t, 0, 8, 11);
     assert(s.output.event.median_candidate_valid);
-    float saved = s.output.event.median_candidate_roll_deg;
+    float32_t saved = s.output.event.median_candidate_roll_deg;
     /* Stale, repeated and reversed polls restart window, preserve event
      * maximum.
      */

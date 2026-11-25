@@ -1,5 +1,6 @@
 #ifndef BUDDY4_MOTION_CLASS_H
 #define BUDDY4_MOTION_CLASS_H
+#include "../barrc_types.h"
 #include <stdbool.h>
 #include <stdint.h>
 /* Encoder-based estimated motion; no SDK, Buddy 2 or motor-control dependency.
@@ -12,10 +13,10 @@ typedef enum
 } buddy4_motion_state_t;
 typedef struct
 {
-    float stop_enter_cm_s;
-    float stop_exit_cm_s; /* max absolute wheel speed */
-    float turn_enter_cm_s;
-    float turn_exit_cm_s; /* absolute right-minus-left */
+    float32_t stop_enter_cm_s;
+    float32_t stop_exit_cm_s; /* max absolute wheel speed */
+    float32_t turn_enter_cm_s;
+    float32_t turn_exit_cm_s; /* absolute right-minus-left */
     uint32_t confirm_us;
     uint32_t stale_us;
 } buddy4_motion_config_t;
@@ -44,8 +45,8 @@ bool buddy4_motion_init (buddy4_motion_t * c, buddy4_motion_config_t config);
 /* Call once per new speed observation. sample_us must increase strictly.
  * now_us must be monotonic; future/old samples and nonfinite speeds invalidate
  * immediately. Recovery requires a new full confirmation period. */
-void buddy4_motion_update (buddy4_motion_t * c, float left_cm_s,
-                           float right_cm_s,
+void buddy4_motion_update (buddy4_motion_t * c, float32_t left_cm_s,
+                           float32_t right_cm_s,
                            bool input_valid, uint64_t sample_us,
                            uint64_t now_us);
 /* Poll even without new observations to expire stale state. During a pending

@@ -1,16 +1,17 @@
 /* Host test of the start/stop policy (auto_start.h). gcc -std=c11 -Wall -Wextra
  * -I../../vehicle test_auto_start.c */
+#include "../../../barrc_types.h"
 #include <stdio.h>
 #include "auto_start.h"
-static int fails;
+static int32_t fails;
 #define CHECK(c) do{ if(!(c)){ printf("FAIL line %d: %s\n",__LINE__,#c); \
     fails++; } }while(0)
 static uint32_t now;
 /* Run the controller policy for ms milliseconds; returns the last non-trivial
  * action seen. */
 static auto_action_t run (auto_start_t * s, uint32_t ms, bool ready,
-                          int * resets,
-                          int * starts)
+                          int32_t * resets,
+                          int32_t * starts)
 {
     auto_action_t last = AUTO_NOTHING;
 
@@ -41,8 +42,8 @@ static auto_action_t run (auto_start_t * s, uint32_t ms, bool ready,
 int main (void)
 {
     auto_start_t s;
-    int rs = 0;
-    int st = 0;
+    int32_t rs = 0;
+    int32_t st = 0;
     /* power-on starts automatically after the gates */
     now = 1000;
     auto_start_init(&s, now);
@@ -110,7 +111,7 @@ int main (void)
     CHECK((AUTO_FAULTED == s.phase) && (8 == s.reason));
     CHECK(START_REJECTED_FAULT == auto_start_request(&s, now));
     {
-        int st0 = st;
+        int32_t st0 = st;
         run(&s, 5000, true, &rs, &st);
         CHECK(st == st0);
     }

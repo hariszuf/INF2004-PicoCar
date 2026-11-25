@@ -1,3 +1,4 @@
+#include "../../barrc_types.h"
 #include "buddy4_imu.h"
 #include "buddy4_device.h"
 #include "buddy4_lift.h"
@@ -251,7 +252,7 @@ static void process_once (uint64_t now)
         next.bump_event = next.side_event_ended = false;
         next.timing_valid = false;
         next.poll_result = BUDDY4_NOT_READY;
-        next.device_error = (int)clock_error;
+        next.device_error = (int32_t)clock_error;
         buddy4_lift_update(&lift, 0, 0, 0, false, now, now);
         copy_lift();
         publish();
@@ -430,7 +431,7 @@ static void sensor_task (INT code, void * info)
                     next.motion_valid = next.yaw_valid = false;
             next.bump_event = next.side_event_ended = false;
             next.timing_valid = false;
-            next.device_error = (int)e;
+            next.device_error = (int32_t)e;
             publish();
             /* Failure backoff only, never part of the normal sampling cadence.
              */
@@ -469,7 +470,7 @@ ER buddy4_task_init (void)
         return (ER)dd;
     }
 
-    device = (buddy4_device_t){.descriptor = (int)dd};
+    device = (buddy4_device_t){.descriptor = (int32_t)dd};
     buddy4_init(&imu, buddy4_device_bus(&device), buddy4_default_config());
     (void)buddy4_lift_init(&lift, buddy4_lift_default_config());
     (void)buddy4_motion_init(&motion, buddy4_motion_default_config());

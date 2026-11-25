@@ -1,5 +1,6 @@
 #ifndef B5_COMPAT_PWM_H
 #define B5_COMPAT_PWM_H
+#include "../../../../barrc_types.h"
 #include <stdint.h>
 #include <stdbool.h>
 typedef struct
@@ -20,7 +21,7 @@ static inline pwm_config pwm_get_default_config (void)
     };
 }
 
-static inline void pwm_config_set_clkdiv (pwm_config *c, float v)
+static inline void pwm_config_set_clkdiv (pwm_config *c, float32_t v)
 {
     c->divider = (uint32_t)(v * 16.0f);
 }

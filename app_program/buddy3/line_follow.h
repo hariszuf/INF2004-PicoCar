@@ -9,6 +9,7 @@
 #ifndef LINE_FOLLOW_H
 #define LINE_FOLLOW_H
 
+#include "../barrc_types.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -33,8 +34,8 @@ typedef struct
 {
     line_state_t state;
     uint8_t sensor_mask;     /* LINE_SENSOR_* bits */
-    float left_cmd_cm_s;
-    float right_cmd_cm_s;
+    float32_t left_cmd_cm_s;
+    float32_t right_cmd_cm_s;
 } line_status_t;
 
 /** Motion Control must already be initialised (motion_init()). */
@@ -48,8 +49,8 @@ void line_follow_update (void);
  * search; direction +1 left / -1 right), then centres the tape between
  * the two sensors and stops. Keep calling line_follow_update(). Status: 0
  * running, 1 done, -1 failed. */
-bool line_follow_rejoin (int direction, float advance_cm);
-int line_follow_rejoin_status (void);
+bool line_follow_rejoin (int32_t direction, float32_t advance_cm);
+int32_t line_follow_rejoin_status (void);
 /* Controller hooks for an operator restart. */
 bool line_follow_restart_required (void);
 void line_follow_discard_barcode (void);

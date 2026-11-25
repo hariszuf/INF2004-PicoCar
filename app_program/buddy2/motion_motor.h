@@ -10,6 +10,7 @@
 #ifndef MOTION_MOTOR_H
 #define MOTION_MOTOR_H
 
+#include "../barrc_types.h"
 #include <stdbool.h>
 #include "motion_types.h"
 
@@ -20,7 +21,7 @@ void motion_motor_init (void);
  * Drive one motor. duty is -1.0 (full backward) to +1.0 (full forward).
  * Ignored (motor braked) while the safety latch is set.
  */
-void motion_motor_set (motion_side_t side, float duty);
+void motion_motor_set (motion_side_t side, float32_t duty);
 
 /** Brake one motor (both inputs low). */
 void motion_motor_brake (motion_side_t side);

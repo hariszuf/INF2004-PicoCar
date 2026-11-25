@@ -1,3 +1,4 @@
+#include "../barrc_types.h"
 #include "buddy4_obstruction.h"
 #include <math.h>
 
@@ -77,8 +78,8 @@ void buddy4_obstruction_update (buddy4_obstruction_t * d,
     d->last_observation_us = in->observation_us;
     d->has_observation = true;
     d->output.observation_us = in->observation_us;
-    float cl = in->command_left_cm_s;
-    float cr = in->command_right_cm_s;
+    float32_t cl = in->command_left_cm_s;
+    float32_t cr = in->command_right_cm_s;
     /* Commanded turns, reversals and out-of-envelope demand still invalidate
      * immediately. Measured asymmetry is not proof of changed command intent.
      */

@@ -1,5 +1,6 @@
 #ifndef PICOCAR_BUDDY5_CORE_H
 #define PICOCAR_BUDDY5_CORE_H
+#include "../barrc_types.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include "buddy5_config.h"
@@ -97,20 +98,20 @@ typedef struct
 {
     uint8_t bits[BITPACK_BYTES(B5_SCAN_POINTS * B5_SCAN_SLOT_BITS)];
 } b5_scan_t;
-static inline uint16_t b5_scan_dist (const b5_scan_t * s, int idx)
+static inline uint16_t b5_scan_dist (const b5_scan_t * s, int32_t idx)
 {
-    return (uint16_t)bitpack_get(s->bits, (unsigned)idx * B5_SCAN_SLOT_BITS,
+    return (uint16_t)bitpack_get(s->bits, (uint32_t)idx * B5_SCAN_SLOT_BITS,
                                  B5_SCAN_DIST_BITS);
 }
 
-static inline uint8_t b5_scan_state (const b5_scan_t * s, int idx)
+static inline uint8_t b5_scan_state (const b5_scan_t * s, int32_t idx)
 {
     return (uint8_t)bitpack_get(s->bits,
-                                (unsigned)idx * B5_SCAN_SLOT_BITS
+                                (uint32_t)idx * B5_SCAN_SLOT_BITS
                                 + B5_SCAN_DIST_BITS, B5_SCAN_STATE_BITS);
 }
 
-static inline void b5_scan_set (b5_scan_t * s, int idx, uint8_t state,
+static inline void b5_scan_set (b5_scan_t * s, int32_t idx, uint8_t state,
                                 uint32_t dist)
 {
     if (dist > B5_SCAN_DIST_MAX)
@@ -118,13 +119,13 @@ static inline void b5_scan_set (b5_scan_t * s, int idx, uint8_t state,
         dist = B5_SCAN_DIST_MAX;
     }
 
-    bitpack_put(s->bits, (unsigned)idx * B5_SCAN_SLOT_BITS, B5_SCAN_DIST_BITS,
+    bitpack_put(s->bits, (uint32_t)idx * B5_SCAN_SLOT_BITS, B5_SCAN_DIST_BITS,
                 dist);
-    bitpack_put(s->bits, (unsigned)idx * B5_SCAN_SLOT_BITS + B5_SCAN_DIST_BITS,
+    bitpack_put(s->bits, (uint32_t)idx * B5_SCAN_SLOT_BITS + B5_SCAN_DIST_BITS,
                 B5_SCAN_STATE_BITS, state);
 }
 
-static inline int b5_slot_angle (int slot)
+static inline int32_t b5_slot_angle (int32_t slot)
 {
     return B5_SCAN_MIN_DEG + 5 * slot;
 }
@@ -241,7 +242,7 @@ void b5_core_fail (b5_core_t * c, b5_fault_t fault, uint32_t now_ms);
 void b5_core_update (b5_core_t * c, uint32_t now_ms, const b5_feedback_t * f,
                      const b5_range_t * range);
 /* Servo angle wanted now (degrees, + = left). */
-int b5_core_angle (const b5_core_t * c);
+int32_t b5_core_angle (const b5_core_t * c);
 /* The controller request waiting to be sent: returns true and fills *r; call
  * b5_core_request_sent() once accepted. */
 bool b5_core_peek_request (const b5_core_t * c, b5_request_t * r);

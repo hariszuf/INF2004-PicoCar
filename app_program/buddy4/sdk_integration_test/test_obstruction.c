@@ -1,3 +1,4 @@
+#include "../../barrc_types.h"
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -11,8 +12,8 @@
 typedef struct
 {
     uint64_t us;
-    float left;
-    float right;
+    float32_t left;
+    float32_t right;
 } trace_sample_t;
 static const trace_sample_t foam[] = {
     {114860000, 3.18f, 3.09f}, {114880000, 1.59f, 1.545f},
@@ -54,7 +55,7 @@ static void reset (void)
         .command_left_cm_s = 3, .command_right_cm_s = 3};
 }
 
-static buddy4_obstruction_output_t tick (float left, float right)
+static buddy4_obstruction_output_t tick (float32_t left, float32_t right)
 {
     t += 20000;
     in.observation_us = t;
@@ -66,7 +67,7 @@ static buddy4_obstruction_output_t tick (float left, float right)
 
 static void establish (void)
 {
-    for (int idx = 0; idx < 26; idx++)
+    for (int32_t idx = 0; idx < 26; idx++)
     {
         assert(!tick(3, 3).possible_obstruction);
     }
@@ -76,7 +77,7 @@ static void establish (void)
 
 static void blocked (void)
 {
-    for (int idx = 0; idx < 5; idx++)
+    for (int32_t idx = 0; idx < 5; idx++)
     {
         assert(!tick(0.12f, 0.12f).possible_obstruction);
     }
@@ -140,7 +141,7 @@ static void driving_and_stops (void)
 {
     reset();
 
-    for (int idx = 0; idx < 200; idx++)
+    for (int32_t idx = 0; idx < 200; idx++)
     {
         tick(0, 0); /* Cannot detect startup/non-moving demand. */
     }
@@ -148,7 +149,7 @@ static void driving_and_stops (void)
     assert((!d.output.established) && (0 == d.output.event_count));
     establish();
 
-    for (int idx = 0; idx < 500; idx++)
+    for (int32_t idx = 0; idx < 500; idx++)
     {
         assert(!tick(3 + 0.15f*sinf(idx),
                      3 - 0.1f*sinf(idx)).possible_obstruction);
@@ -168,7 +169,7 @@ static void driving_and_stops (void)
     reset();
     establish();
 
-    for (int idx = 0; idx < 40; idx++)
+    for (int32_t idx = 0; idx < 40; idx++)
     {
         assert(!tick(1.5f, 1.5f).possible_obstruction); /* Partial reduction. */
     }
@@ -181,7 +182,7 @@ static void driving_and_stops (void)
     buddy4_obstruction_cancel(&d, t + 1);
     in.eligible = false;
 
-    for (int idx = 0; idx < 20; idx++)
+    for (int32_t idx = 0; idx < 20; idx++)
     {
         tick(0, 0);
     }
@@ -192,7 +193,7 @@ static void driving_and_stops (void)
     establish();
     in.command_left_cm_s = in.command_right_cm_s = 2;
 
-    for (int idx = 0; idx < 20; idx++)
+    for (int32_t idx = 0; idx < 20; idx++)
     {
         tick(0.1f, 0.1f);
     }
@@ -201,12 +202,12 @@ static void driving_and_stops (void)
     reset();
     in.command_left_cm_s = in.command_right_cm_s = 1;
 
-    for (int idx = 0; idx < 100; idx++)
+    for (int32_t idx = 0; idx < 100; idx++)
     {
         tick(1, 1);
     }
 
-    for (int idx = 0; idx < 100; idx++)
+    for (int32_t idx = 0; idx < 100; idx++)
     {
         tick(0, 0);
     }
@@ -217,7 +218,7 @@ static void driving_and_stops (void)
 
 static void exclusions (void)
 {
-    for (int kind = 0; kind < 6; kind++)
+    for (int32_t kind = 0; kind < 6; kind++)
     {
         reset();
         establish();
@@ -225,7 +226,7 @@ static void exclusions (void)
 
         if (0 == kind)
         {
-            for (int idx = 0; idx < 30; idx++)
+            for (int32_t idx = 0; idx < 30; idx++)
             {
                 tick(0, 3);
             }
@@ -233,7 +234,7 @@ static void exclusions (void)
 
         if (1 == kind)
         {
-            for (int idx = 0; idx < 30; idx++)
+            for (int32_t idx = 0; idx < 30; idx++)
             {
                 tick(3, 0);
             }
@@ -243,7 +244,7 @@ static void exclusions (void)
         {
             in.command_left_cm_s = 2;
 
-            for (int idx = 0; idx < 30; idx++)
+            for (int32_t idx = 0; idx < 30; idx++)
             {
                 tick(0, 0);
             }
@@ -251,7 +252,7 @@ static void exclusions (void)
 
         if (3 == kind)
         {
-            for (int idx = 0; idx < 30; idx++)
+            for (int32_t idx = 0; idx < 30; idx++)
             {
                 tick(-0.1f, -0.1f);
             }
@@ -261,7 +262,7 @@ static void exclusions (void)
         {
             in.eligible = false;
 
-            for (int idx = 0; idx < 30; idx++)
+            for (int32_t idx = 0; idx < 30; idx++)
             {
                 tick(0, 0);
             }
@@ -271,7 +272,7 @@ static void exclusions (void)
         {
             ++in.demand_id;
 
-            for (int idx = 0; idx < 30; idx++)
+            for (int32_t idx = 0; idx < 30; idx++)
             {
                 tick(0, 0);
             }
@@ -283,7 +284,7 @@ static void exclusions (void)
     reset();
     establish();
 
-    for (int idx = 0; idx < 50; idx++)
+    for (int32_t idx = 0; idx < 50; idx++)
     {
         tick(0.12f, 0.12f);
         tick(3, 3);
@@ -295,9 +296,9 @@ static void exclusions (void)
 
 static void faults_and_recovery (void)
 {
-    for (int history = 0; history < 2; history++)
+    for (int32_t history = 0; history < 2; history++)
     {
-        for (int kind = 0; kind < 9; kind++)
+        for (int32_t kind = 0; kind < 9; kind++)
         {
             reset();
             establish();
@@ -363,21 +364,21 @@ static void faults_and_recovery (void)
             buddy4_obstruction_update(&d, &in, now);
             assert((!d.output.valid) && (!d.output.possible_obstruction)
                    && (!d.output.established));
-            assert((d.output.event_count == (unsigned)history)
+            assert((d.output.event_count == (uint32_t)history)
                    && (d.output.event_us == event));
             t += 2000000;
             in.valid = true;
 
-            for (int idx = 0; idx < 20; idx++)
+            for (int32_t idx = 0; idx < 20; idx++)
             {
                 tick(0, 0);
             }
 
             /* Recovery cannot prime while stuck. */
-            assert(d.output.event_count == (unsigned)history);
+            assert(d.output.event_count == (uint32_t)history);
             establish();
             blocked();
-            assert(d.output.event_count == (unsigned)history + 1);
+            assert(d.output.event_count == (uint32_t)history + 1);
         }
     }
 }
@@ -386,7 +387,7 @@ static void cooldown_and_boundaries (void)
 {
     reset();
 
-    for (int idx = 0; idx < 25; idx++)
+    for (int32_t idx = 0; idx < 25; idx++)
     {
         tick(3, 3);
     }
@@ -397,7 +398,7 @@ static void cooldown_and_boundaries (void)
     blocked();
     uint64_t event = t;
 
-    for (int idx = 0; idx < 100; idx++)
+    for (int32_t idx = 0; idx < 100; idx++)
     {
         assert(!tick(0, 0).possible_obstruction);
     }
@@ -411,7 +412,7 @@ static void cooldown_and_boundaries (void)
     blocked();
     event = t;
 
-    for (int idx = 0; idx < 26; idx++)
+    for (int32_t idx = 0; idx < 26; idx++)
     {
         tick(3, 3);
     }
@@ -441,7 +442,7 @@ static void cooldown_and_boundaries (void)
     establish();
     tick(0.5f, 0.5f);
 
-    for (int idx = 0; idx < 4; idx++)
+    for (int32_t idx = 0; idx < 4; idx++)
     {
         tick(0.5f, 0.5f);
     }
@@ -460,7 +461,7 @@ static void asymmetric_transition (void)
     reset();
     establish();
 
-    for (int idx = 0; idx < 6; idx++)
+    for (int32_t idx = 0; idx < 6; idx++)
     {
         buddy4_obstruction_output_t o = tick(2.10f, 3.15f);
         assert((o.valid) && (o.established) && (!o.possible_obstruction)
@@ -477,24 +478,24 @@ static void asymmetric_transition (void)
      * latched. */
     reset();
 
-    for (int idx = 0; idx < 20; idx++)
+    for (int32_t idx = 0; idx < 20; idx++)
     {
         tick(1, 3);
     }
 
-    for (int idx = 0; idx < 20; idx++)
+    for (int32_t idx = 0; idx < 20; idx++)
     {
         tick(0, 0);
     }
 
     assert((!d.output.established) && (0 == d.output.event_count));
 
-    for (int slip = 0; slip < 2; slip++)
+    for (int32_t slip = 0; slip < 2; slip++)
     {
         reset();
         establish();
 
-        for (int idx = 0; idx < 11; idx++)
+        for (int32_t idx = 0; idx < 11; idx++)
         {
             assert(!tick(slip ? 3 : 0, slip ? 6 : 3).possible_obstruction);
         }
@@ -503,7 +504,7 @@ static void asymmetric_transition (void)
         assert(d.output.established);
         tick(slip ? 3 : 0, slip ? 6 : 3);
         assert(!d.output.established); /* 220 ms: expired. */
-        for (int idx = 0; idx < 20; idx++)
+        for (int32_t idx = 0; idx < 20; idx++)
         {
             tick(0, 0);
         }
@@ -521,7 +522,7 @@ static void asymmetric_transition (void)
     establish();
     tick(1, 3);
 
-    for (int idx = 0; idx < 11; idx++)
+    for (int32_t idx = 0; idx < 11; idx++)
     {
         tick(1, 1);
     }
@@ -534,7 +535,7 @@ static void asymmetric_transition (void)
     tick(0.1f, 0.1f);
     tick(1, 3);
 
-    for (int idx = 0; idx < 5; idx++)
+    for (int32_t idx = 0; idx < 5; idx++)
     {
         assert(!tick(0.1f, 0.1f).possible_obstruction);
     }
@@ -542,7 +543,7 @@ static void asymmetric_transition (void)
     assert(tick(0.1f, 0.1f).possible_obstruction);
     /* Turns, changed demand/mode, invalid input and gaps always cancel the
      * hold. */
-    for (int kind = 0; kind < 6; kind++)
+    for (int32_t kind = 0; kind < 6; kind++)
     {
         reset();
         establish();
@@ -605,7 +606,7 @@ static void pitch_pause_boundaries (void)
     assert((t == paused + 40000) && (d.output.established)
            && (0 == d.output.slow_ms));
 
-    for (int idx = 0; idx < 4; idx++)
+    for (int32_t idx = 0; idx < 4; idx++)
     {
         assert(!tick(0, 0).possible_obstruction);
     }
@@ -618,14 +619,14 @@ static void pitch_pause_boundaries (void)
            && (d.output.event_us == event));
     in.pause_motion = false;
 
-    for (int idx = 0; idx < 27; idx++)
+    for (int32_t idx = 0; idx < 27; idx++)
     {
         tick(3, 3);
     }
 
     assert(!d.output.established); /* Pause cannot bypass event cooldown. */
 
-    for (int kind = 0; kind < 4; kind++)
+    for (int32_t kind = 0; kind < 4; kind++)
     {
         reset();
         establish();
@@ -659,7 +660,7 @@ static void pitch_pause_boundaries (void)
                && (!d.output.possible_obstruction));
         in.pause_motion = false;
 
-        for (int idx = 0; idx < 15; idx++)
+        for (int32_t idx = 0; idx < 15; idx++)
         {
             assert(!tick(0, 0).possible_obstruction);
         }

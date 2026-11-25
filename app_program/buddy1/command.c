@@ -1,4 +1,5 @@
 
+#include "../barrc_types.h"
 #include <stdint.h>
 
 #include <tk/tkernel.h>
@@ -83,8 +84,8 @@ LOCAL void command_task (INT stacd, void * exinf)
         tm_printf(
                   (UB *)"[Command] type=%s seq=%u value=%d\n",
                   (UB *)command_type_to_string(message.type),
-                  (unsigned int)message.sequence,
-                  (int)message.value
+                  (uint32_t)message.sequence,
+                  (int32_t)message.value
                   );
     }
 }
@@ -240,10 +241,10 @@ extern void b5_remote_command_intent (uint32_t command) __attribute__((weak));
  * profiles without Buddy 3 / the vehicle controller still link. The result is
  * reported back through telemetry.
  */
-extern int junction_map_apply (const char * codes,
+extern int32_t junction_map_apply (const char * codes,
                                uint32_t length) __attribute__((weak));
 extern void junction_map_reset (void) __attribute__((weak));
-extern int b5_run_active (void) __attribute__((weak));
+extern int32_t b5_run_active (void) __attribute__((weak));
 /* 0 none yet, 1 applied, 2 bad format, 3 rejected (car running) */
 static volatile int32_t barcode_map_result = 0;
 
@@ -384,11 +385,11 @@ int32_t buddy1_mqtt_command_ingest (
     {
         if (COMMAND_TYPE_STOP == message.type)
         {
-            b5_remote_command_intent((unsigned)'S');
+            b5_remote_command_intent((uint32_t)'S');
         }
         else if (COMMAND_TYPE_START == message.type)
         {
-            b5_remote_command_intent((unsigned)'R');
+            b5_remote_command_intent((uint32_t)'R');
         }
         else
         {

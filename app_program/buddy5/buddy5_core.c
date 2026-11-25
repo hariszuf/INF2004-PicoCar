@@ -1,3 +1,4 @@
+#include "../barrc_types.h"
 #include "buddy5_core.h"
 #include "buddy5_plan.h"
 #include <math.h>
@@ -15,12 +16,12 @@ typedef enum
 } chk_t;
 
 /* ------------------------------------------------------------------ sampler */
-static void sort3 (int32_t * v, int n)
+static void sort3 (int32_t * v, int32_t n)
 {
-    for (int idx = 1; idx < n; idx++)
+    for (int32_t idx = 1; idx < n; idx++)
     {
         int32_t t = v[idx];
-        int jdx = idx - 1;
+        int32_t jdx = idx - 1;
 
         while ((jdx >= 0) && (v[jdx] > t))
         {
@@ -36,10 +37,10 @@ b5_range_t b5_filter (const b5_range_t samples[B5_SAMPLER_N])
 {
     b5_range_t out = {false, 0};
     int32_t echo[B5_SAMPLER_N];
-    int e = 0;
-    int none = 0;
+    int32_t e = 0;
+    int32_t none = 0;
 
-    for (int idx = 0; idx < B5_SAMPLER_N; idx++)
+    for (int32_t idx = 0; idx < B5_SAMPLER_N; idx++)
     {
         if (!samples[idx].valid)
         {
@@ -56,7 +57,7 @@ b5_range_t b5_filter (const b5_range_t samples[B5_SAMPLER_N])
         }
     }
 
-    if (e >= (int)B5_MIN_VALID_SAMPLES)
+    if (e >= (int32_t)B5_MIN_VALID_SAMPLES)
     {
         sort3(echo, e);
 
@@ -79,7 +80,7 @@ b5_range_t b5_filter (const b5_range_t samples[B5_SAMPLER_N])
             /* no action required */
         }
     }
-    else if (none >= (int)B5_MIN_VALID_SAMPLES)
+    else if (none >= (int32_t)B5_MIN_VALID_SAMPLES)
     {
         out.valid = true;
         out.distance_mm = B5_NO_ECHO_MM;
@@ -131,7 +132,7 @@ const char * b5_state_name (b5_state_t s)
 {
     static const char * const names[] = {"MONITORING", "WAIT_STOP", "SCANNING",
         "PROCESSING", "AVOIDING", "LINE_RECOVERY", "ERROR"};
-    return (unsigned)s < sizeof(names) / sizeof(names[0]) ? names[s]
+    return (uint32_t)s < sizeof(names) / sizeof(names[0]) ? names[s]
             : "UNKNOWN";
 }
 
@@ -201,7 +202,7 @@ void b5_core_request_sent (b5_core_t * c, uint32_t now_ms)
     c->request_since_ms = now_ms;
 }
 
-int b5_core_angle (const b5_core_t * c)
+int32_t b5_core_angle (const b5_core_t * c)
 {
     if (B5_SCANNING == c->state)
     {
@@ -219,8 +220,8 @@ int b5_core_angle (const b5_core_t * c)
          * The box is on the side the car came from, i.e. servo + when it passed
          * on
          * the right, - when on the left. */
-        int far = c->side > 0 ? B5_SCAN_MIN_DEG : B5_SCAN_MAX_DEG;
-        int half = c->side > 0 ? -15 : 15;
+        int32_t far = c->side > 0 ? B5_SCAN_MIN_DEG : B5_SCAN_MAX_DEG;
+        int32_t half = c->side > 0 ? -15 : 15;
         uint32_t k =
                 ((c->now_ms - c->recover_since_ms) / B5_LOOK_PERIOD_MS) % 3u;
         return 0u == k ? 0 : (1u == k ? half : far);
@@ -284,9 +285,9 @@ static void begin_check (b5_core_t * c, uint32_t now)
     c->chk_min = INT32_MAX;
 }
 
-static void use_side (b5_core_t * c, int side)
+static void use_side (b5_core_t * c, int32_t side)
 {
-    int idx = side > 0 ? 0 : 1;
+    int32_t idx = side > 0 ? 0 : 1;
     c->side = (int8_t)side;
     c->offset_mm = c->off_arr[idx];
     c->pass_x_mm = c->pass_arr[idx];
@@ -295,7 +296,7 @@ static void use_side (b5_core_t * c, int side)
 
 static bool other_side_ok (const b5_core_t * c)
 {
-    int o = c->side > 0 ? 1 : 0;
+    int32_t o = c->side > 0 ? 1 : 0;
     return (c->feas_arr[o]) && (!(c->blocked_mask & (1u << o)));
 }
 
@@ -361,7 +362,7 @@ static void do_processing (b5_core_t * c, uint32_t now)
     pr->depth_high_mm = B5_BOX_LENGTH_MM + B5_BOX_DEPTH_TOL_MM;
     pr->side_reason = p.reason;
 
-    for (int idx = 0; idx < 2; idx++)
+    for (int32_t idx = 0; idx < 2; idx++)
     {
         c->off_arr[idx] = p.offset_mm[idx];
         c->pass_arr[idx] = p.pass_x_mm[idx];
@@ -430,7 +431,7 @@ void b5_core_update (b5_core_t * c, uint32_t now, const b5_feedback_t * f,
         return;
     }
 
-    int angle = b5_core_angle(c);
+    int32_t angle = b5_core_angle(c);
     bool fresh_front = false;
 
     if (range && (0 == angle))
@@ -513,7 +514,7 @@ void b5_core_update (b5_core_t * c, uint32_t now, const b5_feedback_t * f,
         case B5_SCANNING:
         if (range && (c->slot < B5_SCAN_POINTS))
         {
-            int idx = c->slot;
+            int32_t idx = c->slot;
 
             if (b5_range_no_echo(range))
             {
@@ -622,9 +623,9 @@ void b5_core_update (b5_core_t * c, uint32_t now, const b5_feedback_t * f,
                     /* Echoes the wide cone could return from the box itself are
                      * not obstacles
                      * in the pass. */
-                    float gap = (float)(c->offset_mm - c->edge_near_mm);
-                    float dlo = (float)(c->x_face_mm - xs),
-                    dhi = (float)(c->x_face_mm + B5_BOX_LENGTH_MM
+                    float32_t gap = (float32_t)(c->offset_mm - c->edge_near_mm);
+                    float32_t dlo = (float32_t)(c->x_face_mm - xs),
+                    dhi = (float32_t)(c->x_face_mm + B5_BOX_LENGTH_MM
                                   + B5_BOX_DEPTH_TOL_MM
                                   - xs);
                     lo = (int32_t)sqrtf(dlo * dlo + gap * gap) - 40

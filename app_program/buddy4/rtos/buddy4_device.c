@@ -1,3 +1,4 @@
+#include "../../barrc_types.h"
 #include "buddy4_device.h"
 #ifdef BUDDY4_MTK_HOST_TEST
 #include "tests/mtk_stubs/device_api.h"
@@ -19,7 +20,7 @@ static void capture_timeout (buddy4_device_t * d)
     }
 }
 
-static int write_bus (void * context, uint8_t address, const uint8_t * data,
+static int32_t write_bus (void * context, uint8_t address, const uint8_t * data,
                       size_t count, bool no_stop)
 {
     buddy4_device_t * d = context;
@@ -48,12 +49,12 @@ static int write_bus (void * context, uint8_t address, const uint8_t * data,
     d->last_operation_read = false;
     SZ actual = 0;
     ER e = tk_swri_dev(d->descriptor, address, data, (SZ)count, &actual);
-    d->last_error = (e >= E_OK) && (actual != (SZ)count) ? E_IO : (int)e;
+    d->last_error = (e >= E_OK) && (actual != (SZ)count) ? E_IO : (int32_t)e;
     capture_timeout(d);
-    return (e >= E_OK) && (actual == (SZ)count) ? (int)count : -1;
+    return (e >= E_OK) && (actual == (SZ)count) ? (int32_t)count : -1;
 }
 
-static int read_bus (void * context, uint8_t address, uint8_t * data,
+static int32_t read_bus (void * context, uint8_t address, uint8_t * data,
                      size_t count, bool no_stop)
 {
     buddy4_device_t * d = context;
@@ -77,9 +78,9 @@ static int read_bus (void * context, uint8_t address, uint8_t * data,
     ER e = tk_swri_dev(d->descriptor, TDN_I2C_EXEC, &request,
                        sizeof(request), &actual);
     d->last_error = (e >= E_OK)
-            && (actual != (SZ)sizeof(request)) ? E_IO : (int)e;
+            && (actual != (SZ)sizeof(request)) ? E_IO : (int32_t)e;
     capture_timeout(d);
-    return (e >= E_OK) && (actual == (SZ)sizeof(request)) ? (int)count : -1;
+    return (e >= E_OK) && (actual == (SZ)sizeof(request)) ? (int32_t)count : -1;
 }
 
 buddy4_bus_t buddy4_device_bus (buddy4_device_t * device)

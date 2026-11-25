@@ -9,6 +9,7 @@
  * test_junction.c for the junction)
  *   (run from app_program/buddy3)
  */
+#include "../../../barrc_types.h"
 #include <stdio.h>
 
 #include "line_config.h"
@@ -17,13 +18,13 @@
 #include "motion_control.h"
 
 static uint8_t s_mask;
-static int s_drive_calls;
-static int s_stop_calls;
-static float s_last_left;
-static float s_last_right;
-static int s_failures;
-static float s_stub_pitch;
-static float s_stub_roll;
+static int32_t s_drive_calls;
+static int32_t s_stop_calls;
+static float32_t s_last_left;
+static float32_t s_last_right;
+static int32_t s_failures;
+static float32_t s_stub_pitch;
+static float32_t s_stub_roll;
 static bool s_stub_tilt_valid;
 
 void line_sensors_init (void)
@@ -41,14 +42,14 @@ void motion_get_status (motion_status_t * p_status)
     p_status->state = MOTION_STATE_IDLE;
 }
 
-bool motion_get_tilt (float * p_pitch_deg, float * p_roll_deg)
+bool motion_get_tilt (float32_t * p_pitch_deg, float32_t * p_roll_deg)
 {
     *p_pitch_deg = s_stub_pitch;
     *p_roll_deg = s_stub_roll;
     return s_stub_tilt_valid;
 }
 
-motion_result_t motion_drive (float left_cm_s, float right_cm_s)
+motion_result_t motion_drive (float32_t left_cm_s, float32_t right_cm_s)
 {
     s_drive_calls++;
     s_last_left = left_cm_s;

@@ -1,5 +1,6 @@
 #ifndef B5_SCAN_LINK_H
 #define B5_SCAN_LINK_H
+#include "../../barrc_types.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include "../../buddy5/buddy5_core.h"
@@ -9,7 +10,7 @@ typedef struct
     b5_fault_t fault;
     b5_profile_t profile;
     int32_t front_clearance_mm;
-    int angle;
+    int32_t angle;
     bool front_valid;
     uint32_t front_timestamp_ms;
     uint32_t heartbeat_ms;

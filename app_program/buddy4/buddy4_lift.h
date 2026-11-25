@@ -1,5 +1,6 @@
 #ifndef BUDDY4_LIFT_H
 #define BUDDY4_LIFT_H
+#include "../barrc_types.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -27,12 +28,12 @@ typedef struct
      * points up,
      * -1 if the board is mounted with +Z pointing down. Measured on this car:
      * level = -1. */
-    float up_sign;
-    float tilt_enter_deg;
-    float tilt_exit_deg;
-    float overturn_deg;
-    float accel_enter_g;
-    float accel_exit_g;
+    float32_t up_sign;
+    float32_t tilt_enter_deg;
+    float32_t tilt_exit_deg;
+    float32_t overturn_deg;
+    float32_t accel_enter_g;
+    float32_t accel_exit_g;
     uint32_t tilt_confirm_us;
     uint32_t accel_confirm_us;
     uint32_t clear_us;
@@ -51,8 +52,8 @@ typedef struct
     uint32_t count; /* Number of lift events since boot. */
     uint64_t since_us; /* Sample time of the latest trigger. */
     /* Angle of gravity from the up axis, 0 = level, 180 = upside-down. */
-    float tilt_deg;
-    float deviation_g;   /* | ||a|| - 1 g |. */
+    float32_t tilt_deg;
+    float32_t deviation_g;   /* | ||a|| - 1 g |. */
 } buddy4_lift_output_t;
 
 typedef struct
@@ -78,9 +79,10 @@ bool buddy4_lift_init (buddy4_lift_t * d, buddy4_lift_config_t config);
  * Invalid input clears pending evidence but keeps a latched lift; the latch is
  * only released after invalid_release_us of continuous invalid input (an IMU
  * failure must not block driving forever, matching the rest of the car). */
-void buddy4_lift_update (buddy4_lift_t * d, float x_g, float y_g, float z_g,
+void buddy4_lift_update (buddy4_lift_t * d, float32_t x_g, float32_t y_g,
+                         float32_t z_g,
                          bool valid, uint64_t sample_us, uint64_t now_us);
-const char * buddy4_lift_reason_name (int reason);
+const char * buddy4_lift_reason_name (int32_t reason);
 #endif
 
 /*** end of file ***/

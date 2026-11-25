@@ -1,6 +1,7 @@
 #ifndef BUDDY4_IMU_H
 #define BUDDY4_IMU_H
 
+#include "../barrc_types.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -10,10 +11,10 @@
 
 /* Callbacks return transferred byte count; use bounded hardware transfers.
  * no_stop keeps the bus active for the following repeated-start read. */
-typedef int (*buddy4_write_fn)(void * context, uint8_t address,
+typedef int32_t (*buddy4_write_fn)(void * context, uint8_t address,
                                const uint8_t * data, size_t count,
                                        bool no_stop);
-typedef int (*buddy4_read_fn)(void * context, uint8_t address,
+typedef int32_t (*buddy4_read_fn)(void * context, uint8_t address,
                               uint8_t * data, size_t count, bool no_stop);
 
 typedef struct
@@ -52,14 +53,14 @@ typedef struct
 typedef struct
 {
     /* Sensor XYZ: corrected = (uncorrected - bias) * scale. Identity: 0, 1. */
-    float accel_bias_g[3];
-    float accel_scale[3];
-    float pitch_sign;
-    float pitch_offset_deg;
-    float roll_sign;
-    float roll_offset_deg;
+    float32_t accel_bias_g[3];
+    float32_t accel_scale[3];
+    float32_t pitch_sign;
+    float32_t pitch_offset_deg;
+    float32_t roll_sign;
+    float32_t roll_offset_deg;
     /* Confirmed default wheel-centre spacing: 11.3 cm. */
-    float centre_spacing_cm;
+    float32_t centre_spacing_cm;
     bool mounting_offsets_need_recalibration : 1;
     bool centre_spacing_confirmed : 1;
 } buddy4_config_t;
@@ -67,20 +68,20 @@ typedef struct
 typedef struct
 {
     uint64_t start_us;
-    float peak_roll_deg;
-    float peak_height_cm;
+    float32_t peak_roll_deg;
+    float32_t peak_height_cm;
     /* Experimental moving peak, independent of stability confirmation.
      * Numeric fields are meaningful only when median_candidate_valid is true.
      */
-    float median_candidate_roll_deg;
-    float median_candidate_height_cm;
-    float median_roll[11];
+    float32_t median_candidate_roll_deg;
+    float32_t median_candidate_height_cm;
+    float32_t median_roll[11];
     uint64_t median_time_us[11];
     uint64_t window_start_us;
     uint64_t last_sample_us;
-    float window_min_roll;
-    float window_max_roll;
-    float window_min_height;
+    float32_t window_min_roll;
+    float32_t window_max_roll;
+    float32_t window_min_height;
     int8_t side;            /* -1, 0 or +1 */
     uint8_t median_count;   /* 0..11 */
     bool peak_confirmed : 1;
@@ -98,16 +99,16 @@ typedef struct
     /* Configuration/transfer failures; excludes stale. */
     uint32_t error_count;
     int16_t raw[3];         /* X, Y, Z signed sensor counts. */
-    float uncorrected_accel_g[3]; /* Sensor XYZ counts converted to g. */
+    float32_t uncorrected_accel_g[3]; /* Sensor XYZ counts converted to g. */
     /* Corrected sensor XYZ in g; used for processing. */
-    float accel_g[3];
-    float magnitude_g;
-    float pitch_deg;
-    float roll_deg;
-    float filtered_pitch_deg;
-    float filtered_roll_deg;
-    float transient_g;
-    float wheel_height_cm;
+    float32_t accel_g[3];
+    float32_t magnitude_g;
+    float32_t pitch_deg;
+    float32_t roll_deg;
+    float32_t filtered_pitch_deg;
+    float32_t filtered_roll_deg;
+    float32_t transient_g;
+    float32_t wheel_height_cm;
     side_event_t event;
     side_event_t ended_event;
     int8_t terrain;         /* -1 (unknown) .. 4, fits in one byte */
@@ -131,7 +132,7 @@ typedef struct
     buddy4_config_t config;
     buddy4_output_t output;
     buddy4_sensor_config_t sensor_config;
-    float baseline;
+    float32_t baseline;
     uint64_t last_bump_us;
     bool ready : 1;
     bool has_sample : 1;
@@ -158,7 +159,7 @@ bool buddy4_configure (buddy4_imu_t * imu);
 /* Bounded readback, no register writes. Failure aborts detection, clears ready,
  * increments configuration/transfer errors. Caller may retry configuration. */
 bool buddy4_verify_config (buddy4_imu_t * imu);
-const char * buddy4_quality_name (int quality);
+const char * buddy4_quality_name (int32_t quality);
 
 /* Check data-ready once and process at most one sample; never wait for
  * freshness.
@@ -181,11 +182,11 @@ buddy4_result_t buddy4_poll (buddy4_imu_t * imu, uint64_t timestamp_us);
 int16_t buddy4_decode_signed16 (uint8_t low, uint8_t high);
 
 /* Map negative/zero/positive pitch state to DOWNHILL/FLAT/UPHILL. */
-const char * buddy4_terrain_name (int state);
+const char * buddy4_terrain_name (int32_t state);
 
 /* Map negative/zero/positive roll state to
  * LEFT_WHEEL_UP/SIDE_LEVEL/RIGHT_WHEEL_UP. */
-const char * buddy4_side_name (int state);
+const char * buddy4_side_name (int32_t state);
 
 #endif
 

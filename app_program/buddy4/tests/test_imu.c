@@ -1,3 +1,4 @@
+#include "../../barrc_types.h"
 #include "buddy4_imu.h"
 #include <assert.h>
 #include <math.h>
@@ -8,12 +9,12 @@ typedef struct
 {
     uint8_t regs[256];
     uint8_t ptr;
-    int calls;
-    int fail_at;
-    int short_at;
+    int32_t calls;
+    int32_t fail_at;
+    int32_t short_at;
     bool mismatch;
 } fake_t;
-static int wr (void * ctx, uint8_t addr, const uint8_t * p, size_t n,
+static int32_t wr (void * ctx, uint8_t addr, const uint8_t * p, size_t n,
                bool restart)
 {
     fake_t * f = ctx;
@@ -41,10 +42,11 @@ static int wr (void * ctx, uint8_t addr, const uint8_t * p, size_t n,
         f->regs[p[0]] = p[1];
     }
 
-    return (int)n;
+    return (int32_t)n;
 }
 
-static int rd (void * ctx, uint8_t addr, uint8_t * p, size_t n, bool restart)
+static int32_t rd (void * ctx, uint8_t addr, uint8_t * p, size_t n,
+                   bool restart)
 {
     fake_t * f = ctx;
     assert((0x1D == addr) && (!restart));
@@ -57,7 +59,7 @@ static int rd (void * ctx, uint8_t addr, uint8_t * p, size_t n, bool restart)
 
     if (f->calls == f->short_at)
     {
-        return (int)n - 1;
+        return (int32_t)n - 1;
     }
 
     if (6 == n)
@@ -75,7 +77,7 @@ static int rd (void * ctx, uint8_t addr, uint8_t * p, size_t n, bool restart)
         p[0] ^= 1;
     }
 
-    return (int)n;
+    return (int32_t)n;
 }
 
 static void setup (buddy4_imu_t * s, fake_t * f)
@@ -84,7 +86,7 @@ static void setup (buddy4_imu_t * s, fake_t * f)
     f->regs[15] = 0x49;
     buddy4_init(s, (buddy4_bus_t){f, wr, rd}, buddy4_default_config());
     /* Legacy event fixtures use identity acceleration calibration. */
-    for (int idx = 0; idx < 3; ++idx)
+    for (int32_t idx = 0; idx < 3; ++idx)
     {
         s->config.accel_bias_g[idx] = 0;
         s->config.accel_scale[idx] = 1;
@@ -94,11 +96,11 @@ static void setup (buddy4_imu_t * s, fake_t * f)
     f->regs[0x27] = 8;
 }
 
-static void vector (fake_t * f, float x, float y, float z)
+static void vector (fake_t * f, float32_t x, float32_t y, float32_t z)
 {
-    float a[] = {x, y, z};
+    float32_t a[] = {x, y, z};
 
-    for (int idx = 0; idx < 3; ++idx)
+    for (int32_t idx = 0; idx < 3; ++idx)
     {
         int16_t v = (int16_t)lroundf(a[idx] / 0.000061f);
         f->regs[0x28 + 2 * idx] = (uint16_t)v & 255;
@@ -106,20 +108,20 @@ static void vector (fake_t * f, float x, float y, float z)
     }
 }
 
-static void angle (fake_t * f, float pitch, float roll)
+static void angle (fake_t * f, float32_t pitch, float32_t roll)
 {
-    float x = sinf((pitch + 0.97f) * 0.01745329252f),
+    float32_t x = sinf((pitch + 0.97f) * 0.01745329252f),
     y = sinf((roll + 0.61f) * 0.01745329252f);
     vector(f, x, y, sqrtf(1 - x * x - y * y));
 }
 
-static void samples (buddy4_imu_t * s, fake_t * f, uint64_t * t, float p,
-                     float r,
-                     int n)
+static void samples (buddy4_imu_t * s, fake_t * f, uint64_t * t, float32_t p,
+                     float32_t r,
+                     int32_t n)
 {
     angle(f, p, r);
 
-    for (int idx = 0; idx < n; ++idx)
+    for (int32_t idx = 0; idx < n; ++idx)
     {
         *t += 20000;
         assert(BUDDY4_FRESH == buddy4_poll(s, *t));
@@ -130,9 +132,9 @@ static void samples (buddy4_imu_t * s, fake_t * f, uint64_t * t, float p,
  */
 static void test_error_recovery (void)
 {
-    for (int transfer = 1; transfer <= 4; ++transfer)
+    for (int32_t transfer = 1; transfer <= 4; ++transfer)
     {
-        for (int short_transfer = 0; short_transfer < 2; ++short_transfer)
+        for (int32_t short_transfer = 0; short_transfer < 2; ++short_transfer)
         {
             buddy4_imu_t imu;
             fake_t sensor;
@@ -140,7 +142,7 @@ static void test_error_recovery (void)
             setup(&imu, &sensor);
             samples(&imu, &sensor, &timestamp_us, 0, 12, 20);
             assert(imu.output.event.peak_confirmed);
-            float previous_peak = imu.output.event.peak_roll_deg;
+            float32_t previous_peak = imu.output.event.peak_roll_deg;
 
             /* Exercise real transient history that must not survive recovery.
              */
@@ -183,7 +185,7 @@ static void test_error_recovery (void)
             assert(!imu.output.transient_event);
 
             /* Waiting for main's retry performs no I/O and adds no errors. */
-            int calls_before = sensor.calls;
+            int32_t calls_before = sensor.calls;
             assert(BUDDY4_NOT_READY == buddy4_poll(&imu, timestamp_us));
             assert(sensor.calls == calls_before);
             assert(imu.output.error_count == errors_before + 1);
@@ -250,11 +252,11 @@ static void test_acceleration_calibration (void)
     assert(buddy4_configure(&s));
     vector(&f, 0.25f, -0.4f, 1.1f);
     assert(BUDDY4_FRESH == buddy4_poll(&s, 20000));
-    const float bias[] = {0.03799f, 0.03790f, 0.08411f};
-    const float scale[] = {1.01301f, 1.03419f, 1.01223f};
-    float a[3];
+    const float32_t bias[] = {0.03799f, 0.03790f, 0.08411f};
+    const float32_t scale[] = {1.01301f, 1.03419f, 1.01223f};
+    float32_t a[3];
 
-    for (int idx = 0; idx < 3; ++idx)
+    for (int32_t idx = 0; idx < 3; ++idx)
     {
         assert((s.config.accel_bias_g[idx] == bias[idx])
                && (s.config.accel_scale[idx] == scale[idx]));
@@ -267,7 +269,7 @@ static void test_acceleration_calibration (void)
         assert(fabsf(s.output.accel_g[idx] - a[idx]) < 1e-6f);
     }
 
-    float magnitude = sqrtf(a[0] * a[0] + a[1] * a[1] + a[2] * a[2]);
+    float32_t magnitude = sqrtf(a[0] * a[0] + a[1] * a[1] + a[2] * a[2]);
     assert(fabsf(s.output.magnitude_g - magnitude) < 1e-6f);
     assert(fabsf(s.output.pitch_deg
                  - (atan2f(a[0], hypotf(a[1], a[2]))
@@ -284,16 +286,16 @@ static void test_acceleration_calibration (void)
                  - (s.output.magnitude_g - magnitude)) < 1e-6f);
     assert(s.output.transient_event);
 
-    for (int idx = 0; idx < 3; ++idx)
+    for (int32_t idx = 0; idx < 3; ++idx)
     {
-        const float invalid[] = {0, -1, NAN, INFINITY};
+        const float32_t invalid[] = {0, -1, NAN, INFINITY};
 
         for (uint32_t jdx = 0; jdx < sizeof(invalid)
              / sizeof(invalid[0]); ++jdx)
         {
             s.config = buddy4_default_config();
             s.config.accel_scale[idx] = invalid[jdx];
-            int calls = f.calls;
+            int32_t calls = f.calls;
             assert(!buddy4_configure(&s));
             assert(f.calls == calls);
         }
@@ -305,7 +307,7 @@ static void test_acceleration_calibration (void)
 
     s.config = buddy4_default_config();
 
-    for (int idx = 0; idx < 3; ++idx)
+    for (int32_t idx = 0; idx < 3; ++idx)
     {
         s.config.accel_bias_g[idx] = -0.1f;
         s.config.accel_scale[idx] = 0.5f;
@@ -314,7 +316,7 @@ static void test_acceleration_calibration (void)
     assert(buddy4_configure(&s));
     assert(BUDDY4_FRESH == buddy4_poll(&s, 60000));
 
-    for (int idx = 0; idx < 3; ++idx)
+    for (int32_t idx = 0; idx < 3; ++idx)
     {
         assert(fabsf(s.output.accel_g[idx]
                      - (s.output.uncorrected_accel_g[idx] + 0.1f)
@@ -326,7 +328,7 @@ static void raw_vector (fake_t * f, int16_t x, int16_t y, int16_t z)
 {
     int16_t v[] = {x, y, z};
 
-    for (int idx = 0; idx < 3; ++idx)
+    for (int32_t idx = 0; idx < 3; ++idx)
     {
         f->regs[0x28 + 2 * idx] = (uint16_t)v[idx] & 255;
         f->regs[0x29 + 2 * idx] = (uint16_t)v[idx] >> 8;
@@ -342,7 +344,7 @@ static void test_measurement_quality (void)
     assert(buddy4_configure(&s));
     raw_vector(&f, INT16_MIN, INT16_MIN, INT16_MIN);
 
-    for (int idx = 1; idx <= 60; ++idx)
+    for (int32_t idx = 1; idx <= 60; ++idx)
     {
         assert(BUDDY4_FRESH == buddy4_poll(&s, idx * 20000));
         assert((s.output.valid) && (s.ready) && (!s.output.error_count));
@@ -369,7 +371,7 @@ static void test_measurement_quality (void)
     /* Clipping is decided before calibration, even when correction makes the
      * magnitude gravity-like. It cannot turn lost range into trustworthy data.
      */
-    for (int idx = 0; idx < 3; ++idx)
+    for (int32_t idx = 0; idx < 3; ++idx)
     {
         s.config.accel_bias_g[idx] = 0;
         s.config.accel_scale[idx] = 0.5f;
@@ -383,11 +385,11 @@ static void test_measurement_quality (void)
     /* Both signs, each axis; adjacent representable values are not clipped.
      * Near-full-scale non-clipped values remain unsuitable for static gravity.
      */
-    for (int axis = 0; axis < 3; ++axis)
+    for (int32_t axis = 0; axis < 3; ++axis)
     {
-        for (int sign = 0; sign < 2; ++sign)
+        for (int32_t sign = 0; sign < 2; ++sign)
         {
-            for (int adjacent = 0; adjacent < 2; ++adjacent)
+            for (int32_t adjacent = 0; adjacent < 2; ++adjacent)
             {
                 int16_t v[3] = {0};
                 v[axis] = sign ? INT16_MAX - adjacent : INT16_MIN + adjacent;
@@ -403,21 +405,21 @@ static void test_measurement_quality (void)
     }
 
     /* Stationary gravity can point in any direction and repeat indefinitely. */
-    for (int axis = 0; axis < 3; ++axis)
+    for (int32_t axis = 0; axis < 3; ++axis)
     {
-        for (int sign = -1; sign <= 1; sign += 2)
+        for (int32_t sign = -1; sign <= 1; sign += 2)
         {
             setup(&s, &f);
             s.config = buddy4_default_config();
             assert(buddy4_configure(&s));
-            float a[3] = {0};
-            a[axis] = (float)sign;
+            float32_t a[3] = {0};
+            a[axis] = (float32_t)sign;
             vector(&f, a[0] / s.config.accel_scale[0]
                    + s.config.accel_bias_g[0],
                    a[1] / s.config.accel_scale[1] + s.config.accel_bias_g[1],
                    a[2] / s.config.accel_scale[2] + s.config.accel_bias_g[2]);
 
-            for (int idx = 1; idx <= 40; ++idx)
+            for (int32_t idx = 1; idx <= 40; ++idx)
             {
                 assert(BUDDY4_FRESH == buddy4_poll(&s, idx * 20000));
                 assert((s.output.tilt_valid) && (s.output.acceleration_valid)
@@ -429,9 +431,9 @@ static void test_measurement_quality (void)
     /* Bad input breaks pending AND accepted current-event evidence, preserving
      * completed history. One bad sample and a sustained run have the same rule.
      */
-    for (int kind = 0; kind < 4; ++kind)
+    for (int32_t kind = 0; kind < 4; ++kind)
     {
-        for (int count = 1; count <= 20; count += 19)
+        for (int32_t count = 1; count <= 20; count += 19)
         {
             setup(&s, &f);
             uint64_t t = 0;
@@ -464,7 +466,7 @@ static void test_measurement_quality (void)
                 s.config.accel_scale[2] = FLT_MAX;
             }
 
-            for (int idx = 0; idx < count; ++idx)
+            for (int32_t idx = 0; idx < count; ++idx)
             {
                 t += 20000;
                 assert(BUDDY4_FRESH == buddy4_poll(&s, t));
@@ -493,9 +495,9 @@ static void test_measurement_quality (void)
 
     /* Quantized magnitude boundaries, not an angle/axis gate. */
     setup(&s, &f);
-    const float mag[] = {0.7999f, 0.8001f, 1.1999f, 1.2001f};
+    const float32_t mag[] = {0.7999f, 0.8001f, 1.1999f, 1.2001f};
 
-    for (int idx = 0; idx < 4; ++idx)
+    for (int32_t idx = 0; idx < 4; ++idx)
     {
         vector(&f, 0, 0, mag[idx]);
         buddy4_poll(&s, (idx + 1) * 20000);
@@ -516,7 +518,7 @@ static void test_measurement_quality (void)
     assert((UINT32_MAX == s.output.clipped_samples)
            && (UINT32_MAX == s.output.unsuitable_samples));
     /* Every checked setting, including identity, is observable and enforced. */
-    const int regs[] = {15, 0x1f, 0x20, 0x21, 0x22, 0x23, 0x26};
+    const int32_t regs[] = {15, 0x1f, 0x20, 0x21, 0x22, 0x23, 0x26};
 
     for (uint32_t idx = 0; idx < sizeof(regs) / sizeof(regs[0]); ++idx)
     {
@@ -546,11 +548,11 @@ int main (void)
     assert((0 == f.regs[0x1F]) && (0 == f.regs[0x22]) && (0 == f.regs[0x23]));
     assert((11.3f == s.config.centre_spacing_cm)
            && (s.config.centre_spacing_confirmed));
-    int configure_calls = f.calls;
+    int32_t configure_calls = f.calls;
 
-    for (int k = 1; k <= configure_calls; ++k)
+    for (int32_t k = 1; k <= configure_calls; ++k)
     {
-        for (int short_transfer = 0; short_transfer < 2; ++short_transfer)
+        for (int32_t short_transfer = 0; short_transfer < 2; ++short_transfer)
         {
             setup(&s, &f);
             f.calls = 0;
@@ -575,7 +577,7 @@ int main (void)
     samples(&s, &f, &t, 0, 0, 1);
     assert((s.output.valid) && (0 == s.output.side) && (0 == s.output.terrain));
 
-    for (int k = 1; k <= 4; ++k)
+    for (int32_t k = 1; k <= 4; ++k)
     {
         f.fail_at = f.calls + k;
         uint32_t errors = s.output.error_count;
@@ -587,7 +589,7 @@ int main (void)
         assert(buddy4_configure(&s));
     }
 
-    for (int k = 1; k <= 4; ++k)
+    for (int32_t k = 1; k <= 4; ++k)
     {
         f.short_at = f.calls + k;
         assert(BUDDY4_IO_ERROR == buddy4_poll(&s, t + 20000));
@@ -597,7 +599,7 @@ int main (void)
     }
 
     f.regs[0x27] = 0;
-    int calls = f.calls;
+    int32_t calls = f.calls;
     assert((BUDDY4_STALE == buddy4_poll(&s, t + 20000))
            && (f.calls == calls + 2));
     assert(!s.output.valid);
@@ -629,14 +631,14 @@ int main (void)
     assert(0 == s.output.side);
     samples(&s, &f, &t, 0, -10, 60);
     /* Confirmed conservative peak must not grow from one angular spike. */
-    float peak = s.output.event.peak_roll_deg;
+    float32_t peak = s.output.event.peak_roll_deg;
     samples(&s, &f, &t, 0, -30, 1);
     samples(&s, &f, &t, 0, -10, 5);
     assert(s.output.event.peak_roll_deg == peak);
     bool returned = false;
     angle(&f, 0, 0);
 
-    for (int idx = 0; idx < 100; ++idx)
+    for (int32_t idx = 0; idx < 100; ++idx)
     {
         t += 20000;
         buddy4_poll(&s, t);
@@ -652,7 +654,7 @@ int main (void)
     bool ended = false;
     angle(&f, 0, 10);
 
-    for (int idx = 0; idx < 80; ++idx)
+    for (int32_t idx = 0; idx < 80; ++idx)
     {
         t += 20000;
         buddy4_poll(&s, t);
@@ -662,7 +664,7 @@ int main (void)
     angle(&f, 0, -10);
     t += 100000;
 
-    for (int idx = 0; idx < 80; ++idx)
+    for (int32_t idx = 0; idx < 80; ++idx)
     {
         t += 20000;
         buddy4_poll(&s, t);

@@ -1,4 +1,5 @@
 /* barcode39 - Code 39 decoder (draft). See barcode39.h. */
+#include "../barrc_types.h"
 #include "barcode39.h"
 
 #include <string.h>
@@ -52,11 +53,11 @@ static char classify_block (const uint32_t * b, uint8_t ratio_x10,
     uint32_t min_wide = UINT32_MAX;
     uint32_t max_narrow = 0;
 
-    for (int k = 0; k < 3; k++)
+    for (int32_t k = 0; k < 3; k++)
     {
-        int best = -1;
+        int32_t best = -1;
 
-        for (int idx = 0; idx < 9; idx++)
+        for (int32_t idx = 0; idx < 9; idx++)
         {
             if ((!wide[idx]) && ((best < 0) || (b[idx] > b[best])))
             {
@@ -67,7 +68,7 @@ static char classify_block (const uint32_t * b, uint8_t ratio_x10,
         wide[best] = true;
     }
 
-    for (int idx = 0; idx < 9; idx++)
+    for (int32_t idx = 0; idx < 9; idx++)
     {
         if (wide[idx])
         {
@@ -93,7 +94,7 @@ static char classify_block (const uint32_t * b, uint8_t ratio_x10,
 
     char pat[10];
 
-    for (int idx = 0; idx < 9; idx++)
+    for (int32_t idx = 0; idx < 9; idx++)
     {
         pat[idx] = wide[idx] ? 'w' : 'n';
     }

@@ -1,5 +1,6 @@
 #ifndef VEHICLE_NAV_H
 #define VEHICLE_NAV_H
+#include "../../barrc_types.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include "../../buddy5/buddy5_core.h"
@@ -7,17 +8,17 @@
 typedef struct
 {
     uint32_t kind;
-    float value;
+    float32_t value;
 } full_action_t;
 #define FULL_NAV_MAX_ACTIONS 12
 typedef struct
 {
-    float x;
-    float y;
-    float heading;
-    float last_distance;
-    float last_heading;
-    float heading_origin;
+    float32_t x;
+    float32_t y;
+    float32_t heading;
+    float32_t last_distance;
+    float32_t last_heading;
+    float32_t heading_origin;
     bool observed;
     bool active;
     bool issued;
@@ -31,17 +32,17 @@ typedef struct
     uint32_t search_phase;
     uint32_t retries;
     bool front_ok;
-    int front_angle;
+    int32_t front_angle;
     /* sonar check after facing the line (ahead, half back, back): 0 none yet, 1
      * clear, 2 blocked */ /* servo angle of the last range reading */
     uint8_t look[3];
     bool rejoining;
     bool tape_entered;
     bool tape_measured;   /* line crossing measured during the sweep back */
-    float tape_enter_y;
+    float32_t tape_enter_y;
     /* line follower is running the junction-style hand-back */
-    float tape_line_y;
-    float recover_side;
+    float32_t tape_line_y;
+    float32_t recover_side;
     bool front_fresh;
     /* the sonar saw something ahead while driving to the line: stopping, then
      * drive further past */
@@ -50,9 +51,9 @@ typedef struct
     /* short black seen on the way to the line (not accepted as the tape): the
      * one
      * nearest the expected line */
-    float cand_y;
+    float32_t cand_y;
     /* distance from the line where the last sonar check passed */
-    float check_y;
+    float32_t check_y;
     /* Turn / blocked-front corrections */
     uint8_t turn_fixes_total;
     uint8_t block_fixes_total;   /* since the last STOP (telemetry 5/59) */
@@ -67,7 +68,7 @@ typedef struct
     /* +1 left, -1 right: direction of the last turn (the extra turn goes the
      * same
      * way) */
-    int last_turn_dir;
+    int32_t last_turn_dir;
     uint32_t block_since;
     int32_t front_mm;
     uint32_t settled;
@@ -86,7 +87,7 @@ bool full_nav_accept (full_nav_t * n, const b5_request_t * r, uint32_t now);
 bool full_nav_barcode_turn_active (const full_nav_t * n);
 bool full_nav_rejoining (const full_nav_t * n);
 void full_nav_set_front (full_nav_t * n, bool fresh, int32_t clearance_mm,
-                         int angle_deg);
+                         int32_t angle_deg);
 void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
                       uint8_t mask, bool guard);
 /* Forward range lost while a bypass leg is moving: stop and let the extra-turn

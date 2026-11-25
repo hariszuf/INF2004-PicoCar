@@ -1,3 +1,4 @@
+#include "../barrc_types.h"
 #include "buddy4_imu.h"
 #include <math.h>
 #include <string.h>
@@ -50,7 +51,7 @@
 #define BUMP_COOLDOWN_US        500000
 #define BASELINE_ALPHA          0.05f
 
-const char * buddy4_quality_name (int quality)
+const char * buddy4_quality_name (int32_t quality)
 {
     switch (quality)
     {
@@ -67,10 +68,10 @@ const char * buddy4_quality_name (int quality)
     }
 }
 
-static int classify_angle (int previous,
-                           float angle,
-                           float enter_deg,
-                           float exit_deg)
+static int32_t classify_angle (int32_t previous,
+                           float32_t angle,
+                           float32_t enter_deg,
+                           float32_t exit_deg)
 {
     if (angle >= enter_deg)
     {
@@ -95,7 +96,7 @@ static int classify_angle (int previous,
     return 0;
 }
 
-const char * buddy4_terrain_name (int state)
+const char * buddy4_terrain_name (int32_t state)
 {
     if (state > 0)
     {
@@ -110,7 +111,7 @@ const char * buddy4_terrain_name (int state)
     return "FLAT";
 }
 
-const char * buddy4_side_name (int state)
+const char * buddy4_side_name (int32_t state)
 {
     /* Mapping established from your stationary tests */
     if (state > 0)
@@ -142,8 +143,8 @@ static void finish_side_event (side_event_t * event,
 
 static void start_peak_window (side_event_t * event,
                                uint64_t timestamp,
-                               float absolute_roll,
-                               float height_cm)
+                               float32_t absolute_roll,
+                               float32_t height_cm)
 {
     event->window_active = true;
     event->window_start_us = timestamp;
@@ -156,7 +157,7 @@ static void start_peak_window (side_event_t * event,
 /* Fixed-size chronological window; insertion sort costs at most 55 comparisons.
  */
 static void update_median (side_event_t * event, uint64_t timestamp,
-                           float absolute_roll, float spacing_cm)
+                           float32_t absolute_roll, float32_t spacing_cm)
 {
     uint32_t n = event->median_count;
 
@@ -168,7 +169,8 @@ static void update_median (side_event_t * event, uint64_t timestamp,
 
     if (11 == n)
     {
-        memmove(event->median_roll, event->median_roll + 1, 10 * sizeof(float));
+        memmove(event->median_roll, event->median_roll + 1,
+                10 * sizeof(float32_t));
         memmove(event->median_time_us, event->median_time_us + 1,
                 10 * sizeof(uint64_t));
         n = 10;
@@ -190,12 +192,12 @@ static void update_median (side_event_t * event, uint64_t timestamp,
         return;
     }
 
-    float sorted[11];
+    float32_t sorted[11];
     memcpy(sorted, event->median_roll, sizeof(sorted));
 
     for (uint32_t idx = 1; idx < 11; ++idx)
     {
-        float value = sorted[idx];
+        float32_t value = sorted[idx];
         uint32_t jdx = idx;
 
         while (jdx && (sorted[jdx - 1] > value))
@@ -219,10 +221,10 @@ static void update_median (side_event_t * event, uint64_t timestamp,
 }
 
 static void update_side_event (side_event_t * event,
-                               int side,
+                               int32_t side,
                                uint64_t timestamp,
-                               float roll,
-                               float height_cm)
+                               float32_t roll,
+                               float32_t height_cm)
 {
     if ((0 != event->side) && (side != event->side))
     {
@@ -245,7 +247,7 @@ static void update_side_event (side_event_t * event,
         event->start_us = timestamp;
     }
 
-    float absolute_roll = fabsf(roll);
+    float32_t absolute_roll = fabsf(roll);
 
     /*
      * Require fresh consecutive samples.
@@ -357,7 +359,7 @@ static bool read_registers (buddy4_imu_t * imu, uint8_t reg,
             (imu->bus.write(imu->bus.context, LSM303D_ADDRESS,
                             &reg, 1, true) == 1) &&
             (imu->bus.read(imu->bus.context, LSM303D_ADDRESS,
-                           data, count, false) == (int)count);
+                           data, count, false) == (int32_t)count);
 }
 
 /* Clear per-call flags while retaining the last fresh measurements. */
@@ -407,7 +409,7 @@ bool buddy4_configure (buddy4_imu_t * imu)
         goto fail;
     }
 
-    for (int axis = 0; axis < 3; ++axis)
+    for (int32_t axis = 0; axis < 3; ++axis)
     {
         if ((!isfinite(imu->config.accel_bias_g[axis])) ||
             (!isfinite(imu->config.accel_scale[axis])) ||
@@ -546,7 +548,7 @@ buddy4_result_t buddy4_poll (buddy4_imu_t * imu, uint64_t timestamp_us)
 
     output->clipped_axes = 0;
 
-    for (int axis = 0; axis < 3; ++axis)
+    for (int32_t axis = 0; axis < 3; ++axis)
     {
         output->raw[axis] = buddy4_decode_signed16(bytes[2 * axis],
                 bytes[2 * axis + 1]);
@@ -565,9 +567,9 @@ buddy4_result_t buddy4_poll (buddy4_imu_t * imu, uint64_t timestamp_us)
                 imu->config.accel_scale[axis];
     }
 
-    float accel_x = output->accel_g[0];
-    float accel_y = output->accel_g[1];
-    float accel_z = output->accel_g[2];
+    float32_t accel_x = output->accel_g[0];
+    float32_t accel_y = output->accel_g[1];
+    float32_t accel_z = output->accel_g[2];
     output->magnitude_g = sqrtf(accel_x * accel_x + accel_y * accel_y +
                                 accel_z * accel_z);
 
@@ -622,7 +624,7 @@ buddy4_result_t buddy4_poll (buddy4_imu_t * imu, uint64_t timestamp_us)
         output->transient_g = output->magnitude_g - imu->baseline;
         imu->baseline += BASELINE_ALPHA * output->transient_g;
 
-        float transient_amplitude = fabsf(output->transient_g);
+        float32_t transient_amplitude = fabsf(output->transient_g);
 
         if (transient_amplitude < BUMP_REARM_G)
         {

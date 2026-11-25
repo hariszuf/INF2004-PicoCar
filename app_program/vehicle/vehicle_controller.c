@@ -1,4 +1,5 @@
 #ifdef B5_FULL_TEST
+#include "../barrc_types.h"
 #include <tk/tkernel.h>
 #include <tm/tmonitor.h>
 #include "vehicle_controller.h"
@@ -97,7 +98,7 @@ static uint16_t enc_diag_flags (void)
 /* Packed values for the existing source 5, type 60 telemetry. */
 static int32_t execution_state;
 static int32_t execution_reason;
-static unsigned char commands[8];
+static uint8_t commands[8];
 static uint32_t command_head;
 static uint32_t command_tail;
 bool line_controller_active (void)
@@ -147,7 +148,7 @@ void b5_line_command_received (uint32_t c)
         }
         else
         {
-            commands[command_head] = (unsigned char)c;
+            commands[command_head] = (uint8_t)c;
             command_head = next;
         }
     }
@@ -164,10 +165,10 @@ static bool b5_line_take_stop (void)
     return robot_flags_test_and_clear(&ctl_flags, CF_USER_STOP);
 }
 
-static int b5_line_take_command (void)
+static int32_t b5_line_take_command (void)
 {
     UW irq;
-    int c = -1;
+    int32_t c = -1;
     DI(irq);
 
     if (command_head != command_tail)
@@ -184,7 +185,7 @@ static int b5_line_take_command (void)
  * motors. 'S' = STOP, 'R' = START. */
 /* Used by the MQTT bridge to refuse a barcode-map change while the car is
  * driving. */
-int b5_run_active (void)
+int32_t b5_run_active (void)
 {
     return CTL(CF_RUN_ENABLED) ? 1 : 0;
 }
@@ -312,7 +313,8 @@ static void halt (full_nav_t * nav, auto_start_t * start, const char * why)
     motion_emergency_stop();
     line_scan_abort();
     discard_commands();
-    tm_printf((UB*)"[AUTO] STOPPED: %s (code %d). %s\n", (UB*)why, (int)code,
+    tm_printf((UB*)"[AUTO] STOPPED: %s (code %d). %s\n", (UB*)why,
+              (int32_t)code,
               AUTO_FAULTED == start->phase
                       ? "Operator action needed: power-cycle."
               : "Send START (dashboard) or R (USB) to restart.");
@@ -387,7 +389,7 @@ static void controller_task (INT stacd, void * exinf)
         scan.front_clearance_mm = B5_CLEAR_FRONT_MM;
 #endif
         bool stop_cmd = b5_line_take_stop();
-        int command = stop_cmd ? 'S' : b5_line_take_command();
+        int32_t command = stop_cmd ? 'S' : b5_line_take_command();
 
         if ('S' == command)
         {
@@ -538,7 +540,7 @@ static void controller_task (INT stacd, void * exinf)
             {
                 tm_printf((UB*)"[NAV] request=%d id=%u target_x/y=%d/%d\n",
                           request.kind,
-                          (unsigned)request.id, request.forward_mm,
+                          (uint32_t)request.id, request.forward_mm,
                                   request.lateral_mm);
             }
         }
@@ -1233,12 +1235,12 @@ static void controller_task (INT stacd, void * exinf)
                               "lifted=%d lifts=%u motion=%d yaw=%d "
                               "io_errors=%u\n",
                               imu.valid, imu.tilt_valid,
-                                      (unsigned)imu.sample_age_ms, imu.terrain,
+                                      (uint32_t)imu.sample_age_ms, imu.terrain,
                               imu.side,
-                              imu.lifted ? 1 : 0, (unsigned)imu.lift_count,
+                              imu.lifted ? 1 : 0, (uint32_t)imu.lift_count,
                               imu.motion_valid ? imu.motion_state : -1,
                                       imu.yaw_valid,
-                              (unsigned)imu.io_errors);
+                              (uint32_t)imu.io_errors);
                 }
             }
 
@@ -1286,21 +1288,21 @@ static void controller_task (INT stacd, void * exinf)
 #endif
             tm_printf((UB*)"[LINE] state=%d mask=%u target_mm_s=%d/%d "
                       "actual_mm_s=%d/%d\n",
-                      line.state, (unsigned)mask,
-                              (int)(line.left_cmd_cm_s * 10),
-                      (int)(line.right_cmd_cm_s * 10),
-                      (int)(motor.left_speed_cm_s * 10),
-                              (int)(motor.right_speed_cm_s * 10));
+                      line.state, (uint32_t)mask,
+                              (int32_t)(line.left_cmd_cm_s * 10),
+                      (int32_t)(line.right_cmd_cm_s * 10),
+                      (int32_t)(motor.left_speed_cm_s * 10),
+                              (int32_t)(motor.right_speed_cm_s * 10));
             tm_printf((UB*)"[AUTO] phase=%d enabled=%d line_mask=%u scan=%s "
                            "fault=%d "
                       "nominal_servo=%d front=%d guard=%d fresh=%d x/y=%d/%d "
                       "heading=%d width=%d depth=%d..%d\n",
-                      start.phase, CTL(CF_RUN_ENABLED), (unsigned)mask,
+                      start.phase, CTL(CF_RUN_ENABLED), (uint32_t)mask,
                       (UB*)b5_state_name(scan.state), scan.fault, scan.angle,
                       B5_CLEAR_FRONT_MM == scan.front_clearance_mm ? -1
                       : scan.front_clearance_mm,
                       guard, guard_fresh,
-                      (int)nav.x, (int)nav.y, (int)nav.heading,
+                      (int32_t)nav.x, (int32_t)nav.y, (int32_t)nav.heading,
                       scan.profile.width_valid ? scan.profile.width_mm : -1,
                       scan.profile.depth_valid ? scan.profile.depth_low_mm : -1,
                       scan.profile.depth_valid ? scan.profile.depth_high_mm

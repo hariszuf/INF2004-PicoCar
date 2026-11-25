@@ -3,6 +3,7 @@
  * USB device, COM port or real motor API is accessed. Transport below is a
  * bounded/drop-output model, not a claim to emulate TinyUSB or electrical
  * faults. */
+#include "../../barrc_types.h"
 #include <assert.h>
 #include <setjmp.h>
 #include <stdarg.h>
@@ -11,7 +12,7 @@
 #include <string.h>
 #include "sim_hw.h"
 #include "host_platform.h"
-static int capture_printf (const char * format, ...);
+static int32_t capture_printf (const char * format, ...);
 #define printf capture_printf
 #define main actual_sdk_main
 #include "main.c"
@@ -19,7 +20,7 @@ static int capture_printf (const char * format, ...);
 #undef printf
 
 static jmp_buf finished;
-static int scenario;
+static int32_t scenario;
 static bool stop_received;
 static bool driven;
 static bool seen_error;
@@ -54,13 +55,13 @@ bool stdio_usb_connected (void)
              && (host_time_us() < 4000000));
 }
 
-int getchar_timeout_us (uint32_t timeout)
+int32_t getchar_timeout_us (uint32_t timeout)
 {
     assert(0 == timeout);
     static const struct
     {
         uint64_t when;
-        int key;
+        int32_t key;
     }
 
     commands[] = {
@@ -71,7 +72,7 @@ int getchar_timeout_us (uint32_t timeout)
     if ((key_index < sizeof(commands) / sizeof(commands[0]))
         && (host_time_us() >= commands[key_index].when))
     {
-        int key = commands[key_index++].key;
+        int32_t key = commands[key_index++].key;
 
         if (('S' == key) && (!stop_received))
         {
@@ -128,7 +129,8 @@ static bool io_error (void)
             && (host_time_us() < 4000000);
 }
 
-int i2c_write_timeout_us (i2c_inst_t * bus, uint8_t address, const uint8_t * p,
+int32_t i2c_write_timeout_us (i2c_inst_t * bus, uint8_t address,
+                              const uint8_t * p,
                           size_t n, bool no_stop, uint32_t timeout)
 {
     assert((bus == i2c0) && (0x1d == address)
@@ -150,10 +152,10 @@ int i2c_write_timeout_us (i2c_inst_t * bus, uint8_t address, const uint8_t * p,
         bus->reg[p[0]] = p[1];
     }
 
-    return (int)n;
+    return (int32_t)n;
 }
 
-int i2c_read_timeout_us (i2c_inst_t * bus, uint8_t address, uint8_t * p,
+int32_t i2c_read_timeout_us (i2c_inst_t * bus, uint8_t address, uint8_t * p,
                          size_t n, bool no_stop, uint32_t timeout)
 {
     assert((bus == i2c0) && (0x1d == address) && (!no_stop)
@@ -169,15 +171,15 @@ int i2c_read_timeout_us (i2c_inst_t * bus, uint8_t address, uint8_t * p,
         p[idx] = bus->reg[(bus->pointer & 0x7f) + idx];
     }
 
-    return (int)n;
+    return (int32_t)n;
 }
 
-static int capture_printf (const char * format, ...)
+static int32_t capture_printf (const char * format, ...)
 {
     char text[4096];
     va_list ap;
     va_start(ap, format);
-    int count = vsnprintf(text, sizeof(text), format, ap);
+    int32_t count = vsnprintf(text, sizeof(text), format, ap);
     va_end(ap);
     assert((count >= 0) && ((size_t)count < sizeof(text)));
     attempted++;

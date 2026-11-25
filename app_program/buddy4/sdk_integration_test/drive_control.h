@@ -1,5 +1,6 @@
 #ifndef TEST_DRIVE_CONTROL_H
 #define TEST_DRIVE_CONTROL_H
+#include "../../barrc_types.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include "motion_control.h"
@@ -24,8 +25,8 @@ typedef struct
     motion_fault_t stop_fault;
     bool event_pending;
     uint64_t started_us;
-    float selected_left_cm_s;
-    float selected_right_cm_s;
+    float32_t selected_left_cm_s;
+    float32_t selected_right_cm_s;
 } drive_control_t;
 void drive_init (drive_control_t * c);
 void drive_stop (drive_control_t * c, const char * reason,
@@ -35,7 +36,8 @@ void drive_stop (drive_control_t * c, const char * reason,
  */
 void drive_safety (drive_control_t * c, bool usb, bool has_fresh,
                    uint64_t now, uint64_t last_fresh);
-void drive_command (drive_control_t * c, int key, bool usb, bool imu_healthy,
+void drive_command (drive_control_t * c, int32_t key, bool usb,
+                    bool imu_healthy,
                     uint64_t now_us);
 void drive_line_update (drive_control_t * c);
 /* SDK test-firmware permission, separate from acquisition freshness. A usable

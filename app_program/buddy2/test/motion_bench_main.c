@@ -9,6 +9,7 @@
  * SAFETY: put the car on a block (wheels off the ground) for the open-loop
  * tests 'd' and 'k'. Press 'e' for an emergency stop at any time.
  */
+#include "../../barrc_types.h"
 #include <stdio.h>
 
 #include "pico/stdlib.h"
@@ -25,9 +26,9 @@
 
 static bool s_logging = false;
 
-static float cm_per_count (motion_side_t side)
+static float32_t cm_per_count (motion_side_t side)
 {
-    float cpr = (MOTION_SIDE_LEFT == side) ? MOTION_COUNTS_PER_REV_LEFT
+    float32_t cpr = (MOTION_SIDE_LEFT == side) ? MOTION_COUNTS_PER_REV_LEFT
             : MOTION_COUNTS_PER_REV_RIGHT;
     return (MOTION_PI * MOTION_WHEEL_DIAMETER_CM) / cpr;
 }
@@ -55,10 +56,11 @@ static void print_status (void)
     motion_get_status(&status);
     printf("state=%d fault=%d countL=%ld countR=%ld vL=%.1f vR=%.1f dist=%.2f "
            "cm head=%.2f deg\n",
-           (int)status.state, (int)status.fault, (long)status.left_count,
-           (long)status.right_count, (double)status.left_speed_cm_s,
-           (double)status.right_speed_cm_s, (double)status.distance_cm,
-           (double)status.heading_deg);
+           (int32_t)status.state, (int32_t)status.fault,
+                   (int32_t)status.left_count,
+           (int32_t)status.right_count, (float64_t)status.left_speed_cm_s,
+           (float64_t)status.right_speed_cm_s, (float64_t)status.distance_cm,
+           (float64_t)status.heading_deg);
 }
 
 static void print_csv_row (uint32_t time_ms)
@@ -66,18 +68,21 @@ static void print_csv_row (uint32_t time_ms)
     motion_status_t status;
 
     motion_get_status(&status);
-    printf("%lu,%d,%ld,%ld,%.2f,%.2f,%.2f,%.2f\n", (unsigned long)time_ms,
-           (int)status.state, (long)status.left_count, (long)status.right_count,
-           (double)status.left_speed_cm_s, (double)status.right_speed_cm_s,
-           (double)status.distance_cm, (double)status.heading_deg);
+    printf("%lu,%d,%ld,%ld,%.2f,%.2f,%.2f,%.2f\n", (uint32_t)time_ms,
+           (int32_t)status.state, (int32_t)status.left_count,
+                   (int32_t)status.right_count,
+           (float64_t)status.left_speed_cm_s,
+                   (float64_t)status.right_speed_cm_s,
+           (float64_t)status.distance_cm, (float64_t)status.heading_deg);
 }
 
 /* Measure steady wheel speed at fixed duty. Motors driven directly. */
-static void measure_speed (float duty, float * p_left, float * p_right)
+static void measure_speed (float32_t duty, float32_t * p_left,
+                           float32_t * p_right)
 {
     int32_t l0;
     int32_t r0;
-    float seconds = (float)SWEEP_MEASURE_MS / 1000.0f;
+    float32_t seconds = (float32_t)SWEEP_MEASURE_MS / 1000.0f;
 
     motion_encoder_set_direction(MOTION_SIDE_LEFT, (duty < 0.0f) ? -1 : 1);
     motion_encoder_set_direction(MOTION_SIDE_RIGHT, (duty < 0.0f) ? -1 : 1);
@@ -87,24 +92,25 @@ static void measure_speed (float duty, float * p_left, float * p_right)
     l0 = motion_encoder_get_count(MOTION_SIDE_LEFT);
     r0 = motion_encoder_get_count(MOTION_SIDE_RIGHT);
     sleep_ms(SWEEP_MEASURE_MS);
-    *p_left = (float)(motion_encoder_get_count(MOTION_SIDE_LEFT) - l0) *
+    *p_left = (float32_t)(motion_encoder_get_count(MOTION_SIDE_LEFT) - l0) *
             cm_per_count(MOTION_SIDE_LEFT) / seconds;
-    *p_right = (float)(motion_encoder_get_count(MOTION_SIDE_RIGHT) - r0) *
+    *p_right = (float32_t)(motion_encoder_get_count(MOTION_SIDE_RIGHT) - r0) *
             cm_per_count(MOTION_SIDE_RIGHT) / seconds;
 }
 
 static void run_open_loop_sweep (void)
 {
-    float duty;
-    float left;
-    float right;
+    float32_t duty;
+    float32_t left;
+    float32_t right;
 
     printf("\nduty,left_cm_s,right_cm_s\n");
 
     for (duty = 0.10f; duty <= 1.001f; duty += 0.10f)
     {
         measure_speed(duty, &left, &right);
-        printf("%.2f,%.2f,%.2f\n", (double)duty, (double)left, (double)right);
+        printf("%.2f,%.2f,%.2f\n", (float64_t)duty, (float64_t)left,
+               (float64_t)right);
     }
 
     motion_motor_brake_all();
@@ -114,34 +120,35 @@ static void run_open_loop_sweep (void)
 
 static void run_brake_test (void)
 {
-    float left;
-    float right;
+    float32_t left;
+    float32_t right;
     int32_t l0;
     int32_t r0;
-    float coast_left;
-    float coast_right;
-    float speed;
+    float32_t coast_left;
+    float32_t coast_right;
+    float32_t speed;
 
     measure_speed(BRAKE_TEST_DUTY, &left, &right);
     l0 = motion_encoder_get_count(MOTION_SIDE_LEFT);
     r0 = motion_encoder_get_count(MOTION_SIDE_RIGHT);
     motion_motor_brake_all();
     sleep_ms(1000u);
-    coast_left = (float)(motion_encoder_get_count(MOTION_SIDE_LEFT) - l0) *
+    coast_left = (float32_t)(motion_encoder_get_count(MOTION_SIDE_LEFT) - l0) *
             cm_per_count(MOTION_SIDE_LEFT);
-    coast_right = (float)(motion_encoder_get_count(MOTION_SIDE_RIGHT) - r0) *
+    coast_right =
+            (float32_t)(motion_encoder_get_count(MOTION_SIDE_RIGHT) - r0) *
             cm_per_count(MOTION_SIDE_RIGHT);
     speed = 0.5f * (left + right);
 
-    printf("speed before brake: L %.2f R %.2f cm/s\n", (double)left,
-           (double)right);
-    printf("distance after brake: L %.2f R %.2f cm\n", (double)coast_left,
-           (double)coast_right);
+    printf("speed before brake: L %.2f R %.2f cm/s\n", (float64_t)left,
+           (float64_t)right);
+    printf("distance after brake: L %.2f R %.2f cm\n", (float64_t)coast_left,
+           (float64_t)coast_right);
 
     if (speed > 1.0f)
     {
         printf("suggested MOTION_STOP_LEAD_S = %.3f s\n",
-               (double)(0.5f * (coast_left + coast_right) / speed));
+               (float64_t)(0.5f * (coast_left + coast_right) / speed));
     }
 }
 
@@ -187,7 +194,7 @@ static void run_step_test (void)
     printf("step test finished\n");
 }
 
-static void handle_command (int key)
+static void handle_command (int32_t key)
 {
     switch (key)
     {
@@ -224,7 +231,7 @@ static void handle_command (int key)
         printf("reset\n");
         break;
         case 'o':
-        printf("odometry reset result %d\n", (int)motion_reset_odometry());
+        printf("odometry reset result %d\n", (int32_t)motion_reset_odometry());
         break;
         case 'p':
         print_status();
@@ -255,7 +262,7 @@ int main (void)
     uint32_t next_update_ms;
     uint32_t next_log_ms;
     uint32_t now_ms;
-    int key;
+    int32_t key;
 
     stdio_init_all();
     sleep_ms(2000u);

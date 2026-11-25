@@ -15,6 +15,7 @@
  *   one black      -> that side's wheel stops, the car turns toward that side
  *   both black     -> stop; moves again as soon as a sensor sees white
  */
+#include "../barrc_types.h"
 #include "line_follow.h"
 #include <math.h>
 
@@ -30,8 +31,8 @@ static uint32_t s_clock_us;
 
 static line_state_t s_state = LINE_STATE_IDLE;
 static uint8_t s_mask;
-static float s_left_cmd;
-static float s_right_cmd;
+static float32_t s_left_cmd;
+static float32_t s_right_cmd;
 static int32_t s_last_side;      /* +1 steer left, -1 steer right */
 static uint32_t s_lost_ms;
 static uint32_t s_side_ms;       /* time steering in the same direction */
@@ -92,7 +93,7 @@ static uint32_t s_barcode_used_ms;
 #endif
 #endif
 
-static void drive (float left, float right)
+static void drive (float32_t left, float32_t right)
 {
     /* Give Buddy 2 equal targets on straight segments so it can balance them.
      */
@@ -101,7 +102,7 @@ static void drive (float left, float right)
     (void)motion_drive(s_left_cmd, s_right_cmd);
 }
 
-static void steer (int32_t side, float inner)
+static void steer (int32_t side, float32_t inner)
 {
     if (side > 0)
     {
@@ -173,7 +174,7 @@ static void rejoin_finish (int8_t result)
     motion_stop();
 }
 
-static float reported_heading (void)
+static float32_t reported_heading (void)
 {
     motion_status_t m;
     motion_get_status(&m);
@@ -218,29 +219,29 @@ typedef struct
     bool done;      /* crossed completely: centre is valid */
     /* was already on the tape when the sweep began: wait until it is white */
     bool ignore;
-    float enter;
-    float centre;
+    float32_t enter;
+    float32_t centre;
 } rj_event_t;
 
 /* 0 = LEFT sensor, 1 = RIGHT sensor */
 static rj_event_t s_ev[2];
 /* +1 pivoting left (heading rising), -1 pivoting right */
-static float s_rj_dir;
+static float32_t s_rj_dir;
 /* heading where the current pivot began */
-static float s_rj_start_deg;
+static float32_t s_rj_start_deg;
 /* heading with the tape midway between the sensors */
-static float s_rj_target_deg;
+static float32_t s_rj_target_deg;
 /* sensor still to be measured after the first crossing */
-static int s_rj_second;
+static int32_t s_rj_second;
 static bool s_rj_reversed_once;
 static bool s_rj_fast;
 
-static uint8_t rj_bit (int idx)
+static uint8_t rj_bit (int32_t idx)
 {
     return (0 == idx) ? (uint8_t)LINE_SENSOR_LEFT : (uint8_t)LINE_SENSOR_RIGHT;
 }
 
-static void rj_pivot (float dir, float speed)
+static void rj_pivot (float32_t dir, float32_t speed)
 {
     s_rj_dir = dir;
     s_left_cmd = -dir * speed;
@@ -248,7 +249,7 @@ static void rj_pivot (float dir, float speed)
     (void)motion_drive(s_left_cmd, s_right_cmd);
 }
 
-static void rj_clear (int idx)
+static void rj_clear (int32_t idx)
 {
     s_ev[idx].in = false;
     s_ev[idx].done = false;
@@ -256,9 +257,9 @@ static void rj_clear (int idx)
     s_ev[idx].ignore = (0u != (s_mask & rj_bit(idx)));
 }
 
-static void rj_track (float h)
+static void rj_track (float32_t h)
 {
-    int idx;
+    int32_t idx;
 
     for (idx = 0; idx < 2; ++idx)
     {
@@ -299,7 +300,7 @@ static void rj_track (float h)
 }
 
 /* Forget both crossings and pivot in direction dir at the search speed. */
-static void rj_begin_search (float dir)
+static void rj_begin_search (float32_t dir)
 {
     rj_clear(0);
     rj_clear(1);
@@ -309,7 +310,7 @@ static void rj_begin_search (float dir)
 }
 
 /* Both crossings known: pivot to the middle of the two. */
-static void rj_go_to_middle (float h)
+static void rj_go_to_middle (float32_t h)
 {
     s_rj_target_deg = 0.5f * (s_ev[0].centre + s_ev[1].centre);
     s_rj_fast = (fabsf(s_rj_target_deg - h) > LINE_REJOIN_SLOW_ZONE_DEG);
@@ -323,7 +324,7 @@ static void rj_go_to_middle (float h)
 
 static void junction_start_search (void)
 {
-    float v = LINE_JUNCTION_SEARCH_SPEED_CM_S;
+    float32_t v = LINE_JUNCTION_SEARCH_SPEED_CM_S;
 
     s_junction_ms = 0u;
     s_junction = J_SEARCHING;
@@ -343,9 +344,9 @@ static void junction_start_search (void)
 
 static void junction_start_turn (void)
 {
-    float turn_deg = (JUNCTION_UTURN == s_junction_action)
+    float32_t turn_deg = (JUNCTION_UTURN == s_junction_action)
             ? 180.0f : LINE_JUNCTION_TURN_DEG;
-    float first_deg = turn_deg - LINE_JUNCTION_PRETURN_MARGIN_DEG;
+    float32_t first_deg = turn_deg - LINE_JUNCTION_PRETURN_MARGIN_DEG;
     motion_result_t result;
 
     if (first_deg < 2.0f)
@@ -384,13 +385,13 @@ static void junction_step (void)
     if (s_rejoin && ((J_SEARCHING == s_junction) || (J_CENTRING == s_junction)
                      || (J_CENTRE_BACK == s_junction)))
     {
-        float h = reported_heading();
+        float32_t h = reported_heading();
 
         if (J_SEARCHING == s_junction)
         {
             /* First pass: pivot until one sensor has crossed the tape
              * completely. */
-            float travelled = (h - s_rj_start_deg) * s_rj_dir;
+            float32_t travelled = (h - s_rj_start_deg) * s_rj_dir;
 
             rj_track(h);
 
@@ -400,11 +401,11 @@ static void junction_step (void)
             }
             else if ((s_ev[0].done) || (s_ev[1].done))
             {
-                int f = s_ev[0].done ? 0 : 1;
-                int g = 1 - f;
+                int32_t f = s_ev[0].done ? 0 : 1;
+                int32_t g = 1 - f;
                 /* Pivoting left meets the LEFT sensor first, pivoting right
                  * meets the RIGHT sensor first. */
-                int expected_first = (s_rj_dir > 0.0f) ? 0 : 1;
+                int32_t expected_first = (s_rj_dir > 0.0f) ? 0 : 1;
 
                 s_rj_second = g;
                 s_junction = J_CENTRING;
@@ -446,7 +447,7 @@ static void junction_step (void)
         {
             /* Second pass: pivot until the other sensor has crossed the tape
              * completely. */
-            float travelled = (h - s_rj_start_deg) * s_rj_dir;
+            float32_t travelled = (h - s_rj_start_deg) * s_rj_dir;
 
             rj_track(h);
 
@@ -470,7 +471,7 @@ static void junction_step (void)
          * the last few degrees. */
         {
             /* > 0 while still short of the target */
-            float remaining = (s_rj_target_deg - h) * s_rj_dir;
+            float32_t remaining = (s_rj_target_deg - h) * s_rj_dir;
 
             if (s_rj_fast && (remaining < LINE_REJOIN_SLOW_ZONE_DEG))
             {
@@ -645,7 +646,7 @@ void line_follow_stop (void)
 }
 
 #if LINE_JUNCTION
-bool line_follow_rejoin (int direction, float advance_cm)
+bool line_follow_rejoin (int32_t direction, float32_t advance_cm)
 {
     if (!line_follow_start())
     {
@@ -681,7 +682,7 @@ bool line_follow_rejoin (int direction, float advance_cm)
     return true;
 }
 
-int line_follow_rejoin_status (void)
+int32_t line_follow_rejoin_status (void)
 {
     return s_rejoin_result;
 }
@@ -747,8 +748,8 @@ void line_follow_update (void)
        is gone. */
     {
         bool tilted = (MOTION_TERRAIN_FLAT != status.terrain);
-        float pitch_deg = 0.0f;
-        float roll_deg = 0.0f;
+        float32_t pitch_deg = 0.0f;
+        float32_t roll_deg = 0.0f;
 
         if (motion_get_tilt(&pitch_deg, &roll_deg))
         {

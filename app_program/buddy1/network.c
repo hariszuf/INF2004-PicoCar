@@ -1,3 +1,4 @@
+#include "../barrc_types.h"
 #include <stdint.h>
 
 #include <tk/tkernel.h>
@@ -78,13 +79,13 @@ LOCAL void network_status_task (INT stacd, void * exinf)
                       "RSSI=%d "
                       "elapsed=%u ms\n",
 
-                      (unsigned int)status.join_started,
-                      (unsigned int)status.join_complete,
-                      (int)status.join_result,
-                      (unsigned int)status.link_up,
-                      (int)status.link_status,
-                      (int)status.link_rssi,
-                      (unsigned int)status.join_elapsed_ms
+                      (uint32_t)status.join_started,
+                      (uint32_t)status.join_complete,
+                      (int32_t)status.join_result,
+                      (uint32_t)status.link_up,
+                      (int32_t)status.link_status,
+                      (int32_t)status.link_rssi,
+                      (uint32_t)status.join_elapsed_ms
                       );
 
 
@@ -112,29 +113,29 @@ LOCAL void network_status_task (INT stacd, void * exinf)
                       "dns=%u.%u.%u.%u "
                       "elapsed=%u ms\n",
 
-                      (int)status.dhcp_result,
+                      (int32_t)status.dhcp_result,
 
-                      (unsigned int)status.dhcp_address[0],
-                      (unsigned int)status.dhcp_address[1],
-                      (unsigned int)status.dhcp_address[2],
-                      (unsigned int)status.dhcp_address[3],
+                      (uint32_t)status.dhcp_address[0],
+                      (uint32_t)status.dhcp_address[1],
+                      (uint32_t)status.dhcp_address[2],
+                      (uint32_t)status.dhcp_address[3],
 
-                      (unsigned int)status.dhcp_netmask[0],
-                      (unsigned int)status.dhcp_netmask[1],
-                      (unsigned int)status.dhcp_netmask[2],
-                      (unsigned int)status.dhcp_netmask[3],
+                      (uint32_t)status.dhcp_netmask[0],
+                      (uint32_t)status.dhcp_netmask[1],
+                      (uint32_t)status.dhcp_netmask[2],
+                      (uint32_t)status.dhcp_netmask[3],
 
-                      (unsigned int)status.dhcp_gateway[0],
-                      (unsigned int)status.dhcp_gateway[1],
-                      (unsigned int)status.dhcp_gateway[2],
-                      (unsigned int)status.dhcp_gateway[3],
+                      (uint32_t)status.dhcp_gateway[0],
+                      (uint32_t)status.dhcp_gateway[1],
+                      (uint32_t)status.dhcp_gateway[2],
+                      (uint32_t)status.dhcp_gateway[3],
 
-                      (unsigned int)status.dhcp_dns[0],
-                      (unsigned int)status.dhcp_dns[1],
-                      (unsigned int)status.dhcp_dns[2],
-                      (unsigned int)status.dhcp_dns[3],
+                      (uint32_t)status.dhcp_dns[0],
+                      (uint32_t)status.dhcp_dns[1],
+                      (uint32_t)status.dhcp_dns[2],
+                      (uint32_t)status.dhcp_dns[3],
 
-                      (unsigned int)status.dhcp_elapsed_ms
+                      (uint32_t)status.dhcp_elapsed_ms
                       );
 
 
@@ -163,16 +164,16 @@ LOCAL void network_status_task (INT stacd, void * exinf)
                       "ip=%u.%u.%u.%u "
                       "elapsed=%u ms\n",
 
-                      (int)status.dns_result,
+                      (int32_t)status.dns_result,
 
                       (UB *)CYW43_UTK_DNS_TEST_HOSTNAME,
 
-                      (unsigned int)status.dns_address[0],
-                      (unsigned int)status.dns_address[1],
-                      (unsigned int)status.dns_address[2],
-                      (unsigned int)status.dns_address[3],
+                      (uint32_t)status.dns_address[0],
+                      (uint32_t)status.dns_address[1],
+                      (uint32_t)status.dns_address[2],
+                      (uint32_t)status.dns_address[3],
 
-                      (unsigned int)status.dns_elapsed_ms
+                      (uint32_t)status.dns_elapsed_ms
                       );
 
 

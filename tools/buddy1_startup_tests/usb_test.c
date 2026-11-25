@@ -1,3 +1,4 @@
+#include "../../app_program/barrc_types.h"
 #include <assert.h>
 #include <setjmp.h>
 #include <stdio.h>
@@ -6,16 +7,16 @@
 
 volatile UW tm_usb_irq_count, tm_usb_nvic_enabled;
 volatile W tm_usb_def_int_ercd, tm_usb_service_tskid;
-static int mounted;
-static int init_ok = 1;
-static int sleeps;
-static int services;
-static int pending_events;
-static int starts;
-static int exits;
+static int32_t mounted;
+static int32_t init_ok = 1;
+static int32_t sleeps;
+static int32_t services;
+static int32_t pending_events;
+static int32_t starts;
+static int32_t exits;
 static FP task;
 static jmp_buf stopped;
-int tm_tusb_init (void)
+int32_t tm_tusb_init (void)
 {
     return init_ok;
 }
@@ -30,17 +31,17 @@ void tm_tusb_service (void)
     }
 }
 
-int tm_tusb_event_ready (void)
+int32_t tm_tusb_event_ready (void)
 {
     return pending_events != 0;
 }
 
-int tm_tusb_mounted (void)
+int32_t tm_tusb_mounted (void)
 {
     return mounted;
 }
 
-int tm_tusb_connected (void)
+int32_t tm_tusb_connected (void)
 {
     return 0;
 }
@@ -79,7 +80,7 @@ UW tm_tusb_diag_bus_seen (void)
     return 0;
 }
 
-int tk_get_tid (void)
+int32_t tk_get_tid (void)
 {
     return 7;
 }
@@ -89,7 +90,7 @@ void tk_ext_tsk (void)
     exits++;
 }
 
-int tk_slp_tsk (int timeout)
+int32_t tk_slp_tsk (int32_t timeout)
 {
     assert(10 == timeout);
 
@@ -101,21 +102,21 @@ int tk_slp_tsk (int timeout)
     return 0;
 }
 
-int tk_cre_tsk (T_CTSK *definition)
+int32_t tk_cre_tsk (T_CTSK *definition)
 {
     assert(3 == definition->itskpri);
     task = definition->task;
     return 7;
 }
 
-int tk_sta_tsk (int id, int code)
+int32_t tk_sta_tsk (int32_t id, int32_t code)
 {
     assert((7 == id) && (0 == code));
     starts++;
     return 0;
 }
 
-int tk_del_tsk (int id)
+int32_t tk_del_tsk (int32_t id)
 {
     (void)id;
     return 0;
@@ -153,7 +154,7 @@ int main (int argc, char ** argv)
     }
 
     printf("PASS %-16s console returns/sleeps; bounded ring drops %u bytes\n",
-           argv[1], (unsigned)tm_usb_dropped);
+           argv[1], (uint32_t)tm_usb_dropped);
     return 0;
 }
 

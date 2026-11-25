@@ -1,3 +1,4 @@
+#include "../barrc_types.h"
 #include "buddy4_motion.h"
 #include <math.h>
 static void invalidate (buddy4_motion_t * c)
@@ -41,7 +42,7 @@ bool buddy4_motion_init (buddy4_motion_t * c, buddy4_motion_config_t cfg)
     return c->configured;
 }
 
-void buddy4_motion_update (buddy4_motion_t * c, float left, float right,
+void buddy4_motion_update (buddy4_motion_t * c, float32_t left, float32_t right,
                            bool valid, uint64_t sample, uint64_t now)
 {
     if (!clock_ok(c, now))
@@ -49,8 +50,8 @@ void buddy4_motion_update (buddy4_motion_t * c, float left, float right,
         return;
     }
 
-    float mean = left * 0.5f + right * 0.5f;
-    float diff = right - left;
+    float32_t mean = left * 0.5f + right * 0.5f;
+    float32_t diff = right - left;
 
     if ((!c->configured) || (!valid) || (!isfinite(left))
         || (!isfinite(right)) ||
@@ -69,7 +70,7 @@ void buddy4_motion_update (buddy4_motion_t * c, float left, float right,
 
     c->sample_us = sample;
     c->has_sample = true;
-    float stop_limit = BUDDY4_MOTION_STOPPED == c->state
+    float32_t stop_limit = BUDDY4_MOTION_STOPPED == c->state
             ? c->config.stop_exit_cm_s : c->config.stop_enter_cm_s;
     buddy4_motion_state_t target;
 

@@ -1,4 +1,5 @@
 /* Real lwIP and real mqtt_utk.c, with a virtual wire and no USB dependency. */
+#include "../../app_program/barrc_types.h"
 #include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -25,7 +26,7 @@ static uint32_t attempts;
 static uint32_t allocations;
 static uint32_t force_connect_error;
 static uint32_t force_alloc_error;
-static int app_enabled;
+static int32_t app_enabled;
 u32_t sys_now (void)
 {
     return test_now;
@@ -46,17 +47,17 @@ void lwip_utk_assert (const char * message)
     abort();
 }
 
-int tm_printf (const unsigned char * format, ...)
+int32_t tm_printf (const uint8_t * format, ...)
 {
     (void)format;
     return 0;
 }
 
-int tm_sprintf (unsigned char * buffer, const unsigned char * format, ...)
+int32_t tm_sprintf (uint8_t * buffer, const uint8_t * format, ...)
 {
     va_list args;
     va_start(args, format);
-    int n = vsprintf((char *)buffer, (const char *)format, args);
+    int32_t n = vsprintf((char *)buffer, (const char *)format, args);
     va_end(args);
     return n;
 }
@@ -121,7 +122,7 @@ static void mp_memory_barrir (void)
 }
 
 /* The IPv4 diagnostic adopter is not a DHCP or MQTT prerequisite. */
-static int lwip_utk_ipv4_adopt_netif (struct netif * n)
+static int32_t lwip_utk_ipv4_adopt_netif (struct netif * n)
 {
     (void)n;
     return ERR_OK;
@@ -131,8 +132,8 @@ static struct dhcp lease;
 static ip4_addr_t client_ip;
 static ip4_addr_t broker_ip;
 static ip4_addr_t router_ip;
-static const unsigned char client_mac[6] = {2, 0, 0, 0, 0, 4};
-static const unsigned char peer_mac[6] = {2, 0, 0, 0, 0, 2};
+static const uint8_t client_mac[6] = {2, 0, 0, 0, 0, 4};
+static const uint8_t peer_mac[6] = {2, 0, 0, 0, 0, 2};
 static u32_t syn_seq;
 static u32_t sent_next;
 static u16_t client_port;
@@ -144,7 +145,7 @@ static uint32_t status_messages;
 static uint32_t telemetry_messages;
 static uint32_t subscribe_id;
 
-static void inspect_mqtt (const unsigned char * p, uint32_t length)
+static void inspect_mqtt (const uint8_t * p, uint32_t length)
 {
     while (length)
     {
@@ -160,7 +161,7 @@ static void inspect_mqtt (const unsigned char * p, uint32_t length)
         } while (p[offset++] & 128);
         /* Test messages fit in one TCP segment. */
         assert(offset + remaining <= length);
-        const unsigned char * body = p + offset;
+        const uint8_t * body = p + offset;
         uint32_t type = p[0] >> 4;
 
         if (1 == type)
@@ -185,7 +186,7 @@ static void inspect_mqtt (const unsigned char * p, uint32_t length)
             uint32_t topic_length = (body[0] << 8) | body[1];
             assert(remaining >= topic_length + 2);
             uint32_t payload_length = remaining - topic_length - 2;
-            const unsigned char * payload = body + 2 + topic_length;
+            const uint8_t * payload = body + 2 + topic_length;
 
             if ((topic_length == strlen(MQTT_STATUS_TOPIC))
                 && (!memcmp(body + 2, MQTT_STATUS_TOPIC, topic_length)))
@@ -213,7 +214,7 @@ static void inspect_mqtt (const unsigned char * p, uint32_t length)
 
 static err_t wire_output (struct netif * n, struct pbuf * p)
 {
-    unsigned char frame[1600];
+    uint8_t frame[1600];
     (void)n;
     assert(p->tot_len <= sizeof(frame));
     pbuf_copy_partial(p, frame, p->tot_len, 0);
@@ -230,7 +231,7 @@ static err_t wire_output (struct netif * n, struct pbuf * p)
     if (IP_PROTO_UDP == IPH_PROTO(ip))
     {
         const struct udp_hdr * udp =
-                (const void *)((const unsigned char *)ip + ip_len);
+                (const void *)((const uint8_t *)ip + ip_len);
 
         if (67 == lwip_ntohs(udp->dest))
         {
@@ -241,7 +242,7 @@ static err_t wire_output (struct netif * n, struct pbuf * p)
     if (IP_PROTO_TCP == IPH_PROTO(ip))
     {
         const struct tcp_hdr * tcp =
-                (const void *)((const unsigned char *)ip + ip_len);
+                (const void *)((const uint8_t *)ip + ip_len);
         uint32_t len =
                 lwip_ntohs(IPH_LEN(ip)) - ip_len - TCPH_HDRLEN_BYTES(tcp);
         client_port = lwip_ntohs(tcp->src);
@@ -255,8 +256,8 @@ static err_t wire_output (struct netif * n, struct pbuf * p)
 
         if (len)
         {
-            const unsigned char * payload =
-                    (const unsigned char *)tcp + TCPH_HDRLEN_BYTES(tcp);
+            const uint8_t * payload =
+                    (const uint8_t *)tcp + TCPH_HDRLEN_BYTES(tcp);
             sent_next = lwip_ntohl(tcp->seqno) + len;
             inspect_mqtt(payload, len);
         }
@@ -305,7 +306,7 @@ static void deliver (const void * frame, uint32_t size)
 }
 
 static struct ip_hdr
-        * ip_header (unsigned char * frame, uint32_t size, u8_t proto,
+        * ip_header (uint8_t * frame, uint32_t size, u8_t proto,
                                   const ip4_addr_t * src,
                                           const ip4_addr_t * dst)
 {
@@ -326,18 +327,18 @@ static struct ip_hdr
 
 static void dhcp_reply (u8_t type)
 {
-    unsigned char frame[SIZEOF_ETH_HDR + IP_HLEN + UDP_HLEN
+    uint8_t frame[SIZEOF_ETH_HDR + IP_HLEN + UDP_HLEN
             + sizeof(struct dhcp_msg)] = {0};
     ip4_addr_t broadcast;
     IP4_ADDR(&broadcast, 255, 255, 255, 255);
     struct ip_hdr * ip =
             ip_header(frame, sizeof(frame), IP_PROTO_UDP, &router_ip,
                       &broadcast);
-    struct udp_hdr * udp = (void *)((unsigned char *)ip + IP_HLEN);
+    struct udp_hdr * udp = (void *)((uint8_t *)ip + IP_HLEN);
     udp->src = lwip_htons(67);
     udp->dest = lwip_htons(68);
     udp->len = lwip_htons(UDP_HLEN + sizeof(struct dhcp_msg));
-    struct dhcp_msg * msg = (void *)((unsigned char *)udp + UDP_HLEN);
+    struct dhcp_msg * msg = (void *)((uint8_t *)udp + UDP_HLEN);
     msg->op = DHCP_BOOTREPLY;
     msg->htype = 1;
     msg->hlen = 6;
@@ -346,7 +347,7 @@ static void dhcp_reply (u8_t type)
     msg->siaddr.addr = router_ip.addr;
     memcpy(msg->chaddr, client_mac, 6);
     msg->cookie = lwip_htonl(DHCP_MAGIC_COOKIE);
-    unsigned char options[] = {53, 1, type, 54, 4, 172, 20, 10, 1, 1, 4, 255,
+    uint8_t options[] = {53, 1, type, 54, 4, 172, 20, 10, 1, 1, 4, 255,
         255, 255, 240,
         3, 4, 172, 20, 10, 1, 6, 4, 172, 20, 10, 1, 51, 4, 0, 0, 14, 16, 255};
     memcpy(msg->options, options, sizeof(options));
@@ -355,7 +356,7 @@ static void dhcp_reply (u8_t type)
 
 static void arp_reply (void)
 {
-    unsigned char frame[SIZEOF_ETH_HDR + SIZEOF_ETHARP_HDR] = {0};
+    uint8_t frame[SIZEOF_ETH_HDR + SIZEOF_ETHARP_HDR] = {0};
     struct eth_hdr * eth = (void *)frame;
     memcpy(eth->src.addr, peer_mac, 6);
     memcpy(eth->dest.addr, client_mac, 6);
@@ -377,12 +378,12 @@ static void tcp_reply (uint32_t flags, u32_t seq, u32_t ack,
                        const void * payload,
                        uint32_t len)
 {
-    unsigned char frame[SIZEOF_ETH_HDR + IP_HLEN + TCP_HLEN + 256] = {0};
+    uint8_t frame[SIZEOF_ETH_HDR + IP_HLEN + TCP_HLEN + 256] = {0};
     assert(len <= 256);
     uint32_t size = SIZEOF_ETH_HDR + IP_HLEN + TCP_HLEN + len;
     struct ip_hdr * ip =
             ip_header(frame, size, IP_PROTO_TCP, &broker_ip, &client_ip);
-    struct tcp_hdr * tcp = (void *)((unsigned char *)ip + IP_HLEN);
+    struct tcp_hdr * tcp = (void *)((uint8_t *)ip + IP_HLEN);
     tcp->src = lwip_htons(1883);
     tcp->dest = lwip_htons(client_port);
     tcp->seqno = lwip_htonl(seq);
@@ -392,7 +393,7 @@ static void tcp_reply (uint32_t flags, u32_t seq, u32_t ack,
 
     if (len)
     {
-        memcpy((unsigned char *)tcp + TCP_HLEN, payload, len);
+        memcpy((uint8_t *)tcp + TCP_HLEN, payload, len);
     }
 
     struct pbuf * sum = pbuf_alloc(PBUF_RAW, (u16_t)(TCP_HLEN + len), PBUF_RAM);
@@ -405,7 +406,7 @@ static void tcp_reply (uint32_t flags, u32_t seq, u32_t ack,
     deliver(frame, size);
 }
 
-static void acquire_lease (int late)
+static void acquire_lease (int32_t late)
 {
     IP4_ADDR(&client_ip, 172, 20, 10, 4);
     IP4_ADDR(&broker_ip, 172, 20, 10, 2);
@@ -593,7 +594,7 @@ int main (int argc, char ** argv)
 
     if (!strcmp(mode, "connack_refused"))
     {
-        unsigned char refused[] = {0x20, 2, 0, 3}; /* Server unavailable. */
+        uint8_t refused[] = {0x20, 2, 0, 3}; /* Server unavailable. */
         tcp_reply(TCP_ACK | TCP_PSH, 9001, sent_next, refused, sizeof(refused));
         assert((!connected) && (!connecting));
         u32_t failed = test_now;
@@ -608,13 +609,13 @@ int main (int argc, char ** argv)
 
     assert((!strcmp(mode, "success")) || (!strcmp(mode, "buddy_io"))
            || (!strcmp(mode, "late_dhcp_mqtt")));
-    unsigned char connack[] = {0x20, 2, 0, 0};
+    uint8_t connack[] = {0x20, 2, 0, 0};
     tcp_reply(TCP_ACK | TCP_PSH, 9001, sent_next, connack, sizeof(connack));
     assert(connected && (!connecting)
            && (mqtt_client_is_connected(mqtt_client)));
     assert(subscribe_id);
-    unsigned char suback[] = {0x90, 3, (unsigned char)(subscribe_id >> 8),
-        (unsigned char)subscribe_id, 0};
+    uint8_t suback[] = {0x90, 3, (uint8_t)(subscribe_id >> 8),
+        (uint8_t)subscribe_id, 0};
     tcp_reply(TCP_ACK | TCP_PSH, 9005, sent_next, suback, sizeof(suback));
     u32_t server_seq = 9010;
 
@@ -648,7 +649,7 @@ int main (int argc, char ** argv)
 
         for (uint32_t idx = 0; idx < 4; idx++)
         {
-            unsigned char packet[128];
+            uint8_t packet[128];
             uint32_t topic_len = strlen(topics[idx]),
             payload_len = strlen(payloads[idx]);
             uint32_t size = 4 + topic_len + payload_len;

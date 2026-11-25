@@ -8,6 +8,7 @@
 #ifndef SIM_TRACK_H
 #define SIM_TRACK_H
 
+#include "../../../barrc_types.h"
 #include <stdbool.h>
 
 /** Build the track and put the robot at its start. Call after motion_init(). */
@@ -18,13 +19,14 @@ void track_reset (void);
 void track_step_1ms (void);
 
 /** Distance (mm) from the target point (between the sensors) to the line. */
-double track_error_mm (void);
+float64_t track_error_mm (void);
 
 /* Fraction (0..1) of the track length covered by the nearest-point progress. */
-double track_progress (void);
+float64_t track_progress (void);
 
 /** Robot pose (mm, deg) for printing. */
-void track_pose (double * p_x_mm, double * p_y_mm, double * p_heading_deg);
+void track_pose (float64_t * p_x_mm, float64_t * p_y_mm,
+                 float64_t * p_heading_deg);
 
 #endif
 

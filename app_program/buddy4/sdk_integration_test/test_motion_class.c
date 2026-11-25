@@ -1,3 +1,4 @@
+#include "../../barrc_types.h"
 #include "buddy4_motion.h"
 #include <assert.h>
 #include <math.h>
@@ -5,7 +6,7 @@
 #include <string.h>
 static buddy4_motion_t c;
 static uint64_t t;
-static buddy4_motion_output_t tick (float l, float r)
+static buddy4_motion_output_t tick (float32_t l, float32_t r)
 {
     t += 20000;
     buddy4_motion_update(&c, l, r, true, t, t);
@@ -20,9 +21,9 @@ static void reset (void)
     assert((!o.valid) && (BUDDY4_MOTION_UNKNOWN == o.state));
 }
 
-static void confirmed (float l, float r, buddy4_motion_state_t expected)
+static void confirmed (float32_t l, float32_t r, buddy4_motion_state_t expected)
 {
-    for (int idx = 0; idx < 6; idx++)
+    for (int32_t idx = 0; idx < 6; idx++)
     {
         tick(l, r);
     }
@@ -35,8 +36,8 @@ static void cases (void)
 {
     struct
     {
-        float l;
-        float r;
+        float32_t l;
+        float32_t r;
         buddy4_motion_state_t s;
     }
     cases[] = {
@@ -61,13 +62,13 @@ static void jitter (void)
     reset();
     confirmed(0, 0, BUDDY4_MOTION_STOPPED);
 
-    for (int idx = 0; idx < 20; idx++)
+    for (int32_t idx = 0; idx < 20; idx++)
     {
         assert(BUDDY4_MOTION_STOPPED == tick(idx % 2 ? 0.7f : 0.4f,
                                              0.6f).state);
     }
 
-    for (int idx = 0; idx < 20; idx++)
+    for (int32_t idx = 0; idx < 20; idx++)
     {
         assert(BUDDY4_MOTION_STOPPED == tick(idx % 2 ? 0.9f : 0.7f,
                                              idx % 2 ? 0.9f : 0.7f).state);
@@ -76,7 +77,7 @@ static void jitter (void)
     confirmed(1, 1, BUDDY4_MOTION_FORWARD);
     confirmed(1, 3, BUDDY4_MOTION_TURNING_LEFT);
 
-    for (int idx = 0; idx < 20; idx++)
+    for (int32_t idx = 0; idx < 20; idx++)
     {
         assert(BUDDY4_MOTION_TURNING_LEFT == tick(1,
                 idx % 2 ? 2.2f : 2.6f).state);
@@ -84,14 +85,14 @@ static void jitter (void)
 
     confirmed(3, 3, BUDDY4_MOTION_FORWARD);
     /* At turn entry jitter cannot satisfy confirmation continuously. */
-    for (int idx = 0; idx < 20; idx++)
+    for (int32_t idx = 0; idx < 20; idx++)
     {
         assert(BUDDY4_MOTION_FORWARD == tick(3, idx % 2 ? 4.4f : 4.6f).state);
     }
 
     reset();
 
-    for (int idx = 0; idx < 5; idx++)
+    for (int32_t idx = 0; idx < 5; idx++)
     {
         buddy4_motion_output_t o = tick(3, 3);
         assert(!o.valid);
@@ -105,11 +106,11 @@ static void jitter (void)
 
 static void invalid (void)
 {
-    const float bad[] = {NAN, INFINITY, -INFINITY};
+    const float32_t bad[] = {NAN, INFINITY, -INFINITY};
 
-    for (int side = 0; side < 2; side++)
+    for (int32_t side = 0; side < 2; side++)
     {
-        for (int idx = 0; idx < 3; idx++)
+        for (int32_t idx = 0; idx < 3; idx++)
         {
             reset();
             confirmed(3, 3, BUDDY4_MOTION_FORWARD);
@@ -117,7 +118,7 @@ static void invalid (void)
                     tick(side ? 3 : bad[idx], side ? bad[idx] : 3);
             assert((!o.valid) && (BUDDY4_MOTION_UNKNOWN == o.state));
 
-            for (int jdx = 0; jdx < 5; jdx++)
+            for (int32_t jdx = 0; jdx < 5; jdx++)
             {
                 assert(!tick(3, 3).valid);
             }
@@ -171,7 +172,7 @@ int main (void)
     /* UNKNOWN cancellation is tested separately (valid must remain false). */
     reset();
 
-    for (int idx = 0; idx < 20; idx++)
+    for (int32_t idx = 0; idx < 20; idx++)
     {
         assert(!tick(-0.7f, 0.7f).valid);
     }

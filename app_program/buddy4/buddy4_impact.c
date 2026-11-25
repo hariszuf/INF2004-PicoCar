@@ -1,3 +1,4 @@
+#include "../barrc_types.h"
 #include "buddy4_impact.h"
 #include <math.h>
 static void invalidate (buddy4_impact_t * d)
@@ -39,7 +40,8 @@ bool buddy4_impact_init (buddy4_impact_t * d, buddy4_impact_config_t cfg)
     return d->configured;
 }
 
-void buddy4_impact_update (buddy4_impact_t * d, float x, float y, float z,
+void buddy4_impact_update (buddy4_impact_t * d, float32_t x, float32_t y,
+                           float32_t z,
                            bool valid, uint64_t sample, uint64_t now)
 {
     d->output.possible_impact = false;
@@ -49,7 +51,7 @@ void buddy4_impact_update (buddy4_impact_t * d, float x, float y, float z,
         return;
     }
 
-    float mag = hypotf(hypotf(x, y), z);
+    float32_t mag = hypotf(hypotf(x, y), z);
 
     if ((!d->configured) || (!valid) || (!isfinite(mag)) ||
         (sample > now) || (now - sample > d->config.max_gap_us) ||
@@ -91,7 +93,7 @@ void buddy4_impact_update (buddy4_impact_t * d, float x, float y, float z,
     d->output.baseline_g =
             hypotf(hypotf(d->baseline_xyz_g[0], d->baseline_xyz_g[1]),
                    d->baseline_xyz_g[2]);
-    float signal =
+    float32_t signal =
             hypotf(hypotf(x - d->baseline_xyz_g[0], y - d->baseline_xyz_g[1]),
                    z - d->baseline_xyz_g[2]);
 
@@ -158,8 +160,9 @@ void buddy4_impact_update (buddy4_impact_t * d, float x, float y, float z,
      * orientation/driving changes with the existing time-based low-pass. */
     if (signal < d->config.trigger_g)
     {
-        float alpha =
-                (float)dt / ((float)d->config.baseline_tau_us + (float)dt);
+        float32_t alpha =
+                (float32_t)dt / ((float32_t)d->config.baseline_tau_us
+                                 + (float32_t)dt);
         d->baseline_xyz_g[0] += alpha * (x - d->baseline_xyz_g[0]);
         d->baseline_xyz_g[1] += alpha * (y - d->baseline_xyz_g[1]);
         d->baseline_xyz_g[2] += alpha * (z - d->baseline_xyz_g[2]);

@@ -1,3 +1,4 @@
+#include "../../barrc_types.h"
 #include "buddy4_impact.h"
 #include <assert.h>
 #include <float.h>
@@ -11,14 +12,14 @@
 #undef main
 static buddy4_impact_t d;
 static uint64_t t;
-static buddy4_impact_output_t xyz (float x, float y, float z)
+static buddy4_impact_output_t xyz (float32_t x, float32_t y, float32_t z)
 {
     t += 20000;
     buddy4_impact_update(&d, x, y, z, true, t, t);
     return buddy4_impact_get(&d, t);
 }
 
-static buddy4_impact_output_t g (float z)
+static buddy4_impact_output_t g (float32_t z)
 {
     return xyz(0, 0, z);
 }
@@ -35,7 +36,7 @@ static void quiet (void)
 {
     reset();
 
-    for (int idx = 0; idx < 200; idx++)
+    for (int32_t idx = 0; idx < 200; idx++)
     {
         assert(!g(1).possible_impact);
     }
@@ -44,19 +45,19 @@ static void quiet (void)
            && (fabsf(d.output.baseline_g - 1) < 1e-6f));
     /* Slow gravity rotation through a ramp, without suppressing tilted signals.
      */
-    for (int idx = 0; idx < 100; idx++)
+    for (int32_t idx = 0; idx < 100; idx++)
     {
-        float a = idx * 0.01f;
+        float32_t a = idx * 0.01f;
         assert(!xyz(sinf(a), 0, cosf(a)).possible_impact);
     }
 
-    for (int idx = 99; idx >= 0; idx--)
+    for (int32_t idx = 99; idx >= 0; idx--)
     {
-        float a = idx * 0.01f;
+        float32_t a = idx * 0.01f;
         assert(!xyz(sinf(a), 0, cosf(a)).possible_impact);
     }
 
-    for (int idx = 0; idx < 200; idx++)
+    for (int32_t idx = 0; idx < 200; idx++)
     {
         assert(!g(1 + 0.05f*sinf(idx * 0.4f)).possible_impact);
     }
@@ -66,7 +67,7 @@ static void quiet (void)
     assert(!g(1.6f).possible_impact);
     assert(!g(1).possible_impact);
 
-    for (int idx = 0; idx < 20; idx++)
+    for (int32_t idx = 0; idx < 20; idx++)
     {
         g(1);
         g(1.6f);
@@ -82,7 +83,7 @@ static void trigger (void)
     assert((g(1.6f).possible_impact) && (1 == d.output.event_count)
            && (d.output.event_us == t));
     assert(!g(1.6f).possible_impact); /* One input-sample pulse. */
-    for (int idx = 0; idx < 40; idx++)
+    for (int32_t idx = 0; idx < 40; idx++)
     {
         assert(!g(1.6f).possible_impact);
     }
@@ -99,7 +100,7 @@ static void trigger (void)
     assert(!g(1.6f).possible_impact);
     assert(2 == d.output.event_count);
 
-    for (int idx = 0; idx < 30; idx++)
+    for (int32_t idx = 0; idx < 30; idx++)
     {
         g(1);
     }
@@ -122,7 +123,7 @@ static void horizontal_contact (void)
     /* Orthogonal to gravity: old |norm(a)-1| is only 0.0966 g for 0.45 g
      * horizontal contact. Cover both polarities, axes, diagonal and mounting.
      */
-    const float cases[][6] = {
+    const float32_t cases[][6] = {
         {0, 0, 1, 0.45f, 0, 0}, {0, 0, 1, -0.45f, 0, 0},
         {0, 0, 1, 0, 0.45f, 0}, {0, 0, 1, 0, -0.45f, 0},
         {0, 0, 1, 0.27f, 0.36f, 0}, {1, 0, 0, 0, 0, 0.45f},
@@ -131,8 +132,8 @@ static void horizontal_contact (void)
 
     for (uint32_t c = 0; c < sizeof(cases) / sizeof(cases[0]); c++)
     {
-        const float * b = cases[c];
-        const float * h = b + 3;
+        const float32_t * b = cases[c];
+        const float32_t * h = b + 3;
         assert(buddy4_impact_init(&d, buddy4_impact_default_config()));
         t = 0;
         xyz(b[0], b[1], b[2]);
@@ -143,7 +144,7 @@ static void horizontal_contact (void)
         assert((o.possible_impact) && (1 == o.event_count));
         assert(fabsf(o.deviation_g - 0.45f) < 1e-5f);
 
-        for (int idx = 0; idx < 40; idx++)
+        for (int32_t idx = 0; idx < 40; idx++)
         {
             o = xyz(b[0] + h[0], b[1] + h[1], b[2] + h[2]);
             /* Frozen reference. */
@@ -167,7 +168,7 @@ static void horizontal_contact (void)
     /* Below vector threshold remains unconfirmed; do not lower 0.30 g. */
     reset();
 
-    for (int idx = 0; idx < 50; idx++)
+    for (int32_t idx = 0; idx < 50; idx++)
     {
         assert(!xyz(0.29f, 0, 1).possible_impact);
     }
@@ -179,7 +180,7 @@ static void ordinary_driving (void)
 {
     reset();
     /* Stationary XYZ noise, including lateral noise invisible to magnitude. */
-    for (int idx = 0; idx < 500; idx++)
+    for (int32_t idx = 0; idx < 500; idx++)
     {
         assert(!xyz(0.015f*sinf(idx * 0.7f), 0.02f*cosf(idx * 0.3f),
                     1 + 0.015f*sinf(idx * 0.4f)).possible_impact);
@@ -187,34 +188,35 @@ static void ordinary_driving (void)
 
     /* Representative gentle forward start, coast, braking and reverse start.
      * These synthetic envelopes are not measured limits of the real vehicle. */
-    const float drive[] = {0, 0.12f, 0, -0.12f, 0, -0.12f, 0, 0.12f, 0};
+    const float32_t drive[] = {0, 0.12f, 0, -0.12f, 0, -0.12f, 0, 0.12f, 0};
 
     for (uint32_t jdx = 0; jdx < sizeof(drive) / sizeof(drive[0]); jdx++)
     {
-        for (int idx = 0; idx < 30; idx++)
+        for (int32_t idx = 0; idx < 30; idx++)
         {
             assert(!xyz(drive[jdx], 0, 1).possible_impact);
         }
     }
 
-    for (int idx = 0; idx < 300; idx++)
+    for (int32_t idx = 0; idx < 300; idx++)
     { /* Smooth lateral acceleration through turns. */
         assert(!xyz(0, 0.12f*sinf(idx * 0.02f), 1).possible_impact);
     }
 
     /* Pitch/roll ramp crossings, two 0.6 s slopes, with mild propulsion
      * and vertical vibration. Both sides, with hold and gradual return. */
-    for (int axis = 0; axis < 2; axis++)
+    for (int32_t axis = 0; axis < 2; axis++)
     {
-        for (int sign = -1; sign <= 1; sign += 2)
+        for (int32_t sign = -1; sign <= 1; sign += 2)
         {
-            for (int idx = 0; idx < 100; idx++)
+            for (int32_t idx = 0; idx < 100; idx++)
             {
-                float fraction =
+                float32_t fraction =
                         idx < 30 ? idx / 30.0f
                         : (idx < 50 ? 1 : (idx < 80 ? (80 - idx) / 30.0f : 0));
-                float a = sign * 0.20944f*fraction;
-                float x = 0 == axis ? sinf(a) : 0, y = 1 == axis ? sinf(a) : 0;
+                float32_t a = sign * 0.20944f*fraction;
+                float32_t x = 0 == axis ? sinf(a) : 0,
+                        y = 1 == axis ? sinf(a) : 0;
                 assert(!xyz(x + 0.05f*sinf(idx * 0.06f), y,
                             cosf(a) + 0.02f*sinf(idx * 0.4f)).possible_impact);
             }
@@ -235,7 +237,7 @@ static void vector_confirmation (void)
     reset();
 
     /* Isolated and alternating horizontal spikes. */
-    for (int idx = 0; idx < 40; idx++)
+    for (int32_t idx = 0; idx < 40; idx++)
     {
         assert(!xyz(idx % 2 ? 0.6f : -0.6f, 0, 1).possible_impact);
         assert(!g(1).possible_impact);
@@ -247,7 +249,7 @@ static void vector_confirmation (void)
     reset();
     xyz(0.45f, 0, 1);
 
-    for (int idx = 1; idx < 4; idx++)
+    for (int32_t idx = 1; idx < 4; idx++)
     {
         buddy4_impact_update(&d, 0.45f, 0, 1, true, t + idx * 5000,
                              t + idx * 5000);
@@ -281,7 +283,7 @@ static void vector_confirmation (void)
 
 static void faults (void)
 {
-    for (int kind = 0; kind < 8; kind++)
+    for (int32_t kind = 0; kind < 8; kind++)
     {
         reset();
         g(1.6f); /* Pending evidence must not survive any fault. */
@@ -382,7 +384,7 @@ static void boundaries_and_history (void)
     /* DC bias and gentle drift must track a nonzero gravity baseline. */
     reset();
 
-    for (int idx = 0; idx < 400; idx++)
+    for (int32_t idx = 0; idx < 400; idx++)
     {
         assert(!g(1 + idx * 0.0005f).possible_impact);
     }
@@ -394,7 +396,7 @@ static void boundaries_and_history (void)
     assert(g(1.6f).possible_impact);
     uint64_t event = t;
 
-    for (int idx = 0; idx < 3; idx++)
+    for (int32_t idx = 0; idx < 3; idx++)
     {
         buddy4_impact_output_t o = buddy4_impact_get(&d, t);
         assert((o.valid) && (o.possible_impact) && (1 == o.event_count)
@@ -409,7 +411,7 @@ static void boundaries_and_history (void)
     t = event + 40001;
     assert((g(1).valid) && (!d.output.possible_impact));
 
-    for (int idx = 0; idx < 30; idx++)
+    for (int32_t idx = 0; idx < 30; idx++)
     {
         g(1);
     }
@@ -426,7 +428,7 @@ static void boundaries_and_history (void)
     g(1.6f);
     event = t;
 
-    for (int idx = 0; idx < 24; idx++)
+    for (int32_t idx = 0; idx < 24; idx++)
     {
         g(1);
     }
@@ -437,7 +439,7 @@ static void boundaries_and_history (void)
     g(1.6f);
     assert((g(1.6f).possible_impact) && (2 == d.output.event_count));
     /* Cooldown alone is insufficient; one calm sample cannot rearm. */
-    for (int idx = 0; idx < 30; idx++)
+    for (int32_t idx = 0; idx < 30; idx++)
     {
         g(1.6f);
     }
@@ -463,7 +465,7 @@ static void boundaries_and_history (void)
     buddy4_impact_update(&d, 0, 0, 1.25f, true, t, t);
     assert((d.output.possible_impact) && (1 == d.output.event_count));
 
-    for (int idx = 0; idx < 30; idx++)
+    for (int32_t idx = 0; idx < 30; idx++)
     {
         g(1.25f);
     }
@@ -483,7 +485,7 @@ static void boundaries_and_history (void)
 
     /* Stale input supplied to update, and reversal of its clock, were not
      * covered by the older getter-only fault cases. Retain event history. */
-    for (int kind = 0; kind < 2; kind++)
+    for (int32_t kind = 0; kind < 2; kind++)
     {
         reset();
         g(1.6f);
@@ -524,14 +526,14 @@ static buddy4_result_t acquire (buddy4_imu_t * imu, uint64_t sample,
 }
 
 static void corrected_vector (fake_t * sensor, const buddy4_imu_t * imu,
-                              float mag)
+                              float32_t mag)
 {
     vector(sensor, imu->config.accel_bias_g[0], imu->config.accel_bias_g[1],
            -mag / imu->config.accel_scale[2] + imu->config.accel_bias_g[2]);
 }
 
 static void corrected_disturbance (fake_t * sensor, const buddy4_imu_t * imu,
-                                   int horizontal)
+                                   int32_t horizontal)
 {
     if (!horizontal)
     {
@@ -547,9 +549,9 @@ static void corrected_disturbance (fake_t * sensor, const buddy4_imu_t * imu,
 
 static void clipped_acquisition (void)
 {
-    for (int horizontal = 0; horizontal < 2; ++horizontal)
+    for (int32_t horizontal = 0; horizontal < 2; ++horizontal)
     {
-        for (int history = 0; history < 2; ++history)
+        for (int32_t history = 0; history < 2; ++history)
         {
             buddy4_imu_t imu;
             fake_t sensor;
@@ -574,7 +576,7 @@ static void clipped_acquisition (void)
 
             uint64_t event = d.output.event_us;
 
-            for (int idx = 0; idx < 20; ++idx)
+            for (int32_t idx = 0; idx < 20; ++idx)
             {
                 raw_vector(&sensor, INT16_MIN, INT16_MIN, INT16_MIN);
                 t += 20000;
@@ -582,7 +584,7 @@ static void clipped_acquisition (void)
                 assert((imu.output.valid) && (!imu.output.acceleration_valid));
                 assert((!d.output.valid) && (!d.output.possible_impact)
                        && (!d.pending_samples));
-                assert((d.output.event_count == (unsigned)history)
+                assert((d.output.event_count == (uint32_t)history)
                        && (d.output.event_us == event));
             }
 
@@ -600,11 +602,11 @@ static void clipped_acquisition (void)
 
 static void acquisition_faults (void)
 {
-    for (int horizontal = 0; horizontal < 2; horizontal++)
+    for (int32_t horizontal = 0; horizontal < 2; horizontal++)
     {
-        for (int history = 0; history < 2; history++)
+        for (int32_t history = 0; history < 2; history++)
         {
-            for (int kind = 0; kind < 12; kind++)
+            for (int32_t kind = 0; kind < 12; kind++)
             {
                 buddy4_imu_t imu;
                 fake_t sensor;
@@ -655,7 +657,7 @@ static void acquisition_faults (void)
 
                 if ((kind >= 3) && (kind <= 10))
                 {
-                    int transfer = (kind - 3) / 2 + 1;
+                    int32_t transfer = (kind - 3) / 2 + 1;
 
                     if (kind % 2)
                     {
@@ -687,7 +689,7 @@ static void acquisition_faults (void)
                 assert(buddy4_configure(&imu));
                 corrected_vector(&sensor, &imu, 1);
 
-                for (int idx = 0; idx < 3; idx++)
+                for (int32_t idx = 0; idx < 3; idx++)
                 {
                     t += 20000;
                     assert(BUDDY4_FRESH == acquire(&imu, t, t));
@@ -705,7 +707,7 @@ static void acquisition_faults (void)
                 assert(1 == d.output.event_count);
                 corrected_vector(&sensor, &imu, 1);
 
-                for (int idx = 0; idx < 30; idx++)
+                for (int32_t idx = 0; idx < 30; idx++)
                 {
                     t += 20000;
                     acquire(&imu, t, t);
@@ -760,7 +762,7 @@ static void reported_peak_confirmation_limits (void)
     assert((d.output.valid) && (d.output.possible_impact)
            && (1 == d.output.event_count));
     /* An already-confirmed disturbance cannot repeat without calm/cooldown. */
-    for (int idx = 0; idx < 30; idx++)
+    for (int32_t idx = 0; idx < 30; idx++)
     {
         assert(!xyz(0.5645f, 0, 1).possible_impact);
     }
@@ -771,7 +773,7 @@ static void reported_peak_confirmation_limits (void)
 }
 
 static void recorded_short_impulses (const char * name, uint32_t expected_rows,
-                                     float expected_peak)
+                                     float32_t expected_peak)
 {
     char path[1024];
     size_t prefix = 0;
@@ -784,7 +786,8 @@ static void recorded_short_impulses (const char * name, uint32_t expected_rows,
         }
     }
 
-    snprintf(path, sizeof(path), "%.*s../evidence/2026-11-02/%s", (int)prefix,
+    snprintf(path, sizeof(path), "%.*s../evidence/2026-11-02/%s",
+             (int32_t)prefix,
              __FILE__, name);
     FILE *file = fopen(path, "r");
     assert(file);
@@ -793,8 +796,8 @@ static void recorded_short_impulses (const char * name, uint32_t expected_rows,
     uint32_t rows = 0;
     uint32_t recorded_above = 0;
     uint32_t replayed_above = 0;
-    float peak = 0;
-    float recorded_peak = 0;
+    float32_t peak = 0;
+    float32_t recorded_peak = 0;
 
     while (fgets(line, sizeof(line), file))
     {
@@ -840,7 +843,7 @@ static void recorded_short_impulses (const char * name, uint32_t expected_rows,
             peak = d.output.deviation_g;
         }
 
-        float recorded = strtof(field[71], NULL);
+        float32_t recorded = strtof(field[71], NULL);
 
         if (recorded > recorded_peak)
         {

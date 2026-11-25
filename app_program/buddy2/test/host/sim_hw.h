@@ -10,6 +10,7 @@
 #ifndef SIM_HW_H
 #define SIM_HW_H
 
+#include "../../../barrc_types.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include "motion_types.h"
@@ -21,26 +22,26 @@ void sim_reset (void);
 void sim_advance_ms (uint32_t milliseconds);
 
 /** True distance travelled by a wheel since reset (cm, signed). */
-double sim_true_position_cm (motion_side_t side);
+float64_t sim_true_position_cm (motion_side_t side);
 
 /** True heading since reset (degrees, left positive). */
-double sim_true_heading_deg (void);
+float64_t sim_true_heading_deg (void);
 
 /** True distance of the robot centre since reset (cm). */
-double sim_true_distance_cm (void);
+float64_t sim_true_distance_cm (void);
 
 /** Lock a wheel to emulate a stalled motor. */
 void sim_set_stall (motion_side_t side, bool stalled);
 
 /** Terrain load on a wheel as a duty equivalent (+ resists forward motion,
  *  e.g. climbing; - helps it, e.g. going downhill). 0 = flat. */
-void sim_set_load (motion_side_t side, double load_duty);
+void sim_set_load (motion_side_t side, float64_t load_duty);
 
 /** True if the motor is currently braked (both inputs low). */
 bool sim_is_braked (motion_side_t side);
 
 /** Last duty written to a motor (0 when braked). */
-double sim_last_duty (motion_side_t side);
+float64_t sim_last_duty (motion_side_t side);
 
 #endif /* SIM_HW_H */
 

@@ -6,6 +6,7 @@
  * The simulated slope is a made-up duty-equivalent load, NOT a model of the
  * real ramp. These tests check the control logic only.
  */
+#include "../../../barrc_types.h"
 #include <math.h>
 #include <stdio.h>
 
@@ -13,8 +14,8 @@
 #include "motion_control.h"
 #include "sim_hw.h"
 
-static int s_failures = 0;
-static int s_checks = 0;
+static int32_t s_failures = 0;
+static int32_t s_checks = 0;
 
 #define CHECK(condition, text)                                              \
     do                                                                      \
@@ -27,7 +28,7 @@ static int s_checks = 0;
 static motion_terrain_input_t s_imu;     /* what "Buddy 4" reports */
 static bool s_imu_on = false;
 /* duty against the commanded direction */
-static int s_wrong_sign = 0;
+static int32_t s_wrong_sign = 0;
 
 static void step (void)
 {
@@ -47,25 +48,25 @@ static void step (void)
     }
 }
 
-static void run_for (int ms)
+static void run_for (int32_t ms)
 {
-    int t;
+    int32_t t;
 
-    for (t = 0; t < ms; t += (int)MOTION_UPDATE_PERIOD_MS)
+    for (t = 0; t < ms; t += (int32_t)MOTION_UPDATE_PERIOD_MS)
     {
         step();
     }
 }
 
 /* Mean wheel speed over a window. */
-static double mean_speed (int ms)
+static float64_t mean_speed (int32_t ms)
 {
     motion_status_t st;
-    double sum = 0.0;
-    int n = 0;
-    int t;
+    float64_t sum = 0.0;
+    int32_t n = 0;
+    int32_t t;
 
-    for (t = 0; t < ms; t += (int)MOTION_UPDATE_PERIOD_MS)
+    for (t = 0; t < ms; t += (int32_t)MOTION_UPDATE_PERIOD_MS)
     {
         step();
         motion_get_status(&st);
@@ -76,8 +77,8 @@ static double mean_speed (int ms)
     return sum / n;
 }
 
-static void set_imu (int8_t pitch_state, float pitch, int8_t roll_state,
-                     float roll)
+static void set_imu (int8_t pitch_state, float32_t pitch, int8_t roll_state,
+                     float32_t roll)
 {
     s_imu.valid = true;
     s_imu.pitch_state = pitch_state;
@@ -129,7 +130,7 @@ static void test_api (void)
 static void test_flat_unchanged (void)
 {
     motion_status_t st;
-    double v;
+    float64_t v;
     printf("\n[flat ground: behaviour unchanged]\n");
     fresh_start();
     set_imu(0, 0.5f, 0, -0.3f);
@@ -138,8 +139,8 @@ static void test_flat_unchanged (void)
     v = mean_speed(500);
     motion_get_status(&st);
     printf("  speed %.2f cm/s, scale %.2f, assist %.3f/%.3f\n", v,
-           (double)st.terrain_speed_scale, (double)st.left_terrain_duty,
-           (double)st.right_terrain_duty);
+           (float64_t)st.terrain_speed_scale, (float64_t)st.left_terrain_duty,
+           (float64_t)st.right_terrain_duty);
     CHECK(MOTION_TERRAIN_FLAT == st.terrain, "terrain FLAT");
     CHECK(1.0f == st.terrain_speed_scale, "speed scale 1.0");
     CHECK((fabs(st.left_terrain_duty) < 1e-6)
@@ -148,11 +149,12 @@ static void test_flat_unchanged (void)
 }
 
 /* Climb with and without the IMU report: the assist must keep speed better. */
-static double uphill_run (bool with_imu, motion_status_t * p_st, double * p_dip)
+static float64_t uphill_run (bool with_imu, motion_status_t * p_st,
+                             float64_t * p_dip)
 {
-    double v;
-    double min_v = 1e9;
-    int t;
+    float64_t v;
+    float64_t min_v = 1e9;
+    int32_t t;
     motion_status_t st;
     fresh_start();
     (void)motion_drive(10.0f, 10.0f);
@@ -165,7 +167,7 @@ static double uphill_run (bool with_imu, motion_status_t * p_st, double * p_dip)
         set_imu(1, 11.0f, 0, 0.0f);
     }
 
-    for (t = 0; t < 600; t += (int)MOTION_UPDATE_PERIOD_MS)
+    for (t = 0; t < 600; t += (int32_t)MOTION_UPDATE_PERIOD_MS)
     {
         step();
         motion_get_status(&st);
@@ -186,16 +188,16 @@ static void test_uphill (void)
 {
     motion_status_t st;
     motion_status_t st_no;
-    double dip;
-    double dip_no;
-    double v;
-    double v_no;
+    float64_t dip;
+    float64_t dip_no;
+    float64_t v;
+    float64_t v_no;
     printf("\n[uphill: power assist]\n");
     v_no = uphill_run(false, &st_no, &dip_no);
     v = uphill_run(true, &st, &dip);
     printf("  without IMU: lowest %.2f cm/s; with IMU: lowest %.2f cm/s, "
            "settled %.2f, assist %.3f\n",
-           dip_no, dip, v, (double)st.left_terrain_duty);
+           dip_no, dip, v, (float64_t)st.left_terrain_duty);
     (void)v_no;
     CHECK(MOTION_TERRAIN_UPHILL == st.terrain, "terrain UPHILL");
     CHECK((st.left_terrain_duty > 0.05f) && (st.right_terrain_duty > 0.05f),
@@ -212,7 +214,7 @@ static void test_uphill (void)
 static void test_downhill (void)
 {
     motion_status_t st;
-    double v;
+    float64_t v;
     printf("\n[downhill: slow down, less power]\n");
     fresh_start();
     s_wrong_sign = 0;
@@ -225,7 +227,7 @@ static void test_downhill (void)
     v = mean_speed(500);
     motion_get_status(&st);
     printf("  speed %.2f cm/s (target %.2f), assist %.3f\n", v,
-           10.0 * MOTION_DOWNHILL_SPEED_SCALE, (double)st.left_terrain_duty);
+           10.0 * MOTION_DOWNHILL_SPEED_SCALE, (float64_t)st.left_terrain_duty);
     CHECK(MOTION_TERRAIN_DOWNHILL == st.terrain, "terrain DOWNHILL");
     CHECK((st.left_terrain_duty < 0.0f) && (st.right_terrain_duty < 0.0f),
           "power reduced on both wheels");
@@ -238,7 +240,7 @@ static void test_downhill (void)
 static void test_hump (void)
 {
     motion_status_t st;
-    double v;
+    float64_t v;
     printf("\n[one-side hump: left wheel raised]\n");
     fresh_start();
     (void)motion_drive(10.0f, 10.0f);
@@ -249,8 +251,8 @@ static void test_hump (void)
     v = mean_speed(400);
     motion_get_status(&st);
     printf("  speed %.2f cm/s (target %.2f), assist L/R %.3f/%.3f\n", v,
-           10.0 * MOTION_HUMP_SPEED_SCALE, (double)st.left_terrain_duty,
-           (double)st.right_terrain_duty);
+           10.0 * MOTION_HUMP_SPEED_SCALE, (float64_t)st.left_terrain_duty,
+           (float64_t)st.right_terrain_duty);
     CHECK(MOTION_TERRAIN_HUMP_LEFT == st.terrain, "terrain HUMP_LEFT");
     CHECK(st.left_terrain_duty > st.right_terrain_duty + 0.03f,
           "raised (left) wheel gets the extra power");
@@ -270,7 +272,7 @@ static void test_hump (void)
     set_imu(-1, -9.0f, 1, 5.0f);
     run_for(100);
     s_imu_on = false;                       /* IMU stops reporting */
-    run_for((int)MOTION_TERRAIN_STALE_MS + 600);
+    run_for((int32_t)MOTION_TERRAIN_STALE_MS + 600);
     v = mean_speed(500);
     motion_get_status(&st);
     CHECK(MOTION_TERRAIN_FLAT == st.terrain,
@@ -288,13 +290,13 @@ static void test_hump (void)
 
 static void test_move_and_turn (void)
 {
-    double start;
-    double travelled;
-    double h0;
-    double turned;
-    int ms_flat;
-    int ms_down;
-    int t;
+    float64_t start;
+    float64_t travelled;
+    float64_t h0;
+    float64_t turned;
+    int32_t ms_flat;
+    int32_t ms_down;
+    int32_t t;
     printf("\n[distance move on a downhill: slower but still accurate]\n");
     fresh_start();
     start = sim_true_distance_cm();

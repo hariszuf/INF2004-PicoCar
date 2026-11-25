@@ -1,3 +1,4 @@
+#include "../barrc_types.h"
 #include "buddy5_plan.h"
 #include <math.h>
 #define DEG2RAD 0.01745329252f
@@ -11,7 +12,7 @@ static int32_t i_min (int32_t a, int32_t b)
     return a < b ? a : b;
 }
 
-static int32_t round_f (float v)
+static int32_t round_f (float32_t v)
 {
     return (int32_t)(v >= 0.0f ? v + 0.5f : v - 0.5f);
 }
@@ -19,29 +20,29 @@ static int32_t round_f (float v)
 /* ---- swept outline test (separating axis on two convex quads) ---- */
 typedef struct
 {
-    float x[4];
-    float y[4];
+    float32_t x[4];
+    float32_t y[4];
 } quad_t;
 static bool quads_overlap (const quad_t * a, const quad_t * b)
 {
     const quad_t * q[2] = {a, b};
 
-    for (int k = 0; k < 2; k++)
+    for (int32_t k = 0; k < 2; k++)
     {
-        for (int idx = 0; idx < 4; idx++)
+        for (int32_t idx = 0; idx < 4; idx++)
         {
-            int jdx = (idx + 1) & 3;
-            float ax = -(q[k]->y[jdx] - q[k]->y[idx]),
+            int32_t jdx = (idx + 1) & 3;
+            float32_t ax = -(q[k]->y[jdx] - q[k]->y[idx]),
             ay = q[k]->x[jdx] - q[k]->x[idx];
-            float amin = 1e30f;
-            float amax = -1e30f;
-            float bmin = 1e30f;
-            float bmax = -1e30f;
+            float32_t amin = 1e30f;
+            float32_t amax = -1e30f;
+            float32_t bmin = 1e30f;
+            float32_t bmax = -1e30f;
 
-            for (int p = 0; p < 4; p++)
+            for (int32_t p = 0; p < 4; p++)
             {
-                float da = ax * a->x[p] + ay * a->y[p];
-                float db = ax * b->x[p] + ay * b->y[p];
+                float32_t da = ax * a->x[p] + ay * a->y[p];
+                float32_t db = ax * b->x[p] + ay * b->y[p];
 
                 if (da < amin)
                 {
@@ -74,23 +75,24 @@ static bool quads_overlap (const quad_t * a, const quad_t * b)
     return true;
 }
 
-bool b5_car_hits_box (float x, float u, float phi_deg, float bx0, float bx1,
-                      float bu0, float bu1, float margin)
+bool b5_car_hits_box (float32_t x, float32_t u, float32_t phi_deg,
+                      float32_t bx0, float32_t bx1,
+                      float32_t bu0, float32_t bu1, float32_t margin)
 {
     /* Body coordinates: forward bx, left by. The car is at lateral u (away from
      * the line, positive) and turns toward the
      * line (heading rotates toward -u). Mirror symmetry makes left and right
      * identical. */
-    float p = phi_deg * DEG2RAD, c = cosf(p), s = sinf(p);
-    static const int sgn[4][2] = {{1, 1}, {1, -1}, {-1, -1}, {-1, 1}};
+    float32_t p = phi_deg * DEG2RAD, c = cosf(p), s = sinf(p);
+    static const int32_t sgn[4][2] = {{1, 1}, {1, -1}, {-1, -1}, {-1, 1}};
     quad_t car;
     quad_t box;
 
-    for (int idx = 0; idx < 4; idx++)
+    for (int32_t idx = 0; idx < 4; idx++)
     {
-        float bx = sgn[idx][0] > 0 ? (float)B5_AXLE_TO_FRONT_MM
-                : -(float)B5_AXLE_TO_REAR_MM;
-        float by = sgn[idx][1] * (float)B5_CAR_HALF_WIDTH_MM;
+        float32_t bx = sgn[idx][0] > 0 ? (float32_t)B5_AXLE_TO_FRONT_MM
+                : -(float32_t)B5_AXLE_TO_REAR_MM;
+        float32_t by = sgn[idx][1] * (float32_t)B5_CAR_HALF_WIDTH_MM;
         car.x[idx] = x + bx * c + by * s;
         car.y[idx] = u - bx * s + by * c;
     }
@@ -117,9 +119,10 @@ int32_t b5_pass_x (int32_t x_face_mm, int32_t depth_mm, int32_t near_edge_mm,
     /* distance to the box + box length + room past its rear face */
     return x_face_mm + B5_BOX_LENGTH_MM + B5_PASS_PAST_REAR_MM;
 #else
-    float bx0 = (float)x_face_mm, bx1 = (float)(x_face_mm + depth_mm);
-    float bu0 = (float)(-far_edge_mm), bu1 = (float)near_edge_mm,
-    m = (float)B5_SWEEP_MARGIN_MM;
+    float32_t bx0 = (float32_t)x_face_mm,
+            bx1 = (float32_t)(x_face_mm + depth_mm);
+    float32_t bu0 = (float32_t)(-far_edge_mm), bu1 = (float32_t)near_edge_mm,
+    m = (float32_t)B5_SWEEP_MARGIN_MM;
     int32_t limit =
             x_face_mm + depth_mm + B5_AXLE_TO_REAR_MM + B5_AXLE_TO_FRONT_MM
             + B5_CAR_HALF_WIDTH_MM + 200;
@@ -130,9 +133,10 @@ int32_t b5_pass_x (int32_t x_face_mm, int32_t depth_mm, int32_t near_edge_mm,
         /* beside the box, then the 90 degree pivot, then the drive to the line
          * facing
          * it */
-        for (int phi = 0; (phi <= 90) && ok; phi += 5)
+        for (int32_t phi = 0; (phi <= 90) && ok; phi += 5)
         {
-            if (b5_car_hits_box((float)x, (float)offset_mm, (float)phi, bx0,
+            if (b5_car_hits_box((float32_t)x, (float32_t)offset_mm,
+                                (float32_t)phi, bx0,
                                 bx1, bu0,
                                 bu1, m))
             {
@@ -142,7 +146,8 @@ int32_t b5_pass_x (int32_t x_face_mm, int32_t depth_mm, int32_t near_edge_mm,
 
         for (int32_t u = offset_mm; (u >= 0) && ok; u -= 20)
         {
-            if (b5_car_hits_box((float)x, (float)u, 90.0f, bx0, bx1, bu0, bu1,
+            if (b5_car_hits_box((float32_t)x, (float32_t)u, 90.0f, bx0, bx1,
+                                bu0, bu1,
                                 m))
             {
                 ok = false;
@@ -152,9 +157,10 @@ int32_t b5_pass_x (int32_t x_face_mm, int32_t depth_mm, int32_t near_edge_mm,
         /* finally the pivot back to face along the line, on the line (the rear
          * swings
          * through the box's lane) */
-        for (int phi = 90; (phi >= 0) && ok; phi -= 5)
+        for (int32_t phi = 90; (phi >= 0) && ok; phi -= 5)
         {
-            if (b5_car_hits_box((float)x, 0.0f, (float)phi, bx0, bx1, bu0, bu1,
+            if (b5_car_hits_box((float32_t)x, 0.0f, (float32_t)phi, bx0, bx1,
+                                bu0, bu1,
                                 m))
             {
                 ok = false;
@@ -172,12 +178,12 @@ int32_t b5_pass_x (int32_t x_face_mm, int32_t depth_mm, int32_t near_edge_mm,
 }
 
 /* ---- scan analysis ---- */
-static int32_t median_i (int32_t * v, int n)
+static int32_t median_i (int32_t * v, int32_t n)
 {
-    for (int idx = 1; idx < n; idx++)
+    for (int32_t idx = 1; idx < n; idx++)
     {
         int32_t t = v[idx];
-        int jdx = idx - 1;
+        int32_t jdx = idx - 1;
 
         while ((jdx >= 0) && (v[jdx] > t))
         {
@@ -202,11 +208,11 @@ void b5_plan_make (const b5_scan_t * scan, int32_t front_hint_mm,
     /* 1. the box face: median of the straight-ahead cluster (-10..+10 degrees),
      * measured square-on */
     int32_t face[5];
-    int nf = 0;
+    int32_t nf = 0;
 
-    for (int idx = 0; idx < B5_SCAN_POINTS; idx++)
+    for (int32_t idx = 0; idx < B5_SCAN_POINTS; idx++)
     {
-        int a = b5_slot_angle(idx);
+        int32_t a = b5_slot_angle(idx);
 
         if ((a < -10) || (a > 10) || (B5_SCAN_ECHO != b5_scan_state(scan, idx)))
         {
@@ -214,8 +220,8 @@ void b5_plan_make (const b5_scan_t * scan, int32_t front_hint_mm,
         }
 
         face[nf++] =
-                round_f((float)b5_scan_dist(scan, idx)
-                        * cosf((float)a * DEG2RAD));
+                round_f((float32_t)b5_scan_dist(scan, idx)
+                        * cosf((float32_t)a * DEG2RAD));
     }
 
     if (nf >= 2)
@@ -267,9 +273,9 @@ void b5_plan_make (const b5_scan_t * scan, int32_t front_hint_mm,
     ray_t cls[B5_SCAN_POINTS];
     int32_t lat[B5_SCAN_POINTS];
 
-    for (int idx = 0; idx < B5_SCAN_POINTS; idx++)
+    for (int32_t idx = 0; idx < B5_SCAN_POINTS; idx++)
     {
-        float a = (float)b5_slot_angle(idx) * DEG2RAD;
+        float32_t a = (float32_t)b5_slot_angle(idx) * DEG2RAD;
         lat[idx] = 0;
         cls[idx] = RAY_NONE;
 
@@ -284,14 +290,14 @@ void b5_plan_make (const b5_scan_t * scan, int32_t front_hint_mm,
             continue;
         }
 
-        float d = (float)b5_scan_dist(scan, idx),
-        expect = (float)out->face_dist_mm / cosf(a);
+        float32_t d = (float32_t)b5_scan_dist(scan, idx),
+        expect = (float32_t)out->face_dist_mm / cosf(a);
         lat[idx] = round_f(d * sinf(a));   /* + = left of the sonar axis */
-        if (d < expect - (float)B5_FACE_TOL_MM)
+        if (d < expect - (float32_t)B5_FACE_TOL_MM)
         {
             cls[idx] = RAY_NEAR;
         }
-        else if (d > expect + (float)B5_FACE_TOL_MM)
+        else if (d > expect + (float32_t)B5_FACE_TOL_MM)
         {
             cls[idx] = RAY_FAR;
         }
@@ -307,14 +313,15 @@ void b5_plan_make (const b5_scan_t * scan, int32_t front_hint_mm,
     const int32_t spec_edge = B5_BOX_WIDTH_MM / 2 + B5_BOX_POS_TOL_MM;
     const int32_t depth = B5_BOX_LENGTH_MM + B5_BOX_DEPTH_TOL_MM;
 
-    for (int s = 0; s < 2; s++)
+    for (int32_t s = 0; s < 2; s++)
     {
         /* slot step toward the left (+) or right (-) */
-        int dir = 0 == s ? 1 : -1;
-        int centre = -B5_SCAN_MIN_DEG / 5;
-        int first_miss = -1;
+        int32_t dir = 0 == s ? 1 : -1;
+        int32_t centre = -B5_SCAN_MIN_DEG / 5;
+        int32_t first_miss = -1;
 
-        for (int idx = centre; (idx >= 0) && (idx < B5_SCAN_POINTS); idx += dir)
+        for (int32_t idx = centre; (idx >= 0)
+             && (idx < B5_SCAN_POINTS); idx += dir)
         {
             if ((RAY_BOX == cls[idx]) || (RAY_NONE == cls[idx]))
             {
@@ -332,9 +339,9 @@ void b5_plan_make (const b5_scan_t * scan, int32_t front_hint_mm,
         {
             /* outermost ray that still hit the box: the box reaches at least
              * that far */
-            int last_box = -1;
+            int32_t last_box = -1;
 
-            for (int idx = centre; (idx >= 0) && (idx < B5_SCAN_POINTS)
+            for (int32_t idx = centre; (idx >= 0) && (idx < B5_SCAN_POINTS)
                  && (idx != first_miss); idx += dir)
             {
                 if (RAY_BOX == cls[idx])
@@ -345,14 +352,14 @@ void b5_plan_make (const b5_scan_t * scan, int32_t front_hint_mm,
 
             if (last_box >= 0)
             {
-                float a_lo =
-                        (float)i_abs(b5_slot_angle(last_box))
-                        - (float)B5_BEAM_HALF_DEG;
+                float32_t a_lo =
+                        (float32_t)i_abs(b5_slot_angle(last_box))
+                        - (float32_t)B5_BEAM_HALF_DEG;
 
                 if (a_lo > 0.0f)
                 {
                     out->meas_edge_mm[s] =
-                            round_f((float)out->face_dist_mm
+                            round_f((float32_t)out->face_dist_mm
                                     * tanf(a_lo * DEG2RAD));
                 }
             }
@@ -360,12 +367,12 @@ void b5_plan_make (const b5_scan_t * scan, int32_t front_hint_mm,
 
         if (first_miss >= 0)
         {
-            float a_miss = (float)i_abs(b5_slot_angle(first_miss));
-            float a_edge = a_miss - (float)B5_BEAM_HALF_DEG;
+            float32_t a_miss = (float32_t)i_abs(b5_slot_angle(first_miss));
+            float32_t a_edge = a_miss - (float32_t)B5_BEAM_HALF_DEG;
 
             if (a_edge > 0.0f)
             {
-                int32_t e = round_f((float)out->face_dist_mm
+                int32_t e = round_f((float32_t)out->face_dist_mm
                                     * tanf(a_edge * DEG2RAD));
                 out->seen[s] = true;
                 out->meas_edge_mm[s] = e;
@@ -386,9 +393,9 @@ void b5_plan_make (const b5_scan_t * scan, int32_t front_hint_mm,
          * that are not in the box shadow) */
         int32_t room = B5_ROOM_FAR_MM;
 
-        for (int idx = 0; idx < B5_SCAN_POINTS; idx++)
+        for (int32_t idx = 0; idx < B5_SCAN_POINTS; idx++)
         {
-            int a = b5_slot_angle(idx);
+            int32_t a = b5_slot_angle(idx);
 
             if (((0 == s) && (a <= 0)) || ((1 == s) && (a >= 0)))
             {
@@ -403,8 +410,8 @@ void b5_plan_make (const b5_scan_t * scan, int32_t front_hint_mm,
             int32_t u = i_abs(lat[idx]);
             int32_t x_hit =
                     B5_AXLE_TO_SENSOR_MM
-                    + round_f((float)b5_scan_dist(scan, idx)
-                              * cosf((float)a * DEG2RAD));
+                    + round_f((float32_t)b5_scan_dist(scan, idx)
+                              * cosf((float32_t)a * DEG2RAD));
 
             if (x_hit > out->x_face_mm + depth + B5_AXLE_TO_FRONT_MM + 250)
             {
@@ -424,7 +431,7 @@ void b5_plan_make (const b5_scan_t * scan, int32_t front_hint_mm,
     }
 
     /* 4. feasibility, cost, pass distance per side */
-    for (int s = 0; s < 2; s++)
+    for (int32_t s = 0; s < 2; s++)
     {
         int32_t off = out->edge_mm[s] + B5_CAR_HALF_WIDTH_MM + B5_SIDE_GAP_MM;
 

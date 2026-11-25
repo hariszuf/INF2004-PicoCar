@@ -1,4 +1,5 @@
 #ifdef B5_FULL_TEST
+#include "../../barrc_types.h"
 #include <tk/tkernel.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -132,7 +133,7 @@ static void gpio_dispatch (UINT intno)
              * in this
              * build. */
             ++b5p_dbg_cb_calls;
-            motion_encoder_irq_handler((unsigned int)p, events);
+            motion_encoder_irq_handler((uint32_t)p, events);
         }
     }
 }

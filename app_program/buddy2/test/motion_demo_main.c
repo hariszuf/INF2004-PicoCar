@@ -14,6 +14,7 @@
  * Progress is printed over USB serial if a terminal happens to be connected,
  * which is optional.
  */
+#include "../../barrc_types.h"
 #include <stdio.h>
 
 #include "pico/stdlib.h"
@@ -36,7 +37,8 @@ typedef enum
 typedef struct
 {
     demo_action_t action;
-    float value;            /* cm for forward / backward, degrees for turns */
+    /* cm for forward / backward, degrees for turns */
+    float32_t value;
 } demo_step_t;
 
 static const demo_step_t s_route[] =
@@ -58,9 +60,9 @@ static void print_status (const char * label)
     motion_get_status(&status);
     printf("%s: state=%d fault=%d dist=%.1f cm heading=%.1f deg countL=%ld "
            "countR=%ld\n",
-           label, (int)status.state, (int)status.fault,
-           (double)status.distance_cm, (double)status.heading_deg,
-           (long)status.left_count, (long)status.right_count);
+           label, (int32_t)status.state, (int32_t)status.fault,
+           (float64_t)status.distance_cm, (float64_t)status.heading_deg,
+           (int32_t)status.left_count, (int32_t)status.right_count);
 }
 
 static motion_result_t issue_step (const demo_step_t * p_step)

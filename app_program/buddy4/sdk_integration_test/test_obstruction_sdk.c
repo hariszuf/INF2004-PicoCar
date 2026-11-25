@@ -1,3 +1,4 @@
+#include "../../barrc_types.h"
 #include "buddy4_obstruction_sdk.h"
 #include "scheduler.h"
 #include <assert.h>
@@ -27,7 +28,7 @@ static void reset (void)
             true;
 }
 
-static void note (float left, float right)
+static void note (float32_t left, float32_t right)
 {
     t += 20000;
     motor.left_speed_cm_s = left;
@@ -42,7 +43,7 @@ static buddy4_obstruction_output_t poll (void)
     return buddy4_obstruction_sdk_poll(&a, &control, &imu, true, t + 1000);
 }
 
-static buddy4_obstruction_output_t step (float l, float r)
+static buddy4_obstruction_output_t step (float32_t l, float32_t r)
 {
     note(l, r);
     return poll();
@@ -50,7 +51,7 @@ static buddy4_obstruction_output_t step (float l, float r)
 
 static void establish (void)
 {
-    for (int idx = 0; idx < 27; idx++)
+    for (int32_t idx = 0; idx < 27; idx++)
     {
         assert(!step(3, 3).possible_obstruction);
     }
@@ -60,7 +61,7 @@ static void establish (void)
 
 static void pending (void)
 {
-    for (int idx = 0; idx < 5; idx++)
+    for (int32_t idx = 0; idx < 5; idx++)
     {
         assert(!step(0.12f, 0.12f).possible_obstruction);
     }
@@ -71,7 +72,7 @@ static void ordinary_and_blocked (void)
     reset();
     establish();
 
-    for (int idx = 0; idx < 100; idx++)
+    for (int32_t idx = 0; idx < 100; idx++)
     {
         assert(!step(3.1f, 2.9f).possible_obstruction);
     }
@@ -80,12 +81,12 @@ static void ordinary_and_blocked (void)
     assert(step(0.004f, 0.004f).possible_obstruction);
     assert(1 == a.observer.output.event_count);
 
-    for (int idx = 0; idx < 20; idx++)
+    for (int32_t idx = 0; idx < 20; idx++)
     {
         assert(1 == poll().event_count); /* Repeated getters are not updates. */
     }
 
-    for (int idx = 0; idx < 100; idx++)
+    for (int32_t idx = 0; idx < 100; idx++)
     {
         assert(!step(0, 0).possible_obstruction);
     }
@@ -97,14 +98,14 @@ static void ordinary_and_blocked (void)
     reset();
     establish();
 
-    for (int idx = 0; idx < 5; idx++)
+    for (int32_t idx = 0; idx < 5; idx++)
     {
         step(3.18f, 3.09f); /* Normal pre-stop comparison. */
     }
 
     control.running = false;
 
-    for (int idx = 0; idx < 20; idx++)
+    for (int32_t idx = 0; idx < 20; idx++)
     {
         assert(!step(0, 0).possible_obstruction);
     }
@@ -114,7 +115,7 @@ static void ordinary_and_blocked (void)
 
 static void command_cancellation (void)
 {
-    for (int kind = 0; kind < 6; kind++)
+    for (int32_t kind = 0; kind < 6; kind++)
     {
         reset();
         establish();
@@ -165,7 +166,7 @@ static void command_cancellation (void)
 
 static void ramps_turns_faults (void)
 {
-    for (int kind = 0; kind < 12; kind++)
+    for (int32_t kind = 0; kind < 12; kind++)
     {
         reset();
         establish();
@@ -233,7 +234,7 @@ static void ramps_turns_faults (void)
             control.selected_right_cm_s = 2;
         }
 
-        for (int idx = 0; idx < 20; idx++)
+        for (int32_t idx = 0; idx < 20; idx++)
         {
             assert(!step(0, 0).possible_obstruction);
         }
@@ -245,7 +246,7 @@ static void ramps_turns_faults (void)
     reset();
     establish();
 
-    for (int idx = 0; idx < 50; idx++)
+    for (int32_t idx = 0; idx < 50; idx++)
     {
         assert(!step(0, 3).possible_obstruction);
     }
@@ -256,7 +257,7 @@ static void ramps_turns_faults (void)
 
 static void timing_and_invalid (void)
 {
-    for (int kind = 0; kind < 18; kind++)
+    for (int32_t kind = 0; kind < 18; kind++)
     {
         reset();
         establish();
@@ -363,7 +364,7 @@ static void timing_and_invalid (void)
                                         t + 41000).valid);
     t += 60000;
 
-    for (int idx = 0; idx < 30; idx++)
+    for (int32_t idx = 0; idx < 30; idx++)
     {
         step(0, 0);
     }
@@ -381,14 +382,14 @@ static void timing_and_invalid (void)
     control.running = true;
     ++control.started_us;
 
-    for (int idx = 0; idx < 27; idx++)
+    for (int32_t idx = 0; idx < 27; idx++)
     {
         step(3, 3);
     }
 
     assert(!a.observer.output.established);
 
-    for (int idx = 0; idx < 30; idx++)
+    for (int32_t idx = 0; idx < 30; idx++)
     {
         assert(!step(0, 0).possible_obstruction);
     }
@@ -405,7 +406,7 @@ static void phased_20ms_updates (void)
     /* Both sources update every 20 ms, but the motor snapshot sometimes reaches
      * the main-loop poll before that cycle's IMU poll. The previous IMU remains
      * valid/fresh. Polling it again must neither advance nor reset evidence. */
-    for (int idx = 1; idx <= 200; idx++)
+    for (int32_t idx = 1; idx <= 200; idx++)
     {
         t = (uint64_t)idx * 20000;
         motor.left_speed_cm_s = 3.18f;
@@ -512,7 +513,7 @@ static void waiting_is_not_evidence (void)
     reset();
     establish();
 
-    for (int idx = 0; idx < 3; idx++)
+    for (int32_t idx = 0; idx < 3; idx++)
     {
         t += 20000;
         imu.output.timestamp_us = t + 500;
@@ -548,12 +549,12 @@ static void waiting_is_not_evidence (void)
 
 typedef struct
 {
-    float pitch;
-    float roll;
-    float filtered_pitch;
-    float filtered_roll;
-    float left;
-    float right;
+    float32_t pitch;
+    float32_t roll;
+    float32_t filtered_pitch;
+    float32_t filtered_roll;
+    float32_t left;
+    float32_t right;
 } drive_row_t;
 static const drive_row_t recorded_drive[] = {
 #include "fixtures/obstruction_drive_20261102_1346.inc"
@@ -638,7 +639,7 @@ static void recorded_angles_and_cooperative_schedule (void)
     assert((60 == pitch_rejections) && (69 == roll_rejections)
            && (108 == angle_rejections));
 
-    for (int flat_control = 0; flat_control < 2; flat_control++)
+    for (int32_t flat_control = 0; flat_control < 2; flat_control++)
     {
         reset();
         task_t motor_release = {.period = 20000};
@@ -700,7 +701,7 @@ static void recorded_angles_and_cooperative_schedule (void)
                  */
                 uint64_t since = a.observer.moving_since_us;
 
-                for (int read = 0; read < 3; read++)
+                for (int32_t read = 0; read < 3; read++)
                 {
                     clock += 10;
                     buddy4_obstruction_output_t again =
@@ -759,7 +760,7 @@ static void recorded_ramp (const char * name, uint32_t expected_rows, bool held)
     }
 
     snprintf(path, sizeof(path), "%.*s../evidence/2026-10-28/raw/%s",
-             (int)prefix, __FILE__, name);
+             (int32_t)prefix, __FILE__, name);
     FILE *file = fopen(path, "r");
     assert(file);
     reset();
@@ -805,12 +806,12 @@ static void recorded_ramp (const char * name, uint32_t expected_rows, bool held)
         motor.fault =
                 held ? MOTION_FAULT_NONE : (motion_fault_t)atoi(field[40]);
         imu.output.valid = (0 != atoi(field[3])) && (0 == atoi(field[2]));
-        float x = strtof(field[9], NULL), y = strtof(field[10], NULL),
+        float32_t x = strtof(field[9], NULL), y = strtof(field[10], NULL),
         z = strtof(field[11], NULL);
-        float mag = hypotf(hypotf(x, y), z);
+        float32_t mag = hypotf(hypotf(x, y), z);
         bool clipped = false;
 
-        for (int idx = 6; idx <= 8; idx++)
+        for (int32_t idx = 6; idx <= 8; idx++)
         {
             if ((atoi(field[idx]) <= INT16_MIN)
                 || (atoi(field[idx]) >= INT16_MAX))
@@ -862,12 +863,12 @@ static void filtered_onset_and_recovery (void)
     /* Representative sustained steps under the existing alpha=.15 filter:
      * filtered tilt crosses the unchanged exit-angle guard before the 100 ms
      * slowdown could confirm. The terrain/side flags may still be level. */
-    const float roll_step[] = {0.750f, 1.388f, 1.929f, 2.390f};
-    const float pitch_step[] = {1.200f, 2.220f, 3.087f};
+    const float32_t roll_step[] = {0.750f, 1.388f, 1.929f, 2.390f};
+    const float32_t pitch_step[] = {1.200f, 2.220f, 3.087f};
 
-    for (int axis = 0; axis < 2; axis++)
+    for (int32_t axis = 0; axis < 2; axis++)
     {
-        for (int sign = -1; sign <= 1; sign += 2)
+        for (int32_t sign = -1; sign <= 1; sign += 2)
         {
             reset();
             establish();
@@ -886,7 +887,7 @@ static void filtered_onset_and_recovery (void)
             assert((!a.observer.output.valid)
                    && (!a.observer.output.established));
 
-            for (int idx = 0; idx < 20; idx++)
+            for (int32_t idx = 0; idx < 20; idx++)
             {
                 assert(!step(0, 0).possible_obstruction);
             }
@@ -895,7 +896,7 @@ static void filtered_onset_and_recovery (void)
             imu.output.pitch_deg = imu.output.roll_deg = 0;
             imu.output.filtered_pitch_deg = imu.output.filtered_roll_deg = 0;
 
-            for (int idx = 0; idx < 15; idx++)
+            for (int32_t idx = 0; idx < 15; idx++)
             {
                 step(3, 3);
             }
@@ -903,7 +904,7 @@ static void filtered_onset_and_recovery (void)
             /* Return to flat still needs full warmup. */
             assert(!a.observer.output.established);
 
-            for (int idx = 0; idx < 15; idx++)
+            for (int32_t idx = 0; idx < 15; idx++)
             {
                 step(3, 3);
             }
@@ -948,7 +949,7 @@ static void reported_contact_confirmation_limits (void)
            && (0 == a.observer.output.event_count));
     assert(!a.observer.output.established);
 
-    for (int transient = 0; transient < 2; transient++)
+    for (int32_t transient = 0; transient < 2; transient++)
     {
         reset();
         establish();
@@ -960,7 +961,7 @@ static void reported_contact_confirmation_limits (void)
         assert(!step(2.5f, 2.5f).valid);
         assert(!a.observer.output.established);
 
-        for (int idx = 0; idx < 25; idx++)
+        for (int32_t idx = 0; idx < 25; idx++)
         {
             if (transient)
             {
@@ -978,7 +979,7 @@ static void reported_contact_confirmation_limits (void)
              * The normal full 500 ms moving window is required again. */
             assert(fabsf(imu.output.filtered_pitch_deg) < 3);
 
-            for (int idx = 0; idx < 25; idx++)
+            for (int32_t idx = 0; idx < 25; idx++)
             {
                 assert(!step(3, 3).established);
             }
@@ -1025,7 +1026,8 @@ static void new_recorded_contact (const char * name, uint32_t expected_rows,
         }
     }
 
-    snprintf(path, sizeof(path), "%.*s../evidence/2026-11-02/%s", (int)prefix,
+    snprintf(path, sizeof(path), "%.*s../evidence/2026-11-02/%s",
+             (int32_t)prefix,
              __FILE__, name);
     FILE *file = fopen(path, "r");
     assert(file);
@@ -1102,7 +1104,7 @@ static void new_recorded_contact (const char * name, uint32_t expected_rows,
     }
 
     printf("Recorded %s: %u rows, event_us=%llu (callback phase simulated)\n",
-           name, rows, (unsigned long long)event);
+           name, rows, (uint64_t)event);
 }
 
 static void brief_pitch_pause_safety (void)
@@ -1116,7 +1118,7 @@ static void brief_pitch_pause_safety (void)
            && (0 == a.observer.output.slow_ms));
     imu.output.filtered_pitch_deg = -2.834f;
     /* The pre-pause 80 ms never contributes: need another full 100 ms. */
-    for (int idx = 0; idx < 5; idx++)
+    for (int32_t idx = 0; idx < 5; idx++)
     {
         buddy4_obstruction_output_t out = step(0, 0);
         assert((out.valid) && (out.established) && (!out.possible_obstruction));
@@ -1130,7 +1132,7 @@ static void brief_pitch_pause_safety (void)
     step(3, 3);
     imu.output.filtered_pitch_deg = 0;
 
-    for (int idx = 0; idx < 30; idx++)
+    for (int32_t idx = 0; idx < 30; idx++)
     {
         assert(!step(0, 0).possible_obstruction);
     }
@@ -1146,7 +1148,7 @@ static void brief_pitch_pause_safety (void)
     assert((!a.observer.paused) && (!a.observer.output.established));
     imu.output.filtered_pitch_deg = 0;
 
-    for (int idx = 0; idx < 20; idx++)
+    for (int32_t idx = 0; idx < 20; idx++)
     {
         assert(!step(0, 0).possible_obstruction);
     }
@@ -1154,7 +1156,7 @@ static void brief_pitch_pause_safety (void)
     assert(!a.observer.output.event_count);
 
     /* Every hard cancellation still wins while history is quarantined. */
-    for (int kind = 0; kind < 13; kind++)
+    for (int32_t kind = 0; kind < 13; kind++)
     {
         reset();
         establish();
@@ -1231,7 +1233,7 @@ static void brief_pitch_pause_safety (void)
         step(0, 0);
         assert((!a.observer.paused) && (!a.observer.output.established));
 
-        for (int idx = 0; idx < 10; idx++)
+        for (int32_t idx = 0; idx < 10; idx++)
         {
             assert(!step(0, 0).possible_obstruction);
         }

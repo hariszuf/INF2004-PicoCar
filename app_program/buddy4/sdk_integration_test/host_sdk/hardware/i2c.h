@@ -1,5 +1,6 @@
 #ifndef INTEGRATION_HOST_I2C_H
 #define INTEGRATION_HOST_I2C_H
+#include "../../../../barrc_types.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -10,10 +11,10 @@ typedef struct
 } i2c_inst_t;
 extern i2c_inst_t * const i2c0;
 uint32_t i2c_init (i2c_inst_t * bus, uint32_t baudrate);
-int i2c_write_timeout_us (i2c_inst_t * bus, uint8_t address,
+int32_t i2c_write_timeout_us (i2c_inst_t * bus, uint8_t address,
                           const uint8_t * data,
                           size_t length, bool no_stop, uint32_t timeout);
-int i2c_read_timeout_us (i2c_inst_t * bus, uint8_t address, uint8_t * data,
+int32_t i2c_read_timeout_us (i2c_inst_t * bus, uint8_t address, uint8_t * data,
                          size_t length, bool no_stop, uint32_t timeout);
 #endif
 

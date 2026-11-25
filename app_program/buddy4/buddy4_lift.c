@@ -1,3 +1,4 @@
+#include "../barrc_types.h"
 #include "buddy4_lift.h"
 #include <math.h>
 
@@ -38,7 +39,7 @@ static void clear_pending (buddy4_lift_t * d)
     d->tilt_pending = d->accel_pending = d->calm_pending = false;
 }
 
-const char * buddy4_lift_reason_name (int reason)
+const char * buddy4_lift_reason_name (int32_t reason)
 {
     switch (reason)
     {
@@ -53,12 +54,13 @@ const char * buddy4_lift_reason_name (int reason)
     }
 }
 
-void buddy4_lift_update (buddy4_lift_t * d, float x, float y, float z,
+void buddy4_lift_update (buddy4_lift_t * d, float32_t x, float32_t y,
+                         float32_t z,
                          bool valid, uint64_t sample_us, uint64_t now_us)
 {
     buddy4_lift_output_t * o = &d->output;
-    float mag = sqrtf(x * x + y * y + z * z);
-    float c_up = d->config.up_sign;
+    float32_t mag = sqrtf(x * x + y * y + z * z);
+    float32_t c_up = d->config.up_sign;
     bool ok = (d->configured) && valid && (isfinite(mag))
             && (sample_us <= now_us) &&
             (now_us - sample_us <= d->config.max_gap_us) &&

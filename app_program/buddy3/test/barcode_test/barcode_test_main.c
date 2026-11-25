@@ -9,6 +9,7 @@
  * read
  * can be diagnosed.
  */
+#include "../../../barrc_types.h"
 #include <stdio.h>
 
 #include "pico/stdlib.h"
@@ -26,7 +27,7 @@ void barcode_scan_on_decoded (const barcode39_result_t * p_result)
 void barcode_scan_on_run (bool black, uint32_t width_us)
 {
     printf("  %s %6lu us\n", black ? "BLACK" : "white",
-           (unsigned long)width_us);
+           (uint32_t)width_us);
 }
 
 int main (void)
@@ -35,7 +36,7 @@ int main (void)
 
     stdio_init_all();
 
-    for (int idx = 0; (idx < 100) && (!stdio_usb_connected()); idx++)
+    for (int32_t idx = 0; (idx < 100) && (!stdio_usb_connected()); idx++)
     {
         sleep_ms(100);              /* wait up to 10 s for a terminal */
     }
@@ -45,8 +46,8 @@ int main (void)
 
     printf("\nBarcode test. Push the car slowly over the barcode.\n");
     printf("Sensor: GP%u, black level %u. Debounce %u us.\n",
-           (unsigned)LINE_PIN_BARCODE_IR,
-           (unsigned)LINE_BLACK_LEVEL, (unsigned)BARCODE_DEBOUNCE_US);
+           (uint32_t)LINE_PIN_BARCODE_IR,
+           (uint32_t)LINE_BLACK_LEVEL, (uint32_t)BARCODE_DEBOUNCE_US);
 
     for (;;)
     {
@@ -61,9 +62,9 @@ int main (void)
             printf("[idle] sensor=%s decoded=%lu rejected=%lu last_reject=%u "
                    "(1 length,2 ratio,3 pattern,4 ends,5 gap,6 not-letter)\n",
                    black ? "BLACK" : "white",
-                   (unsigned long)barcode_scan_count(),
-                   (unsigned long)barcode_scan_fail_count(),
-                   (unsigned)barcode_scan_last_fail());
+                   (uint32_t)barcode_scan_count(),
+                   (uint32_t)barcode_scan_fail_count(),
+                   (uint32_t)barcode_scan_last_fail());
         }
 
         sleep_us(1000);             /* 1 kHz sampling */

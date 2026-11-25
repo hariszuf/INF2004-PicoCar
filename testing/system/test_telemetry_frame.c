@@ -3,11 +3,12 @@
  * the exact same bytes (dashboard/test_app.py).
  * gcc -std=c11 -Wall -Wextra -Iapp_program
  * testing/system/test_telemetry_frame.c -o /tmp/tf && /tmp/tf */
+#include "../../app_program/barrc_types.h"
 #include <stdio.h>
 #include <string.h>
 #include "telemetry_frame.h"
 
-static int s_failures;
+static int32_t s_failures;
 #define CHECK(cond, text) do { if (cond) { printf("  PASS  %s\n", text); } \
     else { printf("  FAIL  %s\n", text); s_failures++; } } while (0)
 
@@ -58,7 +59,7 @@ int main (void)
           "source 6, flags 0xFFFF, negative value");
     CHECK(roundtrip(3, 6, 0, 65, 1500, 99, &n), "barcode letter A and age");
 
-    int ok = 1;
+    int32_t ok = 1;
     const int32_t samples[] = { 0, 1, -1, 127, -128, 128, -129, 32767, -32768,
         32768, -32769, 2147483647, -2147483647 - 1 };
 
@@ -129,7 +130,7 @@ int main (void)
           "MAP with a bad letter is rejected");
     ok = 1;
 
-    for (int k = 0; (k < 5) && ok; k++)
+    for (int32_t k = 0; (k < 5) && ok; k++)
     {
         char all[TF_MAP_LETTERS + 1];
         memset(all, "NLSRU"[k], TF_MAP_LETTERS);

@@ -2,12 +2,13 @@
  * table).
  * gcc -std=c11 -Wall -Wextra -I. junction_map.c test/host/test_junction_map.c
  * -o /tmp/jm && /tmp/jm */
+#include "../../../barrc_types.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include "junction_map.h"
 
-static int s_failures;
+static int32_t s_failures;
 #define CHECK(cond, text) do { if (cond) { printf("  PASS  %s\n", text); } \
     else { printf("  FAIL  %s\n", text); s_failures++; } } while (0)
 

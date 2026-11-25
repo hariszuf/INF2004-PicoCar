@@ -2,19 +2,20 @@
  * distance + 2-bit state)).
  * gcc -std=gnu11 -Wall -Wextra -Iapp_program -Iapp_program/buddy5
  * testing/system/test_bitpack.c -o /tmp/bp && /tmp/bp */
+#include "../../app_program/barrc_types.h"
 #include <stdio.h>
 #include <string.h>
 #include "bitpack.h"
 #include "buddy5_core.h"
 
-static int s_failures;
+static int32_t s_failures;
 #define CHECK(cond, text) do { if (cond) { printf("  PASS  %s\n", text); } \
     else { printf("  FAIL  %s\n", text); s_failures++; } } while (0)
 
 int main (void)
 {
     uint8_t buf[16];
-    int ok = 1;
+    int32_t ok = 1;
 
     /* Every width 1..32 at every offset 0..7 round-trips and leaves the
      * neighbouring bits alone. */
@@ -25,7 +26,7 @@ int main (void)
             uint32_t mask = 32u == width ? 0xFFFFFFFFu : ((1u << width) - 1u);
             uint32_t values[3] = { 0u, mask, 0xA5A5A5A5u & mask };
 
-            for (int v = 0; (v < 3) && ok; v++)
+            for (int32_t v = 0; (v < 3) && ok; v++)
             {
                 memset(buf, 0x5A, sizeof buf);
                 uint8_t before[16];
@@ -66,14 +67,14 @@ int main (void)
     const uint8_t state[B5_SCAN_POINTS] = { 0u, 1u, 2u, 1u, 2u, 1u, 0u, 2u, 1u,
         2u, 0u, 1u, 2u };
 
-    for (int idx = 0; idx < B5_SCAN_POINTS; idx++)
+    for (int32_t idx = 0; idx < B5_SCAN_POINTS; idx++)
     {
         b5_scan_set(&scan, idx, state[idx], dist[idx]);
     }
 
     ok = 1;
 
-    for (int idx = 0; idx < B5_SCAN_POINTS; idx++)
+    for (int32_t idx = 0; idx < B5_SCAN_POINTS; idx++)
     {
         if ((b5_scan_dist(&scan, idx) != dist[idx])
             || (b5_scan_state(&scan, idx) != state[idx]))
@@ -88,7 +89,7 @@ int main (void)
     ok = (123u == b5_scan_dist(&scan, 6))
             && (B5_SCAN_ECHO == b5_scan_state(&scan, 6));
 
-    for (int idx = 0; idx < B5_SCAN_POINTS; idx++)
+    for (int32_t idx = 0; idx < B5_SCAN_POINTS; idx++)
     {
         if ((idx != 6) && ((b5_scan_dist(&scan, idx) != dist[idx])
                            || (b5_scan_state(&scan, idx) != state[idx])))

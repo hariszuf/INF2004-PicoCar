@@ -5,6 +5,7 @@
  * Checks the control logic against a made-up robot and track. It is not
  * evidence of how the real car behaves.
  */
+#include "../../../barrc_types.h"
 #include <math.h>
 #include <stdio.h>
 
@@ -15,8 +16,8 @@
 #include "sim_hw.h"
 #include "sim_track.h"
 
-static int s_failures;
-static int s_checks;
+static int32_t s_failures;
+static int32_t s_checks;
 
 #define CHECK(condition, text)                                          \
     do {                                                                \
@@ -27,32 +28,32 @@ static int s_checks;
 
 typedef struct
 {
-    double max_err_mm;
-    double mean_err_mm;
-    int time_ms;
-    int lost_samples;
+    float64_t max_err_mm;
+    float64_t mean_err_mm;
+    int32_t time_ms;
+    int32_t lost_samples;
     line_state_t final_state;
-    double progress;
+    float64_t progress;
 } run_result_t;
 
-static run_result_t run (int max_ms, int verbose)
+static run_result_t run (int32_t max_ms, int32_t verbose)
 {
     run_result_t r = {0.0, 0.0, 0, 0, LINE_STATE_IDLE, 0.0};
     line_status_t status;
-    int ms;
-    int n = 0;
-    double sum = 0.0;
+    int32_t ms;
+    int32_t n = 0;
+    float64_t sum = 0.0;
 
     for (ms = 0; ms < max_ms; ms++)
     {
         sim_advance_ms(1u);
         track_step_1ms();
 
-        if ((ms % (int)LINE_UPDATE_PERIOD_MS) == ((int)LINE_UPDATE_PERIOD_MS
-                - 1))
+        if ((ms % (int32_t)LINE_UPDATE_PERIOD_MS)
+            == ((int32_t)LINE_UPDATE_PERIOD_MS - 1))
         {
-            if ((ms % (int)MOTION_UPDATE_PERIOD_MS)
-                == ((int)MOTION_UPDATE_PERIOD_MS - 1))
+            if ((ms % (int32_t)MOTION_UPDATE_PERIOD_MS)
+                == ((int32_t)MOTION_UPDATE_PERIOD_MS - 1))
             {
                 motion_update();
             }
@@ -75,20 +76,20 @@ static run_result_t run (int max_ms, int verbose)
 
             if (verbose && (499 == (ms % 500)))
             {
-                double x;
-                double y;
-                double h;
+                float64_t x;
+                float64_t y;
+                float64_t h;
                 track_pose(&x, &y, &h);
                 printf("    t=%5d ms pose(%.0f,%.0f,%.0f) mask=%u state=%d "
                        "err=%.1f mm\n",
-                       ms + 1, x, y, h, (unsigned)status.sensor_mask,
-                       (int)status.state, track_error_mm());
+                       ms + 1, x, y, h, (uint32_t)status.sensor_mask,
+                       (int32_t)status.state, track_error_mm());
             }
         }
 
         if (0 == (ms % 5))
         {
-            double e = track_error_mm();
+            float64_t e = track_error_mm();
 
             if (track_progress() < 0.9)
             {
@@ -107,7 +108,7 @@ static run_result_t run (int max_ms, int verbose)
     r.time_ms = ms;
     r.final_state = status.state;
     r.progress = track_progress();
-    r.mean_err_mm = (n > 0) ? (sum / (double)n) : 0.0;
+    r.mean_err_mm = (n > 0) ? (sum / (float64_t)n) : 0.0;
     return r;
 }
 
@@ -115,7 +116,7 @@ int main (int argc, char ** argv)
 
 {
     run_result_t r;
-    int verbose = (argc > 1) ? 1 : 0;
+    int32_t verbose = (argc > 1) ? 1 : 0;
 
     (void)argv;
 
@@ -130,7 +131,7 @@ int main (int argc, char ** argv)
     printf("  time %d ms, progress %.0f %%, mean off-target %.1f mm, max %.1f "
            "mm, recovering ticks %d, final state %d\n",
            r.time_ms, r.progress * 100.0, r.mean_err_mm, r.max_err_mm,
-           r.lost_samples, (int)r.final_state);
+           r.lost_samples, (int32_t)r.final_state);
     CHECK(r.progress > 0.97, "reaches the end of the line");
     CHECK(LINE_STATE_STOPPED == r.final_state,
           "stops by itself after the line ends");

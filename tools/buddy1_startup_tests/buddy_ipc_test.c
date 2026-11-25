@@ -1,4 +1,5 @@
 /* Production Buddy 1 command/telemetry code; only kernel IPC is simulated. */
+#include "../../app_program/barrc_types.h"
 #include <assert.h>
 #include <setjmp.h>
 #include <string.h>
@@ -8,7 +9,7 @@ static struct
 {
     uint32_t count;
     uint32_t size;
-    unsigned char data[8][32];
+    uint8_t data[8][32];
 } queues[4];
 static uint32_t next_queue;
 static jmp_buf task_idle;
@@ -22,7 +23,7 @@ ID tk_cre_mbf (const T_CMBF *definition)
 ER tk_snd_mbf (ID id, const void * message, INT size, INT timeout)
 {
     assert((id > 0) && (id < 4) && (TMO_POL == timeout));
-    assert((unsigned)size == queues[id].size);
+    assert((uint32_t)size == queues[id].size);
 
     if (8 == queues[id].count)
     {

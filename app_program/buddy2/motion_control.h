@@ -21,6 +21,7 @@
 #ifndef MOTION_CONTROL_H
 #define MOTION_CONTROL_H
 
+#include "../barrc_types.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -72,8 +73,8 @@ typedef struct
     bool   valid;         /* false = no usable IMU data, treat as flat */
     int8_t pitch_state;   /* -1 downhill, 0 flat, +1 uphill */
     int8_t roll_state;    /* -1 left wheel up, 0 level, +1 right wheel up */
-    float  pitch_deg;     /* filtered pitch, positive = nose up */
-    float  roll_deg;      /* filtered roll */
+    float32_t  pitch_deg;     /* filtered pitch, positive = nose up */
+    float32_t  roll_deg;      /* filtered roll */
 } motion_terrain_input_t;
 
 /** Snapshot for telemetry and the Vehicle Controller. */
@@ -83,17 +84,18 @@ typedef struct
     motion_fault_t fault;
     int32_t  left_count;        /* signed encoder counts since odometry reset */
     int32_t  right_count;
-    float    left_speed_cm_s;   /* filtered, signed (negative = backward) */
-    float    right_speed_cm_s;
-    float    speed_cm_s;        /* average of both wheels */
-    float    distance_cm;       /* signed distance since odometry reset */
-    float    heading_deg;       /* signed, left turn positive */
+    float32_t    left_speed_cm_s;   /* filtered, signed (negative = backward) */
+    float32_t    right_speed_cm_s;
+    float32_t    speed_cm_s;        /* average of both wheels */
+    float32_t    distance_cm;       /* signed distance since odometry reset */
+    float32_t    heading_deg;       /* signed, left turn positive */
     /* condition being compensated (FLAT if stale) */
     motion_terrain_t terrain;
-    float    terrain_speed_scale;     /* multiplier applied to speed targets */
+    /* multiplier applied to speed targets */
+    float32_t    terrain_speed_scale;
     /* duty assist added on top of the speed loop */
-    float    left_terrain_duty;
-    float    right_terrain_duty;
+    float32_t    left_terrain_duty;
+    float32_t    right_terrain_duty;
 } motion_status_t;
 
 /** Initialise motors, encoders and controllers. Safe to call twice. */
@@ -103,26 +105,26 @@ motion_result_t motion_init (void);
 void motion_update (void);
 
 /** Drive forward by distance_cm (> 0) in a straight line. */
-motion_result_t motion_move_forward (float distance_cm);
+motion_result_t motion_move_forward (float32_t distance_cm);
 
 /** Drive backward by distance_cm (> 0) in a straight line. */
-motion_result_t motion_move_backward (float distance_cm);
+motion_result_t motion_move_backward (float32_t distance_cm);
 
 /** Spin left in place by angle_deg (> 0, up to 720). */
-motion_result_t motion_turn_left (float angle_deg);
+motion_result_t motion_turn_left (float32_t angle_deg);
 
 /** Spin right in place by angle_deg (> 0, up to 720). */
-motion_result_t motion_turn_right (float angle_deg);
+motion_result_t motion_turn_right (float32_t angle_deg);
 
 /**
  * Continuous drive with independent wheel speeds in cm/s (signed, forward
  * positive). Runs until another command or motion_stop(). Intended for line
  * following steering. Both speeds zero is treated as motion_stop().
  */
-motion_result_t motion_drive (float left_cm_s, float right_cm_s);
+motion_result_t motion_drive (float32_t left_cm_s, float32_t right_cm_s);
 
 /** Cruise speed used by later forward / backward moves (cm/s, > 0). */
-motion_result_t motion_set_speed (float speed_cm_s);
+motion_result_t motion_set_speed (float32_t speed_cm_s);
 
 /**
  * Latest terrain report from the IMU task (Buddy 4). Call after every fresh
@@ -138,7 +140,7 @@ motion_result_t motion_set_terrain (const motion_terrain_input_t * p_input);
  * true only if the
  * report is valid and fresh (younger than MOTION_TERRAIN_STALE_MS). Safe from
  * any task. */
-bool motion_get_tilt (float * p_pitch_deg, float * p_roll_deg);
+bool motion_get_tilt (float32_t * p_pitch_deg, float32_t * p_roll_deg);
 
 /** Controlled stop: brake and return to IDLE. */
 void motion_stop (void);

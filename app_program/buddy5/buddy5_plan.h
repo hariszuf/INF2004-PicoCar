@@ -1,5 +1,6 @@
 #ifndef PICOCAR_BUDDY5_PLAN_H
 #define PICOCAR_BUDDY5_PLAN_H
+#include "../barrc_types.h"
 #include "buddy5_core.h"
 /* Pure planning (no state, no hardware): turn one stop-point scan into a side,
  * a sideways distance and the wheel-axle
@@ -31,7 +32,7 @@ typedef struct
     int8_t side;
     int8_t reason;                   /* B5_WHY_* */
 } b5_plan_t;
-static inline int b5_side_index (int side)
+static inline int32_t b5_side_index (int32_t side)
 {
     return side > 0 ? 0 : 1;
 }
@@ -52,8 +53,9 @@ int32_t b5_pass_x (int32_t x_face_mm, int32_t depth_mm, int32_t near_edge_mm,
                    int32_t far_edge_mm, int32_t offset_mm);
 /* Does a car with its axle at (x,u) heading rotated phi_deg toward the line
  * touch the (inflated) box? Exposed for tests. */
-bool b5_car_hits_box (float x, float u, float phi_deg, float bx0, float bx1,
-                      float bu0, float bu1, float margin);
+bool b5_car_hits_box (float32_t x, float32_t u, float32_t phi_deg,
+                      float32_t bx0, float32_t bx1,
+                      float32_t bu0, float32_t bu1, float32_t margin);
 #endif
 
 /*** end of file ***/

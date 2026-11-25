@@ -1,11 +1,12 @@
 /* Host test: barcode_scan fed with a sampled sensor signal. gcc only. */
+#include "../../../barrc_types.h"
 #include <stdio.h>
 #include <string.h>
 
 #include "barcode_scan.h"
 
-static int g_run;
-static int g_fail;
+static int32_t g_run;
+static int32_t g_fail;
 #define CHECK(c, ...) do { g_run++; if (!(c)) { g_fail++; \
     printf("FAIL line %d: ", __LINE__); printf(__VA_ARGS__); printf("\n"); } \
     } while (0)
@@ -24,7 +25,7 @@ static const uint32_t DECK_Y[29]  = {16, 46, 16, 15, 47, 15, 47, 15, 16, 15, 47,
 
 static uint32_t s_now_us;
 static char s_hook_letter;
-static int s_hook_calls;
+static int32_t s_hook_calls;
 
 void barcode_scan_on_decoded (const barcode39_result_t * r)
 {
@@ -46,12 +47,12 @@ static void hold (bool black, uint32_t us)
 
 /* Drive over a barcode: white lead-in, the bars (black first), white lead-out.
  * us_per_px sets the speed. */
-static void drive_over (const uint32_t * w, int n, uint32_t us_per_px,
+static void drive_over (const uint32_t * w, int32_t n, uint32_t us_per_px,
                         bool backwards, uint32_t glitch_gap)
 {
     hold(false, 600000u);
 
-    for (int idx = 0; idx < n; idx++)
+    for (int32_t idx = 0; idx < n; idx++)
     {
         uint32_t px = backwards ? w[n - 1 - idx] : w[idx];
         bool black = 0 == (idx % 2);
@@ -129,7 +130,7 @@ int main (void)
         uint32_t w[29];
         barcode39_result_t r;
 
-        for (int idx = 0; idx < 29; idx++)
+        for (int32_t idx = 0; idx < 29; idx++)
         {
             w[idx] = PHOTO_F[idx] * ramp[idx] / 100u;
         }
@@ -139,7 +140,7 @@ int main (void)
         drive_over(w, 29, 1200u, false, 0u);
         bool got = barcode_scan_take(&r);
         CHECK(got && ('F' == r.text[0]), "hand-push ramp: got %d '%s' fail=%u",
-              got, got ? r.text : "", (unsigned)barcode_scan_last_fail());
+              got, got ? r.text : "", (uint32_t)barcode_scan_last_fail());
     }
 
     /* First character seen on the car (ms): 38 75 18 18 71 22 65 19 26 must
@@ -151,7 +152,7 @@ int main (void)
         barcode39_cfg_t cfg = { 14u, true };
         bool ok = barcode39_decode_elements(b, 29, &cfg, &r);
         CHECK(ok && ('F' == r.text[0]), "car data decode: ok=%d fail=%u", ok,
-              (unsigned)barcode39_last_fail());
+              (uint32_t)barcode39_last_fail());
     }
 
     /* half-read barcode, long pause, then a good one: stale data must not
@@ -162,7 +163,7 @@ int main (void)
         s_now_us = 1000u;
         hold(false, 600000u);
 
-        for (int idx = 0; idx < 14; idx++)
+        for (int32_t idx = 0; idx < 14; idx++)
         {
             hold(0 == (idx % 2), PHOTO_F[idx] * 2000u);
         }
@@ -181,7 +182,7 @@ int main (void)
         barcode_scan_init();
         s_now_us = 1000u;
 
-        for (int idx = 0; idx < 20; idx++)
+        for (int32_t idx = 0; idx < 20; idx++)
         {
             hold(false, 300000u);
             hold(true, 60000u + (idx % 3) * 20000u);

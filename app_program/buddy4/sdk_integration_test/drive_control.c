@@ -1,3 +1,4 @@
+#include "../../barrc_types.h"
 #include "drive_control.h"
 #include "line_follow.h"
 #include "motion_config.h"
@@ -80,7 +81,7 @@ void drive_safety (drive_control_t * c, bool usb, bool has_fresh,
     }
 }
 
-void drive_command (drive_control_t * c, int key, bool usb, bool healthy,
+void drive_command (drive_control_t * c, int32_t key, bool usb, bool healthy,
                     uint64_t now)
 {
     if (('S' == key) || (' ' == key))

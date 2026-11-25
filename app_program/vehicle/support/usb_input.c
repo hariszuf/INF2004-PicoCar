@@ -1,5 +1,6 @@
 #ifdef B5_FULL_TEST
 /* Compiled with SDK/TinyUSB headers, never with tkernel.h. */
+#include "../../barrc_types.h"
 #include "tusb.h"
 #include "vehicle_controller.h"
 /* Link wrapper is active only in the full-test build. TinyUSB remains owned by
@@ -10,11 +11,11 @@ void __wrap_tm_tusb_discard_input (void)
 
     while ((budget--) && (tud_cdc_available()))
     {
-        int c = tud_cdc_read_char();
+        int32_t c = tud_cdc_read_char();
 
         if (c >= 0)
         {
-            b5_line_command_received((unsigned)c);
+            b5_line_command_received((uint32_t)c);
         }
     }
 }

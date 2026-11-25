@@ -2,12 +2,13 @@
  * around every write).
  * gcc -std=c11 -Wall -Wextra -Iapp_program testing/system/test_robot_flags.c -o
  * /tmp/rf && /tmp/rf */
+#include "../../app_program/barrc_types.h"
 #include <stdio.h>
 
-static int g_lock_depth;
-static int g_max_depth;
-static int g_locks;
-static int g_unlocks;
+static int32_t g_lock_depth;
+static int32_t g_max_depth;
+static int32_t g_locks;
+static int32_t g_unlocks;
 #define ROBOT_FLAGS_IRQ_T int
 #define ROBOT_FLAGS_LOCK(s) do { (s) = g_lock_depth++; g_locks++; if \
     (g_lock_depth > g_max_depth) g_max_depth = g_lock_depth; } while (0)
@@ -16,7 +17,7 @@ static int g_unlocks;
 #include "robot_flags.h"
 #include "robot_faults.h"
 
-static int s_failures;
+static int32_t s_failures;
 #define CHECK(cond, text) do { if (cond) { printf("  PASS  %s\n", text); } \
     else { printf("  FAIL  %s\n", text); s_failures++; } } while (0)
 

@@ -1,3 +1,4 @@
+#include "../barrc_types.h"
 #include <tk/tkernel.h>
 
 #if defined(B5_FULL_TEST) && (TM_CONSOLE_USB_CDC || TM_WIFI_MQTT)
@@ -26,7 +27,7 @@ bool buddy3_barcode_latest (char * letter, uint32_t * read_ms)
 void barcode_scan_on_run (bool black, uint32_t width_us)
 {
     tm_printf((UB *)"[B3 BARCODE] %s %u us\n",
-              (UB *)(black ? "BLACK" : "white"), (unsigned)width_us);
+              (UB *)(black ? "BLACK" : "white"), (uint32_t)width_us);
 }
 
 #endif
@@ -38,7 +39,7 @@ void barcode_scan_on_run (bool black, uint32_t width_us)
 void barcode39_on_fail (const uint32_t * w, uint8_t n, uint8_t reason)
 {
     tm_printf((UB *)"[B3 BARCODE] FAIL reason=%u elements=%u\n",
-              (unsigned)reason, (unsigned)n);
+              (uint32_t)reason, (uint32_t)n);
 
     for (uint8_t idx = 0; idx < n; idx += 10)
     {
@@ -46,11 +47,11 @@ void barcode39_on_fail (const uint32_t * w, uint8_t n, uint8_t reason)
 
         for (uint8_t k = 0; k < 10; k++)
         {
-            v[k] = ((uint8_t)(idx + k) < n) ? (unsigned)w[idx + k] : 0u;
+            v[k] = ((uint8_t)(idx + k) < n) ? (uint32_t)w[idx + k] : 0u;
         }
 
         tm_printf((UB *)"[B3 BARCODE] w[%u..]: %u %u %u %u %u %u %u %u %u %u\n",
-                  (unsigned)idx,
+                  (uint32_t)idx,
                   v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9]);
     }
 }
@@ -95,9 +96,9 @@ static void barcode_task (INT start_code, void * exinf)
             tm_printf((UB *)"[B3 BARCODE] sensor=%s decoded=%u rejected=%u "
                       "last_reject=%u\n",
                       (UB *)(black ? "BLACK" : "white"),
-                      (unsigned)barcode_scan_count(),
-                      (unsigned)barcode_scan_fail_count(),
-                      (unsigned)barcode_scan_last_fail());
+                      (uint32_t)barcode_scan_count(),
+                      (uint32_t)barcode_scan_fail_count(),
+                      (uint32_t)barcode_scan_last_fail());
         }
 #endif
         (void)tk_dly_tsk(1);

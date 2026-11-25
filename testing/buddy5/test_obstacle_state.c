@@ -1,3 +1,4 @@
+#include "../../app_program/barrc_types.h"
 #include <assert.h>
 #include <stdio.h>
 #include "../../app_program/buddy5/obstacle_state.h"
@@ -20,7 +21,8 @@ int main (void)
     assert(BUDDY5_CLEAR == sample(BUDDY5_CLEAR, 249));
     assert(BUDDY5_CLEAR == sample(BUDDY5_CLEAR, 201));
 
-    for (int status = US_ECHO_STUCK_HIGH; status <= US_OUT_OF_RANGE; ++status)
+    for (int32_t status = US_ECHO_STUCK_HIGH; status <= US_OUT_OF_RANGE;
+         ++status)
     {
         ultrasonic_result_t bad = {(ultrasonic_status_t)status, 0u, 0u};
         assert(BUDDY5_SENSOR_FAULT == buddy5_next_state(BUDDY5_CLEAR, bad));

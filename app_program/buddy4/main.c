@@ -1,3 +1,4 @@
+#include "../barrc_types.h"
 #include "buddy4_imu.h"
 #include "hardware/i2c.h"
 #include "pico/stdio_usb.h"
@@ -11,7 +12,7 @@
 #define IMU_I2C_BAUD_HZ 100000
 #define CONFIG_RETRY_US 1000000
 
-static int bus_write (void * context, uint8_t address, const uint8_t * data,
+static int32_t bus_write (void * context, uint8_t address, const uint8_t * data,
                       size_t count, bool no_stop)
 {
     (void)context;
@@ -19,7 +20,7 @@ static int bus_write (void * context, uint8_t address, const uint8_t * data,
                                 BUDDY4_I2C_TIMEOUT_US);
 }
 
-static int bus_read (void * context, uint8_t address, uint8_t * data,
+static int32_t bus_read (void * context, uint8_t address, uint8_t * data,
                      size_t count, bool no_stop)
 {
     (void)context;
@@ -57,8 +58,8 @@ static void log_side_event_summary (const buddy4_output_t * output)
            "median_candidate_height_cm=%.3f\n",
            buddy4_side_name(event->side),
            output->side ? "SIDE_CHANGED" : "RETURNED_TO_LEVEL",
-           (unsigned long long)event->start_us,
-           (unsigned long long)output->timestamp_us,
+           (uint64_t)event->start_us,
+           (uint64_t)output->timestamp_us,
            event->peak_confirmed,
            event->peak_roll_deg,
            event->peak_height_cm, event->median_candidate_valid,
@@ -75,20 +76,20 @@ static void log_csv_sample (uint32_t sequence, uint64_t poll_time_us,
            "%d,%d,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,"
            "%.2f,%.2f,%.2f,%.2f,%s,%s,%.4f,%d,"
            "%.2f,%d,%d,%d,%.2f,%.2f,%d,%.3f,%.3f\n",
-           (unsigned long)sequence,
-           (unsigned long long)poll_time_us,
-           (int)result,
+           (uint32_t)sequence,
+           (uint64_t)poll_time_us,
+           (int32_t)result,
            output->valid,
            output->tilt_valid, output->acceleration_valid,
            buddy4_quality_name(output->quality),
-           (unsigned)output->clipped_axes,
-           (unsigned long)output->clipped_samples,
-           (unsigned long)output->unsuitable_samples,
-           (unsigned long long)output->timestamp_us,
-           (unsigned long)output->error_count,
-           (int)output->raw[0],
-           (int)output->raw[1],
-           (int)output->raw[2],
+           (uint32_t)output->clipped_axes,
+           (uint32_t)output->clipped_samples,
+           (uint32_t)output->unsuitable_samples,
+           (uint64_t)output->timestamp_us,
+           (uint32_t)output->error_count,
+           (int32_t)output->raw[0],
+           (int32_t)output->raw[1],
+           (int32_t)output->raw[2],
            output->uncorrected_accel_g[0],
            output->uncorrected_accel_g[1],
            output->uncorrected_accel_g[2],

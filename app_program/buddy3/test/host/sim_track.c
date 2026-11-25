@@ -3,6 +3,7 @@
  * @brief Track = list of straights and arcs, sampled every 1 mm. Implements
  *        line_sensors.h for the host build.
  */
+#include "../../../barrc_types.h"
 #include <math.h>
 #include <stdint.h>
 
@@ -15,21 +16,22 @@
 #define MAX_POINTS      (20000)
 #define PI_D            (3.14159265358979)
 
-static double s_px[MAX_POINTS];
-static double s_py[MAX_POINTS];
-static int s_points;
+static float64_t s_px[MAX_POINTS];
+static float64_t s_py[MAX_POINTS];
+static int32_t s_points;
 
-static double s_x;
-static double s_y;
-static double s_theta;          /* robot centre (mm), heading (rad, left +) */
-static double s_last_left;
-static double s_last_right;  /* wheel positions in mm at last step */
+static float64_t s_x;
+static float64_t s_y;
+/* robot centre (mm), heading (rad, left +) */
+static float64_t s_theta;
+static float64_t s_last_left;
+static float64_t s_last_right;  /* wheel positions in mm at last step */
 static uint8_t s_mask;
-static int s_progress_idx;
+static int32_t s_progress_idx;
 
-static double s_cx;
-static double s_cy;
-static double s_ch;           /* track builder cursor */
+static float64_t s_cx;
+static float64_t s_cy;
+static float64_t s_ch;           /* track builder cursor */
 
 static void add_point (void)
 {
@@ -41,10 +43,10 @@ static void add_point (void)
     }
 }
 
-static void add_straight (double length_mm)
+static void add_straight (float64_t length_mm)
 {
-    int i;
-    int n = (int)length_mm;
+    int32_t i;
+    int32_t n = (int32_t)length_mm;
 
     for (i = 0; i < n; i++)
     {
@@ -55,12 +57,12 @@ static void add_straight (double length_mm)
 }
 
 /** turn_deg positive = left. */
-static void add_arc (double radius_mm, double turn_deg)
+static void add_arc (float64_t radius_mm, float64_t turn_deg)
 {
-    double arc_len = radius_mm * fabs(turn_deg) * PI_D / 180.0;
-    double dtheta = ((turn_deg > 0.0) ? 1.0 : -1.0) / radius_mm;
-    int i;
-    int n = (int)arc_len;
+    float64_t arc_len = radius_mm * fabs(turn_deg) * PI_D / 180.0;
+    float64_t dtheta = ((turn_deg > 0.0) ? 1.0 : -1.0) / radius_mm;
+    int32_t i;
+    int32_t n = (int32_t)arc_len;
 
     for (i = 0; i < n; i++)
     {
@@ -72,25 +74,25 @@ static void add_arc (double radius_mm, double turn_deg)
     }
 }
 
-static void sensor_pos (double lateral_mm, double * p_x, double * p_y)
+static void sensor_pos (float64_t lateral_mm, float64_t * p_x, float64_t * p_y)
 {
-    double fwd = (double)LINE_SENSOR_FORWARD_MM;
+    float64_t fwd = (float64_t)LINE_SENSOR_FORWARD_MM;
 
     *p_x = s_x + (fwd * cos(s_theta)) - (lateral_mm * sin(s_theta));
     *p_y = s_y + (fwd * sin(s_theta)) + (lateral_mm * cos(s_theta));
 }
 
-static double nearest (double x, double y, int * p_idx)
+static float64_t nearest (float64_t x, float64_t y, int32_t * p_idx)
 {
-    double best = 1e18;
-    int best_i = 0;
-    int i;
+    float64_t best = 1e18;
+    int32_t best_i = 0;
+    int32_t i;
 
     for (i = 0; i < s_points; i++)
     {
-        double dx = s_px[i] - x;
-        double dy = s_py[i] - y;
-        double d2 = (dx * dx) + (dy * dy);
+        float64_t dx = s_px[i] - x;
+        float64_t dy = s_py[i] - y;
+        float64_t d2 = (dx * dx) + (dy * dy);
 
         if (d2 < best)
         {
@@ -138,15 +140,15 @@ void track_reset (void)
 
 void track_step_1ms (void)
 {
-    double left = sim_true_position_cm(MOTION_SIDE_LEFT) * 10.0;
-    double right = sim_true_position_cm(MOTION_SIDE_RIGHT) * 10.0;
-    double dl = left - s_last_left;
-    double dr = right - s_last_right;
-    double ds = (dl + dr) / 2.0;
-    double dth = (dr - dl) / (double)MOTION_WHEEL_BASE_CM / 10.0;
-    double sx;
-    double sy;
-    int idx;
+    float64_t left = sim_true_position_cm(MOTION_SIDE_LEFT) * 10.0;
+    float64_t right = sim_true_position_cm(MOTION_SIDE_RIGHT) * 10.0;
+    float64_t dl = left - s_last_left;
+    float64_t dr = right - s_last_right;
+    float64_t ds = (dl + dr) / 2.0;
+    float64_t dth = (dr - dl) / (float64_t)MOTION_WHEEL_BASE_CM / 10.0;
+    float64_t sx;
+    float64_t sy;
+    int32_t idx;
 
     s_last_left = left;
     s_last_right = right;
@@ -156,17 +158,17 @@ void track_step_1ms (void)
 
     s_mask = 0u;
     /* car-left sensor */
-    sensor_pos((double)LINE_SENSOR_SPACING_MM / 2.0, &sx, &sy);
+    sensor_pos((float64_t)LINE_SENSOR_SPACING_MM / 2.0, &sx, &sy);
 
-    if (nearest(sx, sy, &idx) <= ((double)LINE_WIDTH_MM / 2.0))
+    if (nearest(sx, sy, &idx) <= ((float64_t)LINE_WIDTH_MM / 2.0))
     {
         s_mask |= LINE_SENSOR_LEFT;
     }
 
     /* car-right sensor */
-    sensor_pos(-(double)LINE_SENSOR_SPACING_MM / 2.0, &sx, &sy);
+    sensor_pos(-(float64_t)LINE_SENSOR_SPACING_MM / 2.0, &sx, &sy);
 
-    if (nearest(sx, sy, &idx) <= ((double)LINE_WIDTH_MM / 2.0))
+    if (nearest(sx, sy, &idx) <= ((float64_t)LINE_WIDTH_MM / 2.0))
     {
         s_mask |= LINE_SENSOR_RIGHT;
     }
@@ -182,21 +184,22 @@ void track_step_1ms (void)
     }
 }
 
-double track_error_mm (void)
+float64_t track_error_mm (void)
 {
-    double sx;
-    double sy;
+    float64_t sx;
+    float64_t sy;
 
     sensor_pos(0.0, &sx, &sy);
     return nearest(sx, sy, 0);
 }
 
-double track_progress (void)
+float64_t track_progress (void)
 {
-    return (double)s_progress_idx / (double)s_points;
+    return (float64_t)s_progress_idx / (float64_t)s_points;
 }
 
-void track_pose (double * p_x_mm, double * p_y_mm, double * p_heading_deg)
+void track_pose (float64_t * p_x_mm, float64_t * p_y_mm,
+                 float64_t * p_heading_deg)
 {
     *p_x_mm = s_x;
     *p_y_mm = s_y;

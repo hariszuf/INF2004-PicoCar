@@ -1,4 +1,5 @@
 /* Host test: gcc -I.. test_lift.c ../buddy4_lift.c -lm && ./a.out */
+#include "../../barrc_types.h"
 #include "buddy4_lift.h"
 #include <assert.h>
 #include <math.h>
@@ -6,18 +7,18 @@
 
 static buddy4_lift_t d;
 static uint64_t t;
-static void tick (float x, float y, float z, int n)
+static void tick (float32_t x, float32_t y, float32_t z, int32_t n)
 {
-    for (int idx = 0; idx < n; idx++)
+    for (int32_t idx = 0; idx < n; idx++)
     {
         t += 20000u;
         buddy4_lift_update(&d, x, y, z, true, t, t);
     }
 }
 
-static void tilt (float deg, int n)
+static void tilt (float32_t deg, int32_t n)
 {
-    float r = deg * 0.0174532925f;
+    float32_t r = deg * 0.0174532925f;
     tick(sinf(r), 0, cosf(r), n);
 }
 
@@ -43,7 +44,7 @@ int main (void)
     assert(!d.output.lifted);
     reset();
 
-    for (int idx = 0; idx < 200; idx++)
+    for (int32_t idx = 0; idx < 200; idx++)
     {
         tick(0.03f * sinf(idx), 0, 1.0f + 0.05f * sinf(idx * 0.9f), 1);
     }
@@ -93,7 +94,7 @@ int main (void)
     tilt(60, 10);
     assert(d.output.lifted);
 
-    for (int idx = 0; idx < 50; idx++)
+    for (int32_t idx = 0; idx < 50; idx++)
     {
         t += 20000u;
         buddy4_lift_update(&d, 0, 0, 0, false, t, t);
@@ -101,7 +102,7 @@ int main (void)
 
     assert((d.output.lifted) && (!d.output.valid));
 
-    for (int idx = 0; idx < 60; idx++)
+    for (int32_t idx = 0; idx < 60; idx++)
     {
         t += 20000u;
         buddy4_lift_update(&d, 0, 0, 0, false, t, t);

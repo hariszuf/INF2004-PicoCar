@@ -1,4 +1,5 @@
 #ifdef B5_FULL_TEST
+#include "../../barrc_types.h"
 #include "vehicle_nav.h"
 #include <math.h>
 #include "../../buddy2/motion_config.h"
@@ -11,12 +12,12 @@ enum
 };
 #define NAV_HEADING_ALIGNED_DEG 8.0f
 #define NAV_TURN_DEADBAND_DEG 3.0f
-static float absolute (float x)
+static float32_t absolute (float32_t x)
 {
     return x < 0 ? -x : x;
 }
 
-static float corrected_heading (const motion_status_t * m)
+static float32_t corrected_heading (const motion_status_t * m)
 {
     return (m->heading_deg / MOTION_TURN_SCALE) * B5_TURN_ODOMETRY_CORRECTION;
 }
@@ -44,7 +45,7 @@ void full_nav_init (full_nav_t * n, const motion_status_t * m)
 }
 
 void full_nav_set_front (full_nav_t * n, bool fresh, int32_t clearance_mm,
-                         int angle_deg)
+                         int32_t angle_deg)
 {
     n->front_fresh = fresh;
     n->front_mm = clearance_mm;
@@ -62,13 +63,13 @@ void full_nav_set_front (full_nav_t * n, bool fresh, int32_t clearance_mm,
 #endif
 /* back_first: reverse this far (mm) first (the car stopped part-way to the line
  * and goes back out). */
-static void build_recover (full_nav_t * n, float side, bool extend,
-                           float back_first)
+static void build_recover (full_nav_t * n, float32_t side, bool extend,
+                           float32_t back_first)
 {
     uint32_t idx = 0;
-    float sweep =
+    float32_t sweep =
             absolute(n->y) + back_first + B5_LINE_SWEEP_EXTRA_MM
-            + (extend ? 0.0f : (float)B5_CHECK_BACK_MM);
+            + (extend ? 0.0f : (float32_t)B5_CHECK_BACK_MM);
 
     if (back_first >= 4.0f)
     {
@@ -121,9 +122,9 @@ static void build_recover (full_nav_t * n, float side, bool extend,
     n->cand_valid = false;
 }
 
-static void trip (full_nav_t * n, float target_y, bool check)
+static void trip (full_nav_t * n, float32_t target_y, bool check)
 {
-    float delta = target_y - n->y;
+    float32_t delta = target_y - n->y;
     n->index = 0;
     n->count = check ? 4 : 3;
     n->actions[0] = (full_action_t){TURN, delta >= 0 ? 90.0f : -90.0f};
@@ -170,7 +171,7 @@ bool full_nav_accept (full_nav_t * n, const b5_request_t * r, uint32_t now)
         n->turn_fixes_total = n->block_fixes_total = 0;
         break;
         case B5_REQ_BYPASS:
-        trip(n, (float)r->lateral_mm, false);
+        trip(n, (float32_t)r->lateral_mm, false);
         break;
         case B5_REQ_ADVANCE:
         if ((r->forward_mm <= n->x)
@@ -181,14 +182,14 @@ bool full_nav_accept (full_nav_t * n, const b5_request_t * r, uint32_t now)
         }
 
         {
-            float dx = (float)r->forward_mm - n->x,
-                    dy = (float)r->lateral_mm - n->y;
+            float32_t dx = (float32_t)r->forward_mm - n->x,
+                    dy = (float32_t)r->lateral_mm - n->y;
             /* Small corrections only while alongside the box: a large spin
              * could
              * swing the long rear of the chassis into it. Correct residual
              * error
              * gradually across successive waypoints. */
-            float bearing = atan2f(dy, dx) * 57.2957795f;
+            float32_t bearing = atan2f(dy, dx) * 57.2957795f;
 
             if (bearing > 8)
             {
@@ -217,7 +218,7 @@ bool full_nav_accept (full_nav_t * n, const b5_request_t * r, uint32_t now)
              * sees the
              * line. */
             /* +1: line is on the left */
-            float side = (n->y > 0.0f) ? -1.0f : 1.0f;
+            float32_t side = (n->y > 0.0f) ? -1.0f : 1.0f;
             n->acquired = false;
             n->search_phase = 0;
             n->retries = 0;
@@ -234,7 +235,7 @@ bool full_nav_accept (full_nav_t * n, const b5_request_t * r, uint32_t now)
         line_follow_stop();
         n->settled = 0;
         n->count = 1;
-        n->actions[0] = (full_action_t){BACK, (float)r->forward_mm};
+        n->actions[0] = (full_action_t){BACK, (float32_t)r->forward_mm};
         break;
         case B5_REQ_LOOK:
         /* Pivot on the spot to look past the box (lateral_mm = heading in
@@ -243,7 +244,7 @@ bool full_nav_accept (full_nav_t * n, const b5_request_t * r, uint32_t now)
         line_follow_stop();
         n->settled = 0;
         n->count = 1;
-        n->actions[0] = (full_action_t){TURN, (float)r->lateral_mm};
+        n->actions[0] = (full_action_t){TURN, (float32_t)r->lateral_mm};
         break;
         case B5_REQ_BARCODE_LEFT:
         case B5_REQ_BARCODE_RIGHT:
@@ -276,10 +277,10 @@ bool full_nav_barcode_turn_active (const full_nav_t * n)
 void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
                       uint8_t mask, bool guard)
 {
-    float heading = corrected_heading(m);
-    float mid = ((heading
+    float32_t heading = corrected_heading(m);
+    float32_t mid = ((heading
                   + n->last_heading) * 0.5f-n->heading_origin) * 0.01745329252f;
-    float ds = (m->distance_cm - n->last_distance) * 10.0f;
+    float32_t ds = (m->distance_cm - n->last_distance) * 10.0f;
     n->x += ds * cosf(mid);
     n->y += ds * sinf(mid);
     n->last_distance = m->distance_cm;
@@ -376,11 +377,11 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
         if ((!n->tape_entered) && (n->front_fresh) && (0 == n->front_angle)
             && (B5_CLEAR_FRONT_MM != n->front_mm) && (n->front_mm >= 0))
         {
-            float remain =
+            float32_t remain =
                     absolute(n->y + B5_AXLE_TO_SENSOR_MM
                              * sinf(n->heading * 0.01745329252f));
 
-            if (((float)n->front_mm < remain - B5_CHECK_MARGIN_MM)
+            if (((float32_t)n->front_mm < remain - B5_CHECK_MARGIN_MM)
                 && (n->front_mm <= B5_SWEEP_STOP_MM))
             {
                 motion_stop();
@@ -411,7 +412,7 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
 
         ++n->retries;
         {
-            float back = n->check_y - absolute(n->y);
+            float32_t back = n->check_y - absolute(n->y);
             build_recover(n, n->recover_side, true, back > 0.0f ? back : 0.0f);
         }
 
@@ -429,7 +430,7 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
          * onto the
          * line. */
         bool black = 0 != (mask & (LINE_SENSOR_LEFT | LINE_SENSOR_RIGHT));
-        float sy = n->y + B5_AXLE_TO_SENSOR_MM
+        float32_t sy = n->y + B5_AXLE_TO_SENSOR_MM
                 * sinf(n->heading * 0.01745329252f);
 
         if (black && (!n->tape_entered))
@@ -445,7 +446,7 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
              * is never found, the candidate
              * nearest to where the line should be is used (the car reverses
              * onto it). */
-            float mid = 0.5f*(n->tape_enter_y + sy);
+            float32_t mid = 0.5f*(n->tape_enter_y + sy);
 
             if ((!n->cand_valid) || (absolute(mid) < absolute(n->cand_y)))
             {
@@ -492,9 +493,9 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
          * line_follow_update()
          * meanwhile. */
 #if LINE_JUNCTION
-        int r = line_follow_rejoin_status();
+        int32_t r = line_follow_rejoin_status();
 #else
-        int r = -1;
+        int32_t r = -1;
 #endif
         if (r < 0)
         {
@@ -645,7 +646,7 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
 
         if (B5_REQ_LOOK == n->request.kind)
         {
-            pose = absolute(n->heading - (float)n->request.lateral_mm)
+            pose = absolute(n->heading - (float32_t)n->request.lateral_mm)
                     <= NAV_HEADING_ALIGNED_DEG + 4.0f;
         }
 
@@ -718,14 +719,15 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
          * clear, 2 = blocked. All clear to go. */
         if (n->front_fresh)
         {
-            float to_line =
+            float32_t to_line =
                     absolute(n->y) - B5_AXLE_TO_SENSOR_MM - B5_CHECK_MARGIN_MM
                     + (n->front_angle ? B5_CHECK_BEYOND_MM : 0);
-            float c = cosf((float)n->front_angle * 0.01745329252f);
-            uint8_t v = ((float)n->front_mm >= to_line / (c > 0.5f ? c : 0.5f))
+            float32_t c = cosf((float32_t)n->front_angle * 0.01745329252f);
+            uint8_t v = ((float32_t)n->front_mm >= to_line
+                         / (c > 0.5f ? c : 0.5f))
                     ? 1u
                     : 2u;
-            int a = n->front_angle < 0 ? -n->front_angle : n->front_angle;
+            int32_t a = n->front_angle < 0 ? -n->front_angle : n->front_angle;
             uint32_t k = 0 == a ? 0u : a <= 20 ? 1u : 2u;
 
             if (2u != n->look[k])
@@ -801,7 +803,7 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
             return;
         }
 
-        static const float candidates[] = {20, -20, 40, -40, 60, -60};
+        static const float32_t candidates[] = {20, -20, 40, -40, 60, -60};
 
         if (n->search >= 6)
         {
@@ -824,7 +826,7 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
             return;
         }
 
-        float error = barcode_turn ? a.value : a.value - n->heading;
+        float32_t error = barcode_turn ? a.value : a.value - n->heading;
 
         if (absolute(error) <= NAV_TURN_DEADBAND_DEG)
         {
@@ -901,12 +903,12 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
     else if (REJOIN == a.kind)
     {
 #if LINE_JUNCTION
-        float adv = B5_LINE_ADVANCE_MM;
+        float32_t adv = B5_LINE_ADVANCE_MM;
         {
             /* Distance along the heading that puts the axle on the measured
              * line centre.
              */
-            float s = sinf(n->heading * 0.01745329252f);
+            float32_t s = sinf(n->heading * 0.01745329252f);
             /* The drive ran out without crossing a full-width tape: fall back
              * to the
              * best short black that was seen. */
@@ -950,7 +952,7 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
     }
     else if (SEARCH == a.kind)
     {
-        float v = B5_LINE_SEARCH_SPEED_CM_S;
+        float32_t v = B5_LINE_SEARCH_SPEED_CM_S;
         /* +: pivot left */
         result = a.value > 0 ? motion_drive(-v, v) : motion_drive(v, -v);
 
@@ -1010,9 +1012,9 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
             {
                 /* Each further attempt turns a bit more: 8, 12, 16, 20 degrees.
                  */
-                float extra =
+                float32_t extra =
                         (B5_BLOCK_EXTRA_TURN_DEG
-                         + 4.0f*(float)(n->block_fixes - 1))
+                         + 4.0f*(float32_t)(n->block_fixes - 1))
                         / B5_TURN_ODOMETRY_CORRECTION;
                 result = n->last_turn_dir >= 0 ? motion_turn_left(extra)
                         : motion_turn_right(extra);
@@ -1042,12 +1044,12 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
              * target
              * along the CURRENT heading (an extra
              * turn, or a stop part-way, changes it). */
-            float s = sinf(n->heading * 0.01745329252f);
+            float32_t s = sinf(n->heading * 0.01745329252f);
 
             if (absolute(s) > 0.7f)
             {
-                float dist =
-                        absolute((float)n->request.lateral_mm - n->y)
+                float32_t dist =
+                        absolute((float32_t)n->request.lateral_mm - n->y)
                         / absolute(s);
 
                 if (dist <= a.value * 1.6f+100.0f)

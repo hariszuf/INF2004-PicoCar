@@ -6,6 +6,7 @@
  * These tests check logic against a simulated robot. They are not evidence of
  * real-robot accuracy.
  */
+#include "../../../barrc_types.h"
 #include <math.h>
 #include <stdio.h>
 
@@ -13,8 +14,8 @@
 #include "motion_control.h"
 #include "sim_hw.h"
 
-static int s_failures = 0;
-static int s_checks = 0;
+static int32_t s_failures = 0;
+static int32_t s_checks = 0;
 
 #define CHECK(condition, text)                                              \
     do                                                                      \
@@ -33,15 +34,15 @@ static int s_checks = 0;
 
 /* Run the 20 ms control loop until idle. Returns elapsed ms, or -1 on timeout.
  */
-static int run_until_idle (int max_ms)
+static int32_t run_until_idle (int32_t max_ms)
 {
-    int elapsed = 0;
+    int32_t elapsed = 0;
 
     while (elapsed < max_ms)
     {
         sim_advance_ms(MOTION_UPDATE_PERIOD_MS);
         motion_update();
-        elapsed += (int)MOTION_UPDATE_PERIOD_MS;
+        elapsed += (int32_t)MOTION_UPDATE_PERIOD_MS;
 
         if (motion_is_idle())
         {
@@ -52,26 +53,26 @@ static int run_until_idle (int max_ms)
     return -1;
 }
 
-static void run_for (int ms)
+static void run_for (int32_t ms)
 {
-    int elapsed = 0;
+    int32_t elapsed = 0;
 
     while (elapsed < ms)
     {
         sim_advance_ms(MOTION_UPDATE_PERIOD_MS);
         motion_update();
-        elapsed += (int)MOTION_UPDATE_PERIOD_MS;
+        elapsed += (int32_t)MOTION_UPDATE_PERIOD_MS;
     }
 }
 
-static void test_move (const char * name, float distance_cm, bool forward)
+static void test_move (const char * name, float32_t distance_cm, bool forward)
 {
-    double start = sim_true_distance_cm();
-    double start_heading = sim_true_heading_deg();
-    int elapsed;
-    double travelled;
-    double error;
-    double drift;
+    float64_t start = sim_true_distance_cm();
+    float64_t start_heading = sim_true_heading_deg();
+    int32_t elapsed;
+    float64_t travelled;
+    float64_t error;
+    float64_t drift;
     motion_status_t status;
 
     printf("\n[%s]\n", name);
@@ -87,13 +88,13 @@ static void test_move (const char * name, float distance_cm, bool forward)
 
     elapsed = run_until_idle(15000);
     travelled = fabs(sim_true_distance_cm() - start);
-    error = travelled - (double)distance_cm;
+    error = travelled - (float64_t)distance_cm;
     drift = sim_true_heading_deg() - start_heading;
     motion_get_status(&status);
 
     printf("  target %.1f cm, true %.2f cm, error %+.2f cm, time %d ms, "
            "heading drift %+.2f deg\n",
-           (double)distance_cm, travelled, error, elapsed, drift);
+           (float64_t)distance_cm, travelled, error, elapsed, drift);
     CHECK(elapsed > 0, "move finishes (no timeout)");
     CHECK(fabs(error) < 1.0, "distance error within 1 cm");
     CHECK(fabs(drift) < 3.0,
@@ -101,15 +102,15 @@ static void test_move (const char * name, float distance_cm, bool forward)
     CHECK(MOTION_STATE_IDLE == status.state, "returns to IDLE");
 }
 
-static void test_turn (const char * name, float angle_deg, bool left)
+static void test_turn (const char * name, float32_t angle_deg, bool left)
 {
-    double start_heading = sim_true_heading_deg();
-    int elapsed;
-    double turned;
+    float64_t start_heading = sim_true_heading_deg();
+    int32_t elapsed;
+    float64_t turned;
     /* The simulated robot has no wheel slip, so it turns by commanded angle x
      * MOTION_TURN_SCALE. On the real car the scale compensates for slip. */
-    double scaled = (double)angle_deg * (double)MOTION_TURN_SCALE;
-    double expected = left ? scaled : -scaled;
+    float64_t scaled = (float64_t)angle_deg * (float64_t)MOTION_TURN_SCALE;
+    float64_t expected = left ? scaled : -scaled;
 
     printf("\n[%s]\n", name);
 
@@ -172,14 +173,14 @@ static void test_estop (void)
 static void test_stall (void)
 {
     motion_status_t status;
-    int ms = 0;
+    int32_t ms = 0;
 
     printf("\n[stall detection]\n");
     motion_move_forward(100.0f);
     run_for(300);
     sim_set_stall(MOTION_SIDE_LEFT, true);
 
-    for (ms = 0; ms < 3000; ms += (int)MOTION_UPDATE_PERIOD_MS)
+    for (ms = 0; ms < 3000; ms += (int32_t)MOTION_UPDATE_PERIOD_MS)
     {
         run_for(MOTION_UPDATE_PERIOD_MS);
         motion_get_status(&status);
@@ -206,14 +207,14 @@ static void test_stall (void)
 static void test_stall_while_line_following (void)
 {
     motion_status_t status;
-    int ms;
-    int sub;
-    double before;
+    int32_t ms;
+    int32_t sub;
+    float64_t before;
 
     printf("\n[stall detection while line following (drive re-sent every 5 "
            "ms, 3 cm/s)]\n");
 
-    for (ms = 0; ms < 1000; ms += (int)MOTION_UPDATE_PERIOD_MS)
+    for (ms = 0; ms < 1000; ms += (int32_t)MOTION_UPDATE_PERIOD_MS)
     {
         for (sub = 0; sub < 4; sub++)
         {
@@ -229,7 +230,7 @@ static void test_stall_while_line_following (void)
 
     before = sim_true_distance_cm();
 
-    for (ms = 0; ms < 2000; ms += (int)MOTION_UPDATE_PERIOD_MS)
+    for (ms = 0; ms < 2000; ms += (int32_t)MOTION_UPDATE_PERIOD_MS)
     {
         for (sub = 0; sub < 4; sub++)
         {
@@ -247,7 +248,7 @@ static void test_stall_while_line_following (void)
 
     sim_set_stall(MOTION_SIDE_LEFT, true);
 
-    for (ms = 0; ms < 5000; ms += (int)MOTION_UPDATE_PERIOD_MS)
+    for (ms = 0; ms < 5000; ms += (int32_t)MOTION_UPDATE_PERIOD_MS)
     {
         for (sub = 0; sub < 4; sub++)
         {
@@ -281,7 +282,8 @@ static void test_drive_and_stop (void)
     run_for(1500);
     motion_get_status(&status);
     printf("  speeds after 1.5 s: left %.1f, right %.1f cm/s\n",
-           (double)status.left_speed_cm_s, (double)status.right_speed_cm_s);
+           (float64_t)status.left_speed_cm_s,
+                   (float64_t)status.right_speed_cm_s);
     CHECK(fabs(status.left_speed_cm_s - 15.0) < 2.0,
           "left wheel reaches ~15 cm/s");
     CHECK(fabs(status.right_speed_cm_s - 15.0) < 2.0,
@@ -300,10 +302,10 @@ static void test_drive_and_stop (void)
 
 static void test_reversal_counts (void)
 {
-    double start = sim_true_distance_cm();
+    float64_t start = sim_true_distance_cm();
     motion_status_t status;
-    double measured;
-    double truth;
+    float64_t measured;
+    float64_t truth;
 
     printf("\n[reverse command while moving (single-phase encoder guard)]\n");
     motion_reset_odometry();
@@ -312,7 +314,7 @@ static void test_reversal_counts (void)
     motion_move_backward(30.0f);   /* replaces the forward move mid-motion */
     run_until_idle(15000);
     motion_get_status(&status);
-    measured = (double)status.distance_cm;
+    measured = (float64_t)status.distance_cm;
     truth = sim_true_distance_cm() - start;
     printf("  odometry %.2f cm vs true %.2f cm\n", measured, truth);
     CHECK(fabs(measured - truth) < 1.5,

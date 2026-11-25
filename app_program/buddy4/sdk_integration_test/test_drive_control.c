@@ -1,3 +1,4 @@
+#include "../../barrc_types.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -8,12 +9,12 @@
 #undef main
 static motion_status_t motor;
 static line_status_t line;
-static int line_updates;
-static int line_starts;
-static int drives;
+static int32_t line_updates;
+static int32_t line_starts;
+static int32_t drives;
 static bool latch;
-static float left;
-static float right;
+static float32_t left;
+static float32_t right;
 void line_follow_stop (void)
 {
     line.state = LINE_STATE_IDLE;
@@ -37,7 +38,7 @@ motion_result_t motion_reset (void)
     return MOTION_OK;
 }
 
-motion_result_t motion_drive (float l, float r)
+motion_result_t motion_drive (float32_t l, float32_t r)
 {
     assert(!latch);
     left = l;
@@ -78,7 +79,7 @@ static void start (drive_control_t * c)
     assert((c->running) && (!c->armed));
 }
 
-static void begin_turn (drive_control_t * c, int key, uint64_t now)
+static void begin_turn (drive_control_t * c, int32_t key, uint64_t now)
 {
     drive_command(c, key, true, true, now);
     assert((!c->running) && (!c->armed) && latch);
@@ -96,14 +97,14 @@ static void begin_turn (drive_control_t * c, int key, uint64_t now)
 
 static void turn_tests (void)
 {
-    for (int direction = 0; direction < 2; direction++)
+    for (int32_t direction = 0; direction < 2; direction++)
     {
         drive_control_t c;
         drive_init(&c);
-        int key = direction ? 'D' : 'A';
+        int32_t key = direction ? 'D' : 'A';
         uint64_t now = UINT64_C(0x100000000) + 12345;
-        int previous_updates = line_updates;
-        int previous_starts = line_starts;
+        int32_t previous_updates = line_updates;
+        int32_t previous_starts = line_starts;
         begin_turn(&c, key, now);
         assert(c.mode == (direction ? DRIVE_TURN_RIGHT : DRIVE_TURN_LEFT));
         assert(left == (direction ? TURN_TEST_SPEED_CM_S
@@ -111,7 +112,7 @@ static void turn_tests (void)
         assert((right == -left) && (left == c.selected_left_cm_s)
                && (right == c.selected_right_cm_s));
 
-        for (int idx = 0; idx < 1000; idx++)
+        for (int32_t idx = 0; idx < 1000; idx++)
         {
             drive_line_update(&c);
         }
@@ -187,7 +188,7 @@ static void imu_quality_reproduction (void)
     uint64_t t = 0;
     raw_vector(&sensor, -32760, -32760, -32760);
 
-    for (int idx = 0; idx < 792; idx++)
+    for (int32_t idx = 0; idx < 792; idx++)
     {
         t += 20000;
         buddy4_result_t result = buddy4_poll(&imu, t);
@@ -225,7 +226,7 @@ static void imu_quality_reproduction (void)
      * post-restart capture, repeated for the reported 546-sample interval. */
     raw_vector(&sensor, 901, 456, -14521);
 
-    for (int idx = 0; idx < 546; idx++)
+    for (int32_t idx = 0; idx < 546; idx++)
     {
         t += 20000;
         buddy4_result_t result = buddy4_poll(&imu, t);
@@ -267,7 +268,7 @@ static void imu_quality_reproduction (void)
     assert(drive_imu_poll(&c, &imu, buddy4_poll(&imu, t)));
     buddy4_imu_t healthy_imu = imu;
 
-    for (int kind = 0; kind < 7; kind++)
+    for (int32_t kind = 0; kind < 7; kind++)
     {
         imu = healthy_imu;
         drive_init(&c);
@@ -352,7 +353,7 @@ int main (void)
            && (0 == line_starts));
     line.state = LINE_STATE_STOPPED;
 
-    for (int idx = 0; idx < 1000; idx++)
+    for (int32_t idx = 0; idx < 1000; idx++)
     {
         drive_line_update(&c);
     }

@@ -1,5 +1,6 @@
 #ifndef BUDDY4_OBSTRUCTION_H
 #define BUDDY4_OBSTRUCTION_H
+#include "../barrc_types.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -21,10 +22,10 @@ typedef struct
                               * contract. Not necessarily encoder acquisition
                               * time. */
     uint64_t demand_id; /* Changes on every new drive/mode session. */
-    float command_left_cm_s;
-    float command_right_cm_s;
-    float left_cm_s;
-    float right_cm_s;
+    float32_t command_left_cm_s;
+    float32_t command_right_cm_s;
+    float32_t left_cm_s;
+    float32_t right_cm_s;
 } buddy4_obstruction_input_t;
 
 typedef struct
@@ -55,8 +56,8 @@ typedef struct
     uint64_t demand_id;
     uint64_t asymmetric_since_us;
     uint64_t paused_since_us;
-    float command_left_cm_s;
-    float command_right_cm_s;
+    float32_t command_left_cm_s;
+    float32_t command_right_cm_s;
 } buddy4_obstruction_t;
 
 void buddy4_obstruction_init (buddy4_obstruction_t * d);

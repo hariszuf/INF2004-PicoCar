@@ -3,6 +3,7 @@
  * @brief Simulated motor driver and encoders. Implements motion_motor.h and
  *        motion_encoder.h so motion_control.c can run unchanged on a PC.
  */
+#include "../../../barrc_types.h"
 #include <math.h>
 #include <stdlib.h>
 
@@ -21,32 +22,33 @@
 #define SIM_STEP_S              (0.001)
 
 static uint64_t s_time_us;
-static double s_duty[MOTION_SIDE_COUNT];
+static float64_t s_duty[MOTION_SIDE_COUNT];
 static bool s_braked[MOTION_SIDE_COUNT];
 static bool s_stalled[MOTION_SIDE_COUNT];
 static bool s_latched;
-static double s_load[MOTION_SIDE_COUNT];
-static double s_speed[MOTION_SIDE_COUNT];
-static double s_position[MOTION_SIDE_COUNT];
-static double s_pulse_accum[MOTION_SIDE_COUNT];
+static float64_t s_load[MOTION_SIDE_COUNT];
+static float64_t s_speed[MOTION_SIDE_COUNT];
+static float64_t s_position[MOTION_SIDE_COUNT];
+static float64_t s_pulse_accum[MOTION_SIDE_COUNT];
 static int32_t s_count[MOTION_SIDE_COUNT];
 static int32_t s_direction[MOTION_SIDE_COUNT];
 
-static double cm_per_count (motion_side_t side)
+static float64_t cm_per_count (motion_side_t side)
 {
-    double cpr = (MOTION_SIDE_LEFT == side) ? (double)MOTION_COUNTS_PER_REV_LEFT
-            : (double)MOTION_COUNTS_PER_REV_RIGHT;
-    return ((double)MOTION_PI * (double)MOTION_WHEEL_DIAMETER_CM) / cpr;
+    float64_t cpr =
+            (MOTION_SIDE_LEFT == side) ? (float64_t)MOTION_COUNTS_PER_REV_LEFT
+            : (float64_t)MOTION_COUNTS_PER_REV_RIGHT;
+    return ((float64_t)MOTION_PI * (float64_t)MOTION_WHEEL_DIAMETER_CM) / cpr;
 }
 
 void sim_reset (void)
 {
-    int idx;
+    int32_t idx;
 
     s_time_us = 0u;
     s_latched = false;
 
-    for (idx = 0; idx < (int)MOTION_SIDE_COUNT; idx++)
+    for (idx = 0; idx < (int32_t)MOTION_SIDE_COUNT; idx++)
     {
         s_duty[idx] = 0.0;
         s_braked[idx] = true;
@@ -67,12 +69,12 @@ uint64_t host_time_us (void)
 
 static void step_wheel (motion_side_t side)
 {
-    double gain = (MOTION_SIDE_RIGHT == side) ? SIM_RIGHT_GAIN : 1.0;
-    double target = 0.0;
-    double delta;
-    double travelled;
+    float64_t gain = (MOTION_SIDE_RIGHT == side) ? SIM_RIGHT_GAIN : 1.0;
+    float64_t target = 0.0;
+    float64_t delta;
+    float64_t travelled;
 
-    double effective;
+    float64_t effective;
 
     if (s_braked[side])
     {
@@ -131,20 +133,20 @@ void sim_advance_ms (uint32_t milliseconds)
     }
 }
 
-double sim_true_position_cm (motion_side_t side)
+float64_t sim_true_position_cm (motion_side_t side)
 {
     return s_position[side];
 }
 
-double sim_true_heading_deg (void)
+float64_t sim_true_heading_deg (void)
 {
-    double radians =
+    float64_t radians =
             (s_position[MOTION_SIDE_RIGHT] - s_position[MOTION_SIDE_LEFT]) /
-            (double)MOTION_WHEEL_BASE_CM;
-    return radians * (180.0 / (double)MOTION_PI);
+            (float64_t)MOTION_WHEEL_BASE_CM;
+    return radians * (180.0 / (float64_t)MOTION_PI);
 }
 
-double sim_true_distance_cm (void)
+float64_t sim_true_distance_cm (void)
 {
     return 0.5 * (s_position[MOTION_SIDE_LEFT] + s_position[MOTION_SIDE_RIGHT]);
 }
@@ -154,7 +156,7 @@ void sim_set_stall (motion_side_t side, bool stalled)
     s_stalled[side] = stalled;
 }
 
-void sim_set_load (motion_side_t side, double load_duty)
+void sim_set_load (motion_side_t side, float64_t load_duty)
 {
     s_load[side] = load_duty;
 }
@@ -164,7 +166,7 @@ bool sim_is_braked (motion_side_t side)
     return s_braked[side];
 }
 
-double sim_last_duty (motion_side_t side)
+float64_t sim_last_duty (motion_side_t side)
 {
     return s_braked[side] ? 0.0 : s_duty[side];
 }
@@ -187,7 +189,7 @@ void motion_motor_brake_all (void)
     motion_motor_brake(MOTION_SIDE_RIGHT);
 }
 
-void motion_motor_set (motion_side_t side, float duty)
+void motion_motor_set (motion_side_t side, float32_t duty)
 {
     if (s_latched)
     {
@@ -196,7 +198,7 @@ void motion_motor_set (motion_side_t side, float duty)
     }
 
     s_braked[side] = false;
-    s_duty[side] = (double)duty;
+    s_duty[side] = (float64_t)duty;
 }
 
 void motion_motor_set_latch (bool latched)
