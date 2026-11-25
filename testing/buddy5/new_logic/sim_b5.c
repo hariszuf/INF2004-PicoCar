@@ -116,7 +116,7 @@ static quadr_t car_quad (const scen_t * s, float64_t px, float64_t py,
     float64_t c = cos(ph * D2R), sn = sin(ph * D2R);
     quadr_t q;
     float64_t bx[4] = {s->fr, s->fr, -s->rr, -s->rr}, by[4] = {s->hw, -s->hw,
-            -s->hw,
+        -s->hw,
         s->hw};
 
     for (int32_t i = 0; i < 4; i++)
@@ -176,7 +176,7 @@ static float64_t ray_rect (float64_t ox, float64_t oy, float64_t dx,
     float64_t t0 = 0;
     float64_t t1 = 1e9;
     float64_t o[2] = {ox, oy}, d[2] = {dx, dy}, lo[2] = {r.x0, r.y0},
-            hi[2] = {r.x1,
+    hi[2] = {r.x1,
         r.y1};
 
     for (int32_t i = 0; i < 2; i++)
@@ -223,7 +223,7 @@ static float64_t ray_rect (float64_t ox, float64_t oy, float64_t dx,
 static b5_range_t ping (const scen_t * s, float64_t px, float64_t py,
                         float64_t ph,
                         float64_t servo, float64_t extra_obs_x,
-                                float64_t extra_obs_y)
+                        float64_t extra_obs_y)
 {
     float64_t sx = px + B5_AXLE_TO_SENSOR_MM * cos(ph * D2R),
     sy = py + B5_AXLE_TO_SENSOR_MM * sin(ph * D2R);
@@ -402,60 +402,60 @@ static bool nav_accept (veh_t * p_v, const b5_request_t * p_r)
     switch (p_r->kind)
     {
         case B5_REQ_STOP:
-        p_v->mot = 0;
-        p_v->mot_rem = 0;
-        p_v->still = 0;
+            p_v->mot = 0;
+            p_v->mot_rem = 0;
+            p_v->still = 0;
         break;   /* braking handled in step */
         case B5_REQ_LOOK:
-        p_v->act[0] = (act_t){A_TURN, (float64_t)p_r->lateral_mm};
-        p_v->n = 1;
+            p_v->act[0] = (act_t){A_TURN, (float64_t)p_r->lateral_mm};
+            p_v->n = 1;
         break;
         case B5_REQ_BYPASS:
-        {
-            float64_t d = p_r->lateral_mm - nav_y(p_v);
-            p_v->act[0] = (act_t){A_TURN, d >= 0 ? 90 : -90};
-            p_v->act[1] = (act_t){A_MOVE, fabs(d)};
-            p_v->act[2] = (act_t){A_TURN, 0};
-            p_v->n = 3;
-            break;
-        }
+            {
+                float64_t d = p_r->lateral_mm - nav_y(p_v);
+                p_v->act[0] = (act_t){A_TURN, d >= 0 ? 90 : -90};
+                p_v->act[1] = (act_t){A_MOVE, fabs(d)};
+                p_v->act[2] = (act_t){A_TURN, 0};
+                p_v->n = 3;
+                break;
+            }
         case B5_REQ_ADVANCE:
-        {
-            if ((p_r->forward_mm <= nav_x(p_v)) || (fabs(nav_h(p_v)) > 8))
             {
-                p_v->failed = true;
-                return false;
+                if ((p_r->forward_mm <= nav_x(p_v)) || (fabs(nav_h(p_v)) > 8))
+                {
+                    p_v->failed = true;
+                    return false;
+                }
+
+                float64_t dx = p_r->forward_mm - nav_x(p_v),
+                dy = p_r->lateral_mm - nav_y(p_v);
+                float64_t b = atan2(dy, dx) / D2R;
+
+                if (b > 8)
+                {
+                    b = 8;
+                }
+
+                if (b < -8)
+                {
+                    b = -8;
+                }
+
+                p_v->act[0] = (act_t){A_TURN, b};
+                p_v->act[1] = (act_t){A_MOVE, dx / cos(b * D2R)};
+                p_v->act[2] = (act_t){A_TURN, 0};
+                p_v->n = 3;
+                break;
             }
-
-            float64_t dx = p_r->forward_mm - nav_x(p_v),
-                    dy = p_r->lateral_mm - nav_y(p_v);
-            float64_t b = atan2(dy, dx) / D2R;
-
-            if (b > 8)
-            {
-                b = 8;
-            }
-
-            if (b < -8)
-            {
-                b = -8;
-            }
-
-            p_v->act[0] = (act_t){A_TURN, b};
-            p_v->act[1] = (act_t){A_MOVE, dx / cos(b * D2R)};
-            p_v->act[2] = (act_t){A_TURN, 0};
-            p_v->n = 3;
-            break;
-        }
         case B5_REQ_RECOVER_LINE:
-        p_v->recover_side = (nav_y(p_v) > 0) ? -1 : 1;
-        build_recover(p_v, false);
+            p_v->recover_side = (nav_y(p_v) > 0) ? -1 : 1;
+            build_recover(p_v, false);
         break;
         case B5_REQ_RESUME_LINE:
         break;
         default:
-        p_v->active = false;
-        return false;
+            p_v->active = false;
+            return false;
     }
 
     return true;
@@ -608,7 +608,7 @@ static void veh_step (const scen_t * s, veh_t * p_v, float64_t now,
     if ((B5_REQ_RECOVER_LINE == p_v->req.kind) && (p_v->issued)
         && (p_v->idx < p_v->n)
         && (A_SWEEP == p_v->act[p_v->idx].k) && (!p_v->sweep_stop)
-                && (2 == p_v->mot))
+        && (2 == p_v->mot))
     {
         if ((!p_v->tape_in) && (fr.fresh) && (0 == fr.ang)
             && (fr.fr_mm != B5_CLEAR_FRONT_MM)
@@ -735,7 +735,7 @@ static void veh_step (const scen_t * s, veh_t * p_v, float64_t now,
         if (B5_REQ_ADVANCE == p_v->req.kind)
         {
             b_pose = b_pose && (fabs(nav_x(p_v)
-                                 - p_v->req.forward_mm) <= B5_ADV_TOL_X_MM)
+                                     - p_v->req.forward_mm) <= B5_ADV_TOL_X_MM)
                     && (fabs(nav_y(p_v)
                              - p_v->req.lateral_mm) <= B5_ADV_TOL_Y_MM);
         }
@@ -1019,7 +1019,7 @@ static result_t run (const scen_t * s, int32_t verbose)
             printf("   t=%6.2f state=%-13s phase=%d pose x=%6.0f y=%5.0f "
                    "h=%5.1f "
                    "front=%d\n", t, b5_state_name(core.state), core.phase,
-                           nav_x(&v),
+                   nav_x(&v),
                    nav_y(&v), nav_h(&v),
                    B5_CLEAR_FRONT_MM == core.front_clearance_mm ? -1
                    : core.front_clearance_mm);
@@ -1185,7 +1185,8 @@ int main (int argc, char ** argv)
         char buf[200] = "";
 
         for (int32_t sd = ((only >= 0)
-                       && (argc > 3) ? atoi(argv[3]) : 1); sd <= nseed; sd++)
+                           && (argc > 3) ? atoi(argv[3])
+                                   : 1); sd <= nseed; sd++)
         {
             scen_t sc = S[i];
             sc.seed = (uint32_t)sd;
@@ -1226,9 +1227,9 @@ int main (int argc, char ** argv)
                              "%d) min_clear=%.0f state=%d "
                              "pos=(%.0f,%.0f,%.0f) t=%.1f "
                              "worst_t=%.2f", sd, r.ok, r.fault, r.halted,
-                                     r.vfailed,
+                             r.vfailed,
                              r.side, sc.expect_side, r.min_clear, r.state, r.fx,
-                                     r.fy,
+                             r.fy,
                              r.fh, r.t, r.worst_t / 1000.0);
                 }
             }

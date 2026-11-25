@@ -212,7 +212,7 @@ int32_t b5_core_angle (const b5_core_t * c)
 
     if ((B5_LINE_RECOVERY == c->state)
         && ((PH_RECOVER == c->phase) || (PH_RETURN == c->phase))
-                && (!c->fb_front_ok))
+        && (!c->fb_front_ok))
     {
         /* Looks the navigation asks for after it turns to face the line: ahead,
          * half
@@ -460,286 +460,298 @@ void b5_core_update (b5_core_t * c, uint32_t now, const b5_feedback_t * f,
     switch (c->state)
     {
         case B5_MONITORING:
-        if (now < c->cooldown_until_ms)
-        {
-            c->hit_count = 0;
-            break;
-        }
-#if !B5_SCAN_ONLY
-        if (!(f && (f->valid)))
-        {
-            break;
-        }
-#endif
-        if (b_fresh_front)
-        {
-            if (c->front_clearance_mm <= (int32_t)B5_STOP_FRONT_MM)
-            {
-                if (++c->hit_count >= B5_TRIGGER_COUNT)
-                {
-                    c->hit_count = 0;
-                    c->stop_front_mm = c->front_clearance_mm;
-                    c->blocked_mask = 0;
-#if B5_SCAN_ONLY
-                    memset(&c->scan, 0, sizeof(c->scan));
-                    c->slot = 0;
-                    set_state(c, B5_SCANNING, now);
-#else
-                    issue(c, B5_REQ_STOP, now, 0, 0);
-                    set_state(c, B5_WAIT_STOP, now);
-#endif
-                }
-            }
-            else
+            if (now < c->cooldown_until_ms)
             {
                 c->hit_count = 0;
-            }
-        }
-        break;
-        case B5_WAIT_STOP:
-        if (b_done && (f->stopped))
-        {
-            memset(&c->scan, 0, sizeof(c->scan));
-            c->slot = 0;
-            set_state(c, B5_SCANNING, now);
-        }
-        else if ((uint32_t)(now - c->state_since_ms) > B5_REQUEST_TIMEOUT_MS)
-        {
-            b5_core_fail(c, B5_FAULT_TIMEOUT, now);
-        }
-        else
-        {
-            /* no action required */
-        }
-        break;
-        case B5_SCANNING:
-        if (range && (c->slot < B5_SCAN_POINTS))
-        {
-            int32_t idx = c->slot;
-
-            if (b5_range_no_echo(range))
-            {
-                b5_scan_set(&c->scan, idx, B5_SCAN_NO_ECHO, 0u);
-            }
-            else if (range->valid)
-            {
-                b5_scan_set(&c->scan, idx, B5_SCAN_ECHO, range->distance_mm);
-            }
-            else
-            {
-                b5_scan_set(&c->scan, idx, 0u, 0u);
-            }
-
-            if (++c->slot >= B5_SCAN_POINTS)
-            {
-                set_state(c, B5_PROCESSING, now);
-            }
-        }
-        else if ((uint32_t)(now - c->state_since_ms) > B5_SCAN_TIMEOUT_MS)
-        {
-            b5_core_fail(c, B5_FAULT_TIMEOUT, now);
-        }
-        else
-        {
-            /* no action required */
-        }
-
-        if (B5_PROCESSING == c->state)
-        {
-            do_processing(c, now);
-        }
-        break;
-        case B5_PROCESSING:
-        do_processing(c, now);
-        break;
-        case B5_AVOIDING:
-        if ((uint32_t)(now - c->avoid_since_ms) > B5_AVOID_TIMEOUT_MS)
-        {
-            b5_core_fail(c, B5_FAULT_TIMEOUT, now);
-            break;
-        }
-
-        switch (c->phase)
-        {
-            case PH_LOOK:
-            if (b_done)
-            {
-                c->phase = PH_CHECK1;
-                begin_check(c, now);
-            }
-            break;
-            case PH_CHECK1:
-            {
-                chk_t r = route_check(c, now, b_fresh_front,
-                                      need_clearance(c->offset_mm), 0,
-                                      0);
-
-                if (CHK_CLEAR == r)
-                {
-                    c->phase = PH_BYPASS;
-                    issue(c, B5_REQ_BYPASS, now, 0, c->side * c->offset_mm);
-                }
-                else if (CHK_BLOCKED == r)
-                {
-                    c->blocked_mask |= (uint8_t)(1u << (c->side > 0 ? 0 : 1));
-
-                    if (other_side_ok(c))
-                    {
-                        switch_side(c, now);
-                    }
-                    else
-                    {
-                        c->phase = PH_UNWIND;
-                        issue(c, B5_REQ_LOOK, now, 0, 0);
-                    }   /* turn back square to the line, then stop */
-                }
-                else
-                {
-                    /* no action required */
-                }
                 break;
             }
-            case PH_UNWIND:
-            if (b_done)
+#if !B5_SCAN_ONLY
+            if (!(f && (f->valid)))
             {
-                b5_core_fail(c, B5_FAULT_NO_ROUTE, now);
-            }
-            break;
-            case PH_BYPASS:
-            if (b_done)
-            {
-                c->phase = PH_CHECK2;
-                begin_check(c, now);
-            }
-            break;
-            case PH_CHECK2:
-            {
-                int32_t fx = f ? f->forward_mm : 0;
-                int32_t xs = fx + B5_AXLE_TO_SENSOR_MM;
-                int32_t lo = 0;
-                int32_t hi = 0;
-
-                if (c->x_face_mm > xs)
-                {
-                    /* Echoes the wide cone could return from the box itself are
-                     * not obstacles
-                     * in the pass. */
-                    float32_t gap = (float32_t)(c->offset_mm - c->edge_near_mm);
-                    float32_t dlo = (float32_t)(c->x_face_mm - xs),
-                    dhi = (float32_t)(c->x_face_mm + B5_BOX_LENGTH_MM
-                                  + B5_BOX_DEPTH_TOL_MM
-                                  - xs);
-                    lo = (int32_t)sqrtf(dlo * dlo + gap * gap) - 40
-                            - B5_FRONT_OVERHANG_MM;
-                    hi = (int32_t)sqrtf(dhi * dhi + gap * gap) + 40
-                            - B5_FRONT_OVERHANG_MM;
-                }
-
-                chk_t r = route_check(c, now, b_fresh_front,
-                                      need_clearance(c->pass_x_mm - fx),
-                                      lo, hi);
-
-                if (CHK_CLEAR == r)
-                {
-                    c->phase = PH_ADVANCE;
-                    c->adv_close = 0u;
-                    issue(c, B5_REQ_ADVANCE, now, c->pass_x_mm,
-                          c->side * c->offset_mm);
-                }
-                else if (CHK_BLOCKED == r)
-                {
-                    c->blocked_mask |= (uint8_t)(1u << (c->side > 0 ? 0 : 1));
-                    /* go back to the line, scan again without this side */
-                    start_recover(c, now, PH_RETURN);
-                }
-                else
-                {
-                    /* no action required */
-                }
                 break;
             }
-            case PH_ADVANCE:
-            /* The controller ignores its own forward guard during the pass, so
-             * the stop
-             * is decided here. The car is beside
-             * the box and cannot recover from a standstill here: a close echo
-             * ahead
-             * halts the vehicle (error state). */
+#endif
             if (b_fresh_front)
             {
-                if (c->front_clearance_mm <= (int32_t)B5_ADVANCE_STOP_MM)
+                if (c->front_clearance_mm <= (int32_t)B5_STOP_FRONT_MM)
                 {
-                    if (++c->adv_close < 2u)
+                    if (++c->hit_count >= B5_TRIGGER_COUNT)
                     {
-                    }
-                    else
-                    {
-                        b5_core_fail(c, B5_FAULT_NO_ROUTE, now);
-                        break;
+                        c->hit_count = 0;
+                        c->stop_front_mm = c->front_clearance_mm;
+                        c->blocked_mask = 0;
+#if B5_SCAN_ONLY
+                        memset(&c->scan, 0, sizeof(c->scan));
+                        c->slot = 0;
+                        set_state(c, B5_SCANNING, now);
+#else
+                        issue(c, B5_REQ_STOP, now, 0, 0);
+                        set_state(c, B5_WAIT_STOP, now);
+#endif
                     }
                 }
                 else
                 {
-                    c->adv_close = 0u;
+                    c->hit_count = 0;
                 }
             }
-
-            if (b_done)
-            {
-                start_recover(c, now, PH_RECOVER);
-            }
-            break;
-            default:
-            break;
-        }
         break;
-        case B5_LINE_RECOVERY:
-        if (((uint32_t)(now - c->avoid_since_ms) > B5_AVOID_TIMEOUT_MS)
-            && (PH_RESUME != c->phase))
-        {
-            b5_core_fail(c, B5_FAULT_TIMEOUT, now);
-            break;
-        }
-
-        switch (c->phase)
-        {
-            case PH_RECOVER:
-            if (b_done)
-            {
-                c->phase = PH_RESUME;
-                issue(c, B5_REQ_RESUME_LINE, now, 0, 0);
-            }
-            break;
-            case PH_RETURN:
-            if (b_done)
-            {
-                c->phase = PH_RESCAN_STOP;
-                issue(c, B5_REQ_STOP, now, 0, 0);
-            }   /* STOP re-zeroes the origin on the line */
-            break;
-            case PH_RESCAN_STOP:
+        case B5_WAIT_STOP:
             if (b_done && (f->stopped))
             {
                 memset(&c->scan, 0, sizeof(c->scan));
                 c->slot = 0;
                 set_state(c, B5_SCANNING, now);
-                c->phase = PH_NONE;
             }
-            break;
-            case PH_RESUME:
-            if (b_done)
+            else if ((uint32_t)(now
+                                - c->state_since_ms) > B5_REQUEST_TIMEOUT_MS)
             {
-                c->false_alarms = (c->profile.valid) ? 0u : c->false_alarms;
-                c->blocked_mask = 0;
-                c->phase = PH_NONE;
-                c->hit_count = 0;
-                c->cooldown_until_ms = now + B5_RESUME_COOLDOWN_MS;
-                set_state(c, B5_MONITORING, now);
+                b5_core_fail(c, B5_FAULT_TIMEOUT, now);
             }
-            break;
-            default:
-            break;
-        }
+            else
+            {
+                /* no action required */
+            }
+        break;
+        case B5_SCANNING:
+            if (range && (c->slot < B5_SCAN_POINTS))
+            {
+                int32_t idx = c->slot;
+
+                if (b5_range_no_echo(range))
+                {
+                    b5_scan_set(&c->scan, idx, B5_SCAN_NO_ECHO, 0u);
+                }
+                else if (range->valid)
+                {
+                    b5_scan_set(&c->scan, idx, B5_SCAN_ECHO,
+                                range->distance_mm);
+                }
+                else
+                {
+                    b5_scan_set(&c->scan, idx, 0u, 0u);
+                }
+
+                if (++c->slot >= B5_SCAN_POINTS)
+                {
+                    set_state(c, B5_PROCESSING, now);
+                }
+            }
+            else if ((uint32_t)(now - c->state_since_ms) > B5_SCAN_TIMEOUT_MS)
+            {
+                b5_core_fail(c, B5_FAULT_TIMEOUT, now);
+            }
+            else
+            {
+                /* no action required */
+            }
+
+            if (B5_PROCESSING == c->state)
+            {
+                do_processing(c, now);
+            }
+        break;
+        case B5_PROCESSING:
+            do_processing(c, now);
+        break;
+        case B5_AVOIDING:
+            if ((uint32_t)(now - c->avoid_since_ms) > B5_AVOID_TIMEOUT_MS)
+            {
+                b5_core_fail(c, B5_FAULT_TIMEOUT, now);
+                break;
+            }
+
+            switch (c->phase)
+            {
+                case PH_LOOK:
+                    if (b_done)
+                    {
+                        c->phase = PH_CHECK1;
+                        begin_check(c, now);
+                    }
+                break;
+                case PH_CHECK1:
+                    {
+                        chk_t r = route_check(c, now, b_fresh_front,
+                                              need_clearance(c->offset_mm), 0,
+                                              0);
+
+                        if (CHK_CLEAR == r)
+                        {
+                            c->phase = PH_BYPASS;
+                            issue(c, B5_REQ_BYPASS, now, 0,
+                                  c->side * c->offset_mm);
+                        }
+                        else if (CHK_BLOCKED == r)
+                        {
+                            c->blocked_mask |= (uint8_t)(1u << (c->side > 0 ? 0
+                                    : 1));
+
+                            if (other_side_ok(c))
+                            {
+                                switch_side(c, now);
+                            }
+                            else
+                            {
+                                c->phase = PH_UNWIND;
+                                issue(c, B5_REQ_LOOK, now, 0, 0);
+                            }   /* turn back square to the line, then stop */
+                        }
+                        else
+                        {
+                            /* no action required */
+                        }
+                        break;
+                    }
+                case PH_UNWIND:
+                    if (b_done)
+                    {
+                        b5_core_fail(c, B5_FAULT_NO_ROUTE, now);
+                    }
+                break;
+                case PH_BYPASS:
+                    if (b_done)
+                    {
+                        c->phase = PH_CHECK2;
+                        begin_check(c, now);
+                    }
+                break;
+                case PH_CHECK2:
+                    {
+                        int32_t fx = f ? f->forward_mm : 0;
+                        int32_t xs = fx + B5_AXLE_TO_SENSOR_MM;
+                        int32_t lo = 0;
+                        int32_t hi = 0;
+
+                        if (c->x_face_mm > xs)
+                        {
+                            /* Echoes the wide cone could return from the box
+                             * itself are
+                             * not obstacles
+                             * in the pass. */
+                            float32_t gap =
+                                    (float32_t)(c->offset_mm - c->edge_near_mm);
+                            float32_t dlo = (float32_t)(c->x_face_mm - xs),
+                            dhi = (float32_t)(c->x_face_mm + B5_BOX_LENGTH_MM
+                                              + B5_BOX_DEPTH_TOL_MM
+                                              - xs);
+                            lo = (int32_t)sqrtf(dlo * dlo + gap * gap) - 40
+                                    - B5_FRONT_OVERHANG_MM;
+                            hi = (int32_t)sqrtf(dhi * dhi + gap * gap) + 40
+                                    - B5_FRONT_OVERHANG_MM;
+                        }
+
+                        chk_t r = route_check(c, now, b_fresh_front,
+                                              need_clearance(c->pass_x_mm - fx),
+                                              lo, hi);
+
+                        if (CHK_CLEAR == r)
+                        {
+                            c->phase = PH_ADVANCE;
+                            c->adv_close = 0u;
+                            issue(c, B5_REQ_ADVANCE, now, c->pass_x_mm,
+                                  c->side * c->offset_mm);
+                        }
+                        else if (CHK_BLOCKED == r)
+                        {
+                            c->blocked_mask |= (uint8_t)(1u << (c->side > 0 ? 0
+                                    : 1));
+                            /* go back to the line, scan again without this side
+                             */
+                            start_recover(c, now, PH_RETURN);
+                        }
+                        else
+                        {
+                            /* no action required */
+                        }
+                        break;
+                    }
+                case PH_ADVANCE:
+                    /* The controller ignores its own forward guard during the
+                     * pass, so
+                     * the stop
+                     * is decided here. The car is beside
+                     * the box and cannot recover from a standstill here: a
+                     * close echo
+                     * ahead
+                     * halts the vehicle (error state). */
+                    if (b_fresh_front)
+                    {
+                        if (c->front_clearance_mm
+                            <= (int32_t)B5_ADVANCE_STOP_MM)
+                        {
+                            if (++c->adv_close < 2u)
+                            {
+                            }
+                            else
+                            {
+                                b5_core_fail(c, B5_FAULT_NO_ROUTE, now);
+                                break;
+                            }
+                        }
+                        else
+                        {
+                            c->adv_close = 0u;
+                        }
+                    }
+
+                    if (b_done)
+                    {
+                        start_recover(c, now, PH_RECOVER);
+                    }
+                break;
+                default:
+                break;
+            }
+        break;
+        case B5_LINE_RECOVERY:
+            if (((uint32_t)(now - c->avoid_since_ms) > B5_AVOID_TIMEOUT_MS)
+                && (PH_RESUME != c->phase))
+            {
+                b5_core_fail(c, B5_FAULT_TIMEOUT, now);
+                break;
+            }
+
+            switch (c->phase)
+            {
+                case PH_RECOVER:
+                    if (b_done)
+                    {
+                        c->phase = PH_RESUME;
+                        issue(c, B5_REQ_RESUME_LINE, now, 0, 0);
+                    }
+                break;
+                case PH_RETURN:
+                    if (b_done)
+                    {
+                        c->phase = PH_RESCAN_STOP;
+                        issue(c, B5_REQ_STOP, now, 0, 0);
+                    }   /* STOP re-zeroes the origin on the line */
+                break;
+                case PH_RESCAN_STOP:
+                    if (b_done && (f->stopped))
+                    {
+                        memset(&c->scan, 0, sizeof(c->scan));
+                        c->slot = 0;
+                        set_state(c, B5_SCANNING, now);
+                        c->phase = PH_NONE;
+                    }
+                break;
+                case PH_RESUME:
+                    if (b_done)
+                    {
+                        c->false_alarms =
+                                (c->profile.valid) ? 0u : c->false_alarms;
+                        c->blocked_mask = 0;
+                        c->phase = PH_NONE;
+                        c->hit_count = 0;
+                        c->cooldown_until_ms = now + B5_RESUME_COOLDOWN_MS;
+                        set_state(c, B5_MONITORING, now);
+                    }
+                break;
+                default:
+                break;
+            }
         break;
         default:
         break;

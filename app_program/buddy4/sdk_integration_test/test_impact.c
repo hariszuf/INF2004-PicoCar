@@ -218,7 +218,7 @@ static void ordinary_driving (void)
                         : (idx < 50 ? 1 : (idx < 80 ? (80 - idx) / 30.0f : 0));
                 float32_t a = sign * 0.20944f*fraction;
                 float32_t x = 0 == axis ? sinf(a) : 0,
-                        y = 1 == axis ? sinf(a) : 0;
+                y = 1 == axis ? sinf(a) : 0;
                 assert(!xyz(x + 0.05f*sinf(idx * 0.06f), y,
                             cosf(a) + 0.02f*sinf(idx * 0.4f)).possible_impact);
             }
@@ -521,7 +521,7 @@ static buddy4_result_t acquire (buddy4_imu_t * p_imu, uint64_t sample,
     /* Same freshness gate and corrected axes used by SDK and isolated MTK. */
     buddy4_impact_update(&d, p_imu->output.accel_g[0], p_imu->output.accel_g[1],
                          p_imu->output.accel_g[2], (BUDDY4_FRESH == result)
-                                 && (p_imu->output.valid)
+                         && (p_imu->output.valid)
                          && (p_imu->output.acceleration_valid),
                          p_imu->output.timestamp_us, now);
     return result;
@@ -837,7 +837,7 @@ static void recorded_short_impulses (const char * name, uint32_t expected_rows,
         buddy4_impact_update(&d, strtof(field[15], NULL),
                              strtof(field[16], NULL), strtof(field[17], NULL),
                              (BUDDY4_FRESH == atoi(field[2]))
-                                     && (atoi(field[3])) && (atoi(field[5])),
+                             && (atoi(field[3])) && (atoi(field[5])),
                              sample, now);
         assert((!d.output.possible_impact) && (0 == d.output.event_count));
 

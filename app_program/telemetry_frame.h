@@ -204,22 +204,22 @@ static inline uint32_t tf_encode_map (uint8_t * out, const char * p_codes)
         switch (p_codes[idx])
         {
             case 'N':
-            a = 0u;
+                a = 0u;
             break;
             case 'L':
-            a = 1u;
+                a = 1u;
             break;
             case 'S':
-            a = 2u;
+                a = 2u;
             break;
             case 'R':
-            a = 3u;
+                a = 3u;
             break;
             case 'U':
-            a = 4u;
+                a = 4u;
             break;
             default:
-            return 0u;
+                return 0u;
         }
 
         bitpack_put(out + 1, idx * TF_MAP_ACTION_BITS, TF_MAP_ACTION_BITS, a);

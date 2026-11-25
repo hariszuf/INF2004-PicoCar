@@ -13,16 +13,18 @@
 #define CONFIG_RETRY_US 1000000
 
 static int32_t bus_write (void * context, uint8_t address, const uint8_t * data,
-                      size_t count, bool b_no_stop)
+                          size_t count, bool b_no_stop)
 {
+    /* cast: result intentionally ignored */
     (void)context;
     return i2c_write_timeout_us(IMU_I2C_BUS, address, data, count, b_no_stop,
                                 BUDDY4_I2C_TIMEOUT_US);
 }
 
 static int32_t bus_read (void * context, uint8_t address, uint8_t * data,
-                     size_t count, bool b_no_stop)
+                         size_t count, bool b_no_stop)
 {
+    /* cast: result intentionally ignored */
     (void)context;
     return i2c_read_timeout_us(IMU_I2C_BUS, address, data, count, b_no_stop,
                                BUDDY4_I2C_TIMEOUT_US);

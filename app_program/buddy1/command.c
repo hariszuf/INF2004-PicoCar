@@ -37,19 +37,19 @@ LOCAL const char * command_type_to_string (uint8_t type)
     switch (type)
     {
         case COMMAND_TYPE_START:
-        return "START";
+            return "START";
 
         case COMMAND_TYPE_STOP:
-        return "STOP";
+            return "STOP";
 
         case COMMAND_TYPE_PAUSE:
-        return "PAUSE";
+            return "PAUSE";
 
         case COMMAND_TYPE_RESUME:
-        return "RESUME";
+            return "RESUME";
 
         default:
-        return "UNKNOWN";
+            return "UNKNOWN";
     }
 }
 
@@ -61,7 +61,9 @@ LOCAL void command_task (INT stacd, void * p_exinf)
     command_message_t message;
     INT received_size;
 
+    /* cast: result intentionally ignored */
     (void)stacd;
+    /* cast: result intentionally ignored */
     (void)p_exinf;
 
     for (;;)
@@ -108,8 +110,8 @@ ER buddy1_command_init (void)
     }
 
     s_command_buffer_id = tk_cre_mbf(
-                                   &command_buffer_config
-                                   );
+                                     &command_buffer_config
+                                     );
 
     if (s_command_buffer_id < E_OK)
     {
@@ -242,7 +244,7 @@ extern void b5_remote_command_intent (uint32_t command) __attribute__((weak));
  * reported back through telemetry.
  */
 extern int32_t junction_map_apply (const char * codes,
-                               uint32_t length) __attribute__((weak));
+                                   uint32_t length) __attribute__((weak));
 extern void junction_map_reset (void) __attribute__((weak));
 extern int32_t b5_run_active (void) __attribute__((weak));
 /* 0 none yet, 1 applied, 2 bad format, 3 rejected (car running) */

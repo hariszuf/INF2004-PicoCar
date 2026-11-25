@@ -15,7 +15,7 @@ typedef struct
     bool mismatch;
 } fake_t;
 static int32_t wr (void * p_ctx, uint8_t addr, const uint8_t * p, size_t n,
-               bool b_restart)
+                   bool b_restart)
 {
     fake_t * f = p_ctx;
     assert(0x1D == addr);
@@ -320,7 +320,7 @@ static void test_acceleration_calibration (void)
     {
         assert(fabsf(s.output.accel_g[idx]
                      - (s.output.uncorrected_accel_g[idx] + 0.1f)
-                             * 0.5f) < 1e-6f);
+                     * 0.5f) < 1e-6f);
     }
 }
 

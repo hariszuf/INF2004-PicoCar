@@ -118,6 +118,7 @@ int main (int argc, char ** argv)
     run_result_t r;
     int32_t verbose = (argc > 1) ? 1 : 0;
 
+    /* cast: result intentionally ignored */
     (void)argv;
 
     motion_init();

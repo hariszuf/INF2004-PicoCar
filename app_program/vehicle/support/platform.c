@@ -111,6 +111,7 @@ static void gpio_dispatch (UINT intno)
 {
     uint32_t status = REG(0x40014120u);
     uint32_t now = REG(0x40054028u);
+    /* cast: result intentionally ignored */
     (void)intno;
     /* Echo first, then both encoder pins. Clear only owned edge bits. */
     uint32_t echo = (status >> 28) & 12u;

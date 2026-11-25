@@ -41,7 +41,7 @@ bool buddy4_encoder_yaw_init (buddy4_encoder_yaw_t * d,
  */
 void buddy4_encoder_yaw_update (buddy4_encoder_yaw_t * d, float32_t left_cm_s,
                                 float32_t right_cm_s, bool valid,
-                                        uint64_t sample_us, uint64_t now_us);
+                                uint64_t sample_us, uint64_t now_us);
 /* Check age even when there are no incoming samples. */
 buddy4_encoder_yaw_output_t buddy4_encoder_yaw_get (buddy4_encoder_yaw_t * d,
         uint64_t now_us);

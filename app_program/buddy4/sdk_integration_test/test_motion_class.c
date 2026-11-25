@@ -44,11 +44,11 @@ static void cases (void)
         {0, 0, BUDDY4_MOTION_STOPPED}, {3, 3, BUDDY4_MOTION_FORWARD},
         {-3, -3, BUDDY4_MOTION_REVERSE}, {1, 3, BUDDY4_MOTION_TURNING_LEFT},
         {3, 1, BUDDY4_MOTION_TURNING_RIGHT}, {-3, -1,
-                BUDDY4_MOTION_TURNING_LEFT},
+            BUDDY4_MOTION_TURNING_LEFT},
         {-1, -3, BUDDY4_MOTION_TURNING_RIGHT}, {-3, 3,
             BUDDY4_MOTION_TURNING_LEFT},
         {3, -3, BUDDY4_MOTION_TURNING_RIGHT}, {0, 3,
-                BUDDY4_MOTION_TURNING_LEFT}};
+            BUDDY4_MOTION_TURNING_LEFT}};
 
     for (uint32_t idx = 0; idx < sizeof(cases) / sizeof(cases[0]); idx++)
     {

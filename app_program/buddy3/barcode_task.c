@@ -78,7 +78,9 @@ void barcode_scan_on_decoded (const barcode39_result_t * p_result)
 
 static void barcode_task (INT start_code, void * p_exinf)
 {
+    /* cast: result intentionally ignored */
     (void)start_code;
+    /* cast: result intentionally ignored */
     (void)p_exinf;
     barcode_scan_init();
 #if TM_CONSOLE_USB_CDC
@@ -101,6 +103,7 @@ static void barcode_task (INT start_code, void * p_exinf)
                       (uint32_t)barcode_scan_last_fail());
         }
 #endif
+        /* cast: result intentionally ignored */
         (void)tk_dly_tsk(1);
     }
 }
@@ -124,6 +127,7 @@ ER buddy3_barcode_start (void)
 
     if (result < E_OK)
     {
+        /* cast: result intentionally ignored */
         (void)tk_del_tsk(task);
     }
 

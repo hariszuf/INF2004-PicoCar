@@ -35,9 +35,9 @@ bool buddy4_motion_init (buddy4_motion_t * c, buddy4_motion_config_t cfg)
             && (isfinite(cfg.stop_exit_cm_s)) &&
             (isfinite(cfg.turn_enter_cm_s)) && (isfinite(cfg.turn_exit_cm_s)) &&
             (cfg.stop_enter_cm_s >= 0)
-                    && (cfg.stop_exit_cm_s > cfg.stop_enter_cm_s) &&
+            && (cfg.stop_exit_cm_s > cfg.stop_enter_cm_s) &&
             (cfg.turn_exit_cm_s > 0)
-                    && (cfg.turn_enter_cm_s > cfg.turn_exit_cm_s) &&
+            && (cfg.turn_enter_cm_s > cfg.turn_exit_cm_s) &&
             (cfg.confirm_us > 0) && (cfg.stale_us > 0);
     return c->configured;
 }
@@ -143,17 +143,17 @@ const char * buddy4_motion_name (buddy4_motion_state_t s)
     switch (s)
     {
         case BUDDY4_MOTION_STOPPED:
-        return "STOPPED";
+            return "STOPPED";
         case BUDDY4_MOTION_FORWARD:
-        return "FORWARD";
+            return "FORWARD";
         case BUDDY4_MOTION_REVERSE:
-        return "REVERSE";
+            return "REVERSE";
         case BUDDY4_MOTION_TURNING_LEFT:
-        return "TURNING_LEFT";
+            return "TURNING_LEFT";
         case BUDDY4_MOTION_TURNING_RIGHT:
-        return "TURNING_RIGHT";
+            return "TURNING_RIGHT";
         default:
-        return "UNKNOWN";
+            return "UNKNOWN";
     }
 }
 

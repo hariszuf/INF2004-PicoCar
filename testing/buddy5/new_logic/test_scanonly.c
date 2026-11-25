@@ -8,10 +8,10 @@
 #define D2R 0.017453292519943295
 static float64_t ray_box (float64_t ox, float64_t oy, float64_t dx,
                           float64_t dy, float64_t x0,
-                       float64_t x1, float64_t y0, float64_t y1)
+                          float64_t x1, float64_t y0, float64_t y1)
 {
     float64_t t0 = 0, t1 = 1e9, o[2] = {ox, oy}, d[2] = {dx, dy}, lo[2] = {x0,
-            y0},
+        y0},
     hi[2] = {x1, y1};
 
     for (int32_t idx = 0; idx < 2; idx++)
@@ -26,7 +26,7 @@ static float64_t ray_box (float64_t ox, float64_t oy, float64_t dx,
         else
         {
             float64_t a = (lo[idx] - o[idx]) / d[idx],
-                    b = (hi[idx] - o[idx]) / d[idx];
+            b = (hi[idx] - o[idx]) / d[idx];
 
             if (a > b)
             {
@@ -64,9 +64,9 @@ static float64_t rnd (void)
 
 static int32_t run (float64_t face_x, float64_t cy, float64_t width,
                     float64_t noise,
-                int32_t * requests, int32_t * p_wout, int32_t * p_valid_out,
-                        int32_t * p_le,
-                int32_t * p_re)
+                    int32_t * requests, int32_t * p_wout, int32_t * p_valid_out,
+                    int32_t * p_le,
+                    int32_t * p_re)
 {
     b5_core_t c;
     b5_core_init(&c, 0);
@@ -176,8 +176,8 @@ int main (void)
             int32_t le = 0;
             int32_t re = 0;
             int32_t r = run(300 + B5_AXLE_TO_SENSOR_MM - 80 + 80, offs[o] * -1,
-                        widths[w],
-                        4, &rq, &wm, &val, &le, &re);
+                            widths[w],
+                            4, &rq, &wm, &val, &le, &re);
             float64_t err = wm - widths[w];
             printf("true width %3.0f  centre offset %+3.0f -> reported %4d mm "
                    "(L "

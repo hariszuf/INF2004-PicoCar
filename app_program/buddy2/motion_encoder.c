@@ -32,6 +32,7 @@ static uint32_t edge_events (void)
 
 void motion_encoder_irq_handler (uint32_t gpio, uint32_t events)
 {
+    /* cast: result intentionally ignored */
     (void)events;
 
     if (MOTION_PIN_LEFT_ENCODER == gpio)

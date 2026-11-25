@@ -23,14 +23,18 @@
  */
 void motion_task_entry (INT stacd, void * p_exinf)
 {
+    /* cast: result intentionally ignored */
     (void)stacd;
+    /* cast: result intentionally ignored */
     (void)p_exinf;
 
+    /* cast: result intentionally ignored */
     (void)motion_init();
 
     for (;;)
     {
         motion_update();
+        /* cast: result intentionally ignored */
         (void)tk_dly_tsk((TMO)MOTION_UPDATE_PERIOD_MS);
     }
 }

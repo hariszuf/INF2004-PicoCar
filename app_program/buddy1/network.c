@@ -28,7 +28,9 @@ LOCAL void network_status_task (INT stacd, void * p_exinf)
     uint32_t dhcp_reported = 0U;
     uint32_t dns_reported = 0U;
 
+    /* cast: result intentionally ignored */
     (void)stacd;
+    /* cast: result intentionally ignored */
     (void)p_exinf;
 
 

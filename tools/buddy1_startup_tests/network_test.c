@@ -49,6 +49,7 @@ void lwip_utk_assert (const char * message)
 
 int32_t tm_printf (const uint8_t * p_format, ...)
 {
+    /* cast: result intentionally ignored */
     (void)p_format;
     return 0;
 }
@@ -124,6 +125,7 @@ static void mp_memory_barrir (void)
 /* The IPv4 diagnostic adopter is not a DHCP or MQTT prerequisite. */
 static int32_t lwip_utk_ipv4_adopt_netif (struct netif * n)
 {
+    /* cast: result intentionally ignored */
     (void)n;
     return ERR_OK;
 }
@@ -215,6 +217,7 @@ static void inspect_mqtt (const uint8_t * p, uint32_t length)
 static err_t wire_output (struct netif * n, struct pbuf * p)
 {
     uint8_t frame[1600];
+    /* cast: result intentionally ignored */
     (void)n;
     assert(p->tot_len <= sizeof(frame));
     pbuf_copy_partial(p, frame, p->tot_len, 0);
@@ -307,8 +310,8 @@ static void deliver (const void * p_frame, uint32_t size)
 
 static struct ip_hdr
         * ip_header (uint8_t * p_frame, uint32_t size, u8_t proto,
-                                  const ip4_addr_t * p_src,
-                                          const ip4_addr_t * p_dst)
+                     const ip4_addr_t * p_src,
+                     const ip4_addr_t * p_dst)
 {
     struct eth_hdr * eth = (void *)p_frame;
     memcpy(eth->src.addr, peer_mac, 6);

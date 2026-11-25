@@ -807,7 +807,7 @@ static void recorded_ramp (const char * name, uint32_t expected_rows,
         control.mode = (drive_mode_t)atoi(field[29]);
         motor.state =
                 b_held ? MOTION_STATE_EXECUTING
-                        : (motion_state_t)atoi(field[39]);
+                : (motion_state_t)atoi(field[39]);
         motor.fault =
                 b_held ? MOTION_FAULT_NONE : (motion_fault_t)atoi(field[40]);
         s_imu.output.valid = (0 != atoi(field[3])) && (0 == atoi(field[2]));

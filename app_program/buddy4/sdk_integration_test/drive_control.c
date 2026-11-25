@@ -26,12 +26,12 @@ bool drive_imu_usable (const buddy4_imu_t * p_imu)
     return (p_imu->ready) && (p_o->valid) && (p_o->acceleration_valid)
             && (p_o->tilt_valid) &&
             (BUDDY4_QUALITY_GRAVITY_LIKE == p_o->quality)
-                    && (!p_o->clipped_axes) &&
+            && (!p_o->clipped_axes) &&
             (isfinite(p_o->magnitude_g)) && (isfinite(p_o->accel_g[0])) &&
             (isfinite(p_o->accel_g[1])) && (isfinite(p_o->accel_g[2])) &&
             (isfinite(p_o->pitch_deg)) && (isfinite(p_o->roll_deg)) &&
             (isfinite(p_o->filtered_pitch_deg))
-                    && (isfinite(p_o->filtered_roll_deg));
+            && (isfinite(p_o->filtered_roll_deg));
 }
 
 bool drive_imu_poll (drive_control_t * c, const buddy4_imu_t * p_imu,

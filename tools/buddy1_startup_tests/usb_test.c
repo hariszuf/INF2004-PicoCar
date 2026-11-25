@@ -53,6 +53,7 @@ uint32_t tm_tusb_write_available (void)
 
 void tm_tusb_write_char (char c)
 {
+    /* cast: result intentionally ignored */
     (void)c;
     assert(!"unexpected write");
 }
@@ -118,6 +119,7 @@ int32_t tk_sta_tsk (int32_t id, int32_t code)
 
 int32_t tk_del_tsk (int32_t id)
 {
+    /* cast: result intentionally ignored */
     (void)id;
     return 0;
 }

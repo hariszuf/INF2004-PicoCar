@@ -41,10 +41,10 @@ void buddy4_obstruction_sdk_init (buddy4_obstruction_sdk_t * a);
  */
 void buddy4_obstruction_sdk_note_update (buddy4_obstruction_sdk_t * a,
                                          const motion_status_t * status,
-                                                 const drive_control_t
-                                                         * p_demand,
+                                         const drive_control_t
+                                         * p_demand,
                                          uint64_t begin_us, uint64_t end_us,
-                                                 uint32_t skipped);
+                                         uint32_t skipped);
 /* Call AFTER serial/safety/mode processing on every loop, including loops with
  * no new motor/IMU poll. A processed S therefore cancels before confirmation.
  * A pending motor observation can wait for the next NEW IMU sample while all

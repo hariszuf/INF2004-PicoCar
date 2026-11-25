@@ -184,6 +184,7 @@ static void publish (void)
     if (tk_loc_mtx(data_mutex, TMO_FEVR) >= E_OK)
     {
         s_published = next;
+        /* cast: result intentionally ignored */
         (void)tk_unl_mtx(data_mutex);
     }
 }
@@ -221,6 +222,7 @@ static void process_once (uint64_t now)
         speed = s_mailbox;
         b_reset_run = s_pending_run_reset;
         s_pending_run_reset = false;
+        /* cast: result intentionally ignored */
         (void)tk_unl_mtx(data_mutex);
     }
 
@@ -234,6 +236,7 @@ static void process_once (uint64_t now)
 
     if ((!s_imu.ready) && (now >= s_retry_us))
     {
+        /* cast: result intentionally ignored */
         (void)buddy4_configure(&s_imu);
         s_retry_us = now + RETRY_US;
     }
@@ -261,8 +264,9 @@ static void process_once (uint64_t now)
 
     /* At most one bounded verification per second, before acquisition. */
     if ((s_imu.ready) && ((0 == next.config_checked_us) ||
-                        (acquired - next.config_checked_us >= RETRY_US)))
+                          (acquired - next.config_checked_us >= RETRY_US)))
     {
+        /* cast: result intentionally ignored */
         (void)buddy4_verify_config(&s_imu);
         next.config_checked_us = acquired;
     }
@@ -286,7 +290,7 @@ static void process_once (uint64_t now)
      * invalid_release_us. */
     buddy4_lift_update(&s_lift, p_o->accel_g[0], p_o->accel_g[1],
                        p_o->accel_g[2], (BUDDY4_FRESH == result) && (p_o->valid)
-                               && (p_o->tilt_valid),
+                       && (p_o->tilt_valid),
                        p_o->timestamp_us, acquired);
 
     if (!speed.valid)
@@ -372,7 +376,9 @@ static void process_once (uint64_t now)
  * The handler only sets one coalescing bit: no I/O, mutex, logging or math. */
 static void release_handler (void * p_unused)
 {
+    /* cast: result intentionally ignored */
     (void)p_unused;
+    /* cast: result intentionally ignored */
     (void)tk_set_flg(release_flag, 1u);
 }
 
@@ -409,7 +415,9 @@ static bool claim_release (uint64_t * target, bool * p_started, uint64_t now)
 
 static void sensor_task (INT code, void * p_info)
 {
+    /* cast: result intentionally ignored */
     (void)code;
+    /* cast: result intentionally ignored */
     (void)p_info;
     uint64_t target = 0;
     bool b_started = false;
@@ -436,6 +444,7 @@ static void sensor_task (INT code, void * p_info)
             publish();
             /* Failure backoff only, never part of the normal sampling cadence.
              */
+            /* cast: result intentionally ignored */
             (void)tk_dly_tsk(20);
             continue;
         }
@@ -467,14 +476,18 @@ ER buddy4_task_init (void)
 
     if (dd < E_OK)
     {
+        /* cast: result intentionally ignored */
         (void)tk_del_mtx(data_mutex);
         return (ER)dd;
     }
 
     device = (buddy4_device_t){.descriptor = (int32_t)dd};
     buddy4_init(&s_imu, buddy4_device_bus(&device), buddy4_default_config());
+    /* cast: result intentionally ignored */
     (void)buddy4_lift_init(&s_lift, buddy4_lift_default_config());
+    /* cast: result intentionally ignored */
     (void)buddy4_motion_init(&s_motion, buddy4_motion_default_config());
+    /* cast: result intentionally ignored */
     (void)buddy4_encoder_yaw_init(&s_yaw, buddy4_encoder_yaw_default_config());
     memset(&next, 0, sizeof(next));
     memset(&s_mailbox, 0, sizeof(s_mailbox));
@@ -510,6 +523,7 @@ ER buddy4_task_start (void)
 
     if (release_flag < E_OK)
     {
+        /* cast: result intentionally ignored */
         (void)tk_del_tsk(id);
         return release_flag;
     }
@@ -532,11 +546,15 @@ ER buddy4_task_start (void)
     {
         if (release_cyclic >= E_OK)
         {
+            /* cast: result intentionally ignored */
             (void)tk_stp_cyc(release_cyclic);
+            /* cast: result intentionally ignored */
             (void)tk_del_cyc(release_cyclic);
         }
 
+        /* cast: result intentionally ignored */
         (void)tk_del_flg(release_flag);
+        /* cast: result intentionally ignored */
         (void)tk_del_tsk(id);
         release_flag = release_cyclic = 0;
         return e;

@@ -72,16 +72,16 @@ static motion_result_t issue_step (const demo_step_t * p_step)
     switch (p_step->action)
     {
         case DEMO_FORWARD:
-        result = motion_move_forward(p_step->value);
+            result = motion_move_forward(p_step->value);
         break;
         case DEMO_BACKWARD:
-        result = motion_move_backward(p_step->value);
+            result = motion_move_backward(p_step->value);
         break;
         case DEMO_LEFT:
-        result = motion_turn_left(p_step->value);
+            result = motion_turn_left(p_step->value);
         break;
         default:
-        result = motion_turn_right(p_step->value);
+            result = motion_turn_right(p_step->value);
         break;
     }
 
@@ -101,7 +101,9 @@ int main (void)
     stdio_init_all();
     sleep_ms(DEMO_START_DELAY_MS);
 
+    /* cast: result intentionally ignored */
     (void)motion_init();
+    /* cast: result intentionally ignored */
     (void)motion_reset_odometry();
 
     now_ms = to_ms_since_boot(get_absolute_time());
@@ -142,6 +144,7 @@ int main (void)
         {
             if (step < ROUTE_STEPS)
             {
+                /* cast: result intentionally ignored */
                 (void)issue_step(&s_route[step]);
                 step++;
             }

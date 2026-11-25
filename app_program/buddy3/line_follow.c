@@ -99,6 +99,7 @@ static void drive (float32_t left, float32_t right)
      */
     s_left_cmd = left == right ? left : left * LINE_LEFT_WHEEL_SCALE;
     s_right_cmd = left == right ? right : right * LINE_RIGHT_WHEEL_SCALE;
+    /* cast: result intentionally ignored */
     (void)motion_drive(s_left_cmd, s_right_cmd);
 }
 
@@ -246,6 +247,7 @@ static void rj_pivot (float32_t dir, float32_t speed)
     s_rj_dir = dir;
     s_left_cmd = -dir * speed;
     s_right_cmd = dir * speed;
+    /* cast: result intentionally ignored */
     (void)motion_drive(s_left_cmd, s_right_cmd);
 }
 
@@ -339,6 +341,7 @@ static void junction_start_search (void)
 #endif
     s_left_cmd = (JUNCTION_LEFT == s_junction_action) ? -v : v;
     s_right_cmd = -s_left_cmd;
+    /* cast: result intentionally ignored */
     (void)motion_drive(s_left_cmd, s_right_cmd);
 }
 
@@ -522,58 +525,59 @@ static void junction_step (void)
     switch (s_junction)
     {
         case J_STOPPING:
-        s_junction_ms = 0u;
-        s_junction = J_WAITING;
+            s_junction_ms = 0u;
+            s_junction = J_WAITING;
         break;
         case J_WAITING:
-        if (s_junction_ms < LINE_JUNCTION_PAUSE_MS)
-        {
-            break;
-        }
-
-        s_junction_ms = 0u;
-
-        if (JUNCTION_STRAIGHT == s_junction_action)
-        {
-            if (MOTION_OK != motion_move_forward(LINE_JUNCTION_CROSS_CM))
+            if (s_junction_ms < LINE_JUNCTION_PAUSE_MS)
             {
-                junction_abort();
-                return;
+                break;
             }
 
-            s_junction = J_CROSSING;
-        }
-        else if (LINE_JUNCTION_ADVANCE_CM > 0.0f)
-        {
-            if (MOTION_OK != motion_move_forward(LINE_JUNCTION_ADVANCE_CM))
-            {
-                junction_abort();
-                return;
-            }
+            s_junction_ms = 0u;
 
-            s_junction = J_ADVANCING;
-        }
-        else
-        {
-            junction_start_turn();
-        }
+            if (JUNCTION_STRAIGHT == s_junction_action)
+            {
+                if (MOTION_OK != motion_move_forward(LINE_JUNCTION_CROSS_CM))
+                {
+                    junction_abort();
+                    return;
+                }
+
+                s_junction = J_CROSSING;
+            }
+            else if (LINE_JUNCTION_ADVANCE_CM > 0.0f)
+            {
+                if (MOTION_OK != motion_move_forward(LINE_JUNCTION_ADVANCE_CM))
+                {
+                    junction_abort();
+                    return;
+                }
+
+                s_junction = J_ADVANCING;
+            }
+            else
+            {
+                junction_start_turn();
+            }
         break;
         case J_ADVANCING:
-        junction_start_turn();
+            junction_start_turn();
         break;
         case J_TURNING:
-        junction_start_search();
+            junction_start_search();
         break;
         case J_CROSSING:
-        /* Done: carry on following the line. Detection stays off until a sensor
-         * sees white. */
-        s_junction = J_NONE;
-        s_state = LINE_STATE_STRAIGHT;
-        s_lost_ms = 0u;
-        s_side_ms = 0u;
+            /* Done: carry on following the line. Detection stays off until a
+             * sensor
+             * sees white. */
+            s_junction = J_NONE;
+            s_state = LINE_STATE_STRAIGHT;
+            s_lost_ms = 0u;
+            s_side_ms = 0u;
         break;
         default:
-        s_junction = J_NONE;
+            s_junction = J_NONE;
         break;
     }
 }

@@ -29,7 +29,7 @@ bool buddy4_lift_init (buddy4_lift_t * d, buddy4_lift_config_t c)
             (c.overturn_deg >= c.tilt_enter_deg) && (c.accel_exit_g >= 0) &&
             (c.accel_enter_g > c.accel_exit_g) && (c.tilt_confirm_us > 0) &&
             (c.accel_confirm_us > 0) && (c.clear_us > 0)
-                    && (c.max_gap_us > 0) &&
+            && (c.max_gap_us > 0) &&
             (c.invalid_release_us > 0);
     return d->configured;
 }
@@ -44,13 +44,13 @@ const char * buddy4_lift_reason_name (int32_t reason)
     switch (reason)
     {
         case BUDDY4_LIFT_TILTED:
-        return "TILTED";
+            return "TILTED";
         case BUDDY4_LIFT_OVERTURNED:
-        return "OVERTURNED";
+            return "OVERTURNED";
         case BUDDY4_LIFT_MOTION:
-        return "LIFT_MOTION";
+            return "LIFT_MOTION";
         default:
-        return "NONE";
+            return "NONE";
     }
 }
 

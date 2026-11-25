@@ -57,7 +57,7 @@ static void print_status (void)
     printf("state=%d fault=%d countL=%ld countR=%ld vL=%.1f vR=%.1f dist=%.2f "
            "cm head=%.2f deg\n",
            (int32_t)status.state, (int32_t)status.fault,
-                   (int32_t)status.left_count,
+           (int32_t)status.left_count,
            (int32_t)status.right_count, (float64_t)status.left_speed_cm_s,
            (float64_t)status.right_speed_cm_s, (float64_t)status.distance_cm,
            (float64_t)status.heading_deg);
@@ -70,9 +70,9 @@ static void print_csv_row (uint32_t time_ms)
     motion_get_status(&status);
     printf("%lu,%d,%ld,%ld,%.2f,%.2f,%.2f,%.2f\n", (uint32_t)time_ms,
            (int32_t)status.state, (int32_t)status.left_count,
-                   (int32_t)status.right_count,
+           (int32_t)status.right_count,
            (float64_t)status.left_speed_cm_s,
-                   (float64_t)status.right_speed_cm_s,
+           (float64_t)status.right_speed_cm_s,
            (float64_t)status.distance_cm, (float64_t)status.heading_deg);
 }
 
@@ -161,6 +161,7 @@ static void run_step_test (void)
     bool b_stopped = false;
 
     printf("\ntime_ms,state,countL,countR,vL,vR,dist,heading\n");
+    /* cast: result intentionally ignored */
     (void)motion_drive(20.0f, 20.0f);
 
     for (;;)
@@ -199,58 +200,59 @@ static void handle_command (int32_t key)
     switch (key)
     {
         case 'f':
-        (void)motion_move_forward(50.0f);
+            (void)motion_move_forward(50.0f);
         break;
         case 'F':
-        (void)motion_move_forward(100.0f);
+            (void)motion_move_forward(100.0f);
         break;
         case 'b':
-        (void)motion_move_backward(50.0f);
+            (void)motion_move_backward(50.0f);
         break;
         case 'l':
-        (void)motion_turn_left(90.0f);
+            (void)motion_turn_left(90.0f);
         break;
         case 'r':
-        (void)motion_turn_right(90.0f);
+            (void)motion_turn_right(90.0f);
         break;
         case 'u':
-        (void)motion_turn_left(180.0f);
+            (void)motion_turn_left(180.0f);
         break;
         case 'L':
-        (void)motion_turn_left(360.0f);
+            (void)motion_turn_left(360.0f);
         break;
         case 's':
-        motion_stop();
+            motion_stop();
         break;
         case 'e':
-        motion_emergency_stop();
-        printf("EMERGENCY STOP\n");
+            motion_emergency_stop();
+            printf("EMERGENCY STOP\n");
         break;
         case 'x':
-        (void)motion_reset();
-        printf("reset\n");
+            (void)motion_reset();
+            printf("reset\n");
         break;
         case 'o':
-        printf("odometry reset result %d\n", (int32_t)motion_reset_odometry());
+            printf("odometry reset result %d\n",
+                   (int32_t)motion_reset_odometry());
         break;
         case 'p':
-        print_status();
+            print_status();
         break;
         case 'c':
-        s_logging = !s_logging;
-        printf("log %s\n", s_logging ? "on" : "off");
+            s_logging = !s_logging;
+            printf("log %s\n", s_logging ? "on" : "off");
         break;
         case 't':
-        run_step_test();
+            run_step_test();
         break;
         case 'd':
-        run_open_loop_sweep();
+            run_open_loop_sweep();
         break;
         case 'k':
-        run_brake_test();
+            run_brake_test();
         break;
         case 'h':
-        print_help();
+            print_help();
         break;
         default:
         break;
@@ -266,6 +268,7 @@ int main (void)
 
     stdio_init_all();
     sleep_ms(2000u);
+    /* cast: result intentionally ignored */
     (void)motion_init();
     print_help();
 

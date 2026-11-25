@@ -43,13 +43,14 @@ void buddy4_obstruction_init (buddy4_obstruction_t * d)
 
 void buddy4_obstruction_cancel (buddy4_obstruction_t * d, uint64_t now)
 {
+    /* cast: result intentionally ignored */
     (void)clock_ok(d, now);
     clear_evidence(d);
 }
 
 void buddy4_obstruction_update (buddy4_obstruction_t * d,
                                 const buddy4_obstruction_input_t * in,
-                                        uint64_t now)
+                                uint64_t now)
 {
     d->output.possible_obstruction = false;
 

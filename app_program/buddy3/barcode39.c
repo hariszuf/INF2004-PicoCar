@@ -278,8 +278,11 @@ bool barcode39_decode_elements (const uint32_t * p_w, uint8_t count,
 __attribute__((weak)) void barcode39_on_fail(const uint32_t * p_w, uint8_t n,
                                              uint8_t reason)
 {
+    /* cast: result intentionally ignored */
     (void)p_w;
+    /* cast: result intentionally ignored */
     (void)n;
+    /* cast: result intentionally ignored */
     (void)reason;
 }
 

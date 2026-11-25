@@ -36,6 +36,7 @@ static void step (void)
 
     if (s_imu_on)
     {
+        /* cast: result intentionally ignored */
         (void)motion_set_terrain(&s_imu);   /* IMU task: every 20 ms */
     }
 
@@ -105,6 +106,7 @@ static void fresh_start (void)
         run_for(1500);
     }
 
+    /* cast: result intentionally ignored */
     (void)motion_reset();
     run_for(1500);   /* lets any old terrain report go stale */
 }
@@ -134,6 +136,7 @@ static void test_flat_unchanged (void)
     printf("\n[flat ground: behaviour unchanged]\n");
     fresh_start();
     set_imu(0, 0.5f, 0, -0.3f);
+    /* cast: result intentionally ignored */
     (void)motion_drive(15.0f, 15.0f);
     run_for(1500);
     v = mean_speed(500);
@@ -157,6 +160,7 @@ static float64_t uphill_run (bool b_with_imu, motion_status_t * p_st,
     int32_t t;
     motion_status_t st;
     fresh_start();
+    /* cast: result intentionally ignored */
     (void)motion_drive(10.0f, 10.0f);
     run_for(1500);
     sim_set_load(MOTION_SIDE_LEFT, 0.15);
@@ -198,6 +202,7 @@ static void test_uphill (void)
     printf("  without IMU: lowest %.2f cm/s; with IMU: lowest %.2f cm/s, "
            "settled %.2f, assist %.3f\n",
            dip_no, dip, v, (float64_t)st.left_terrain_duty);
+    /* cast: result intentionally ignored */
     (void)v_no;
     CHECK(MOTION_TERRAIN_UPHILL == st.terrain, "terrain UPHILL");
     CHECK((st.left_terrain_duty > 0.05f) && (st.right_terrain_duty > 0.05f),
@@ -218,6 +223,7 @@ static void test_downhill (void)
     printf("\n[downhill: slow down, less power]\n");
     fresh_start();
     s_wrong_sign = 0;
+    /* cast: result intentionally ignored */
     (void)motion_drive(10.0f, 10.0f);
     run_for(1500);
     sim_set_load(MOTION_SIDE_LEFT, -0.12);
@@ -243,6 +249,7 @@ static void test_hump (void)
     float64_t v;
     printf("\n[one-side hump: left wheel raised]\n");
     fresh_start();
+    /* cast: result intentionally ignored */
     (void)motion_drive(10.0f, 10.0f);
     run_for(1500);
     sim_set_load(MOTION_SIDE_LEFT, 0.08);   /* left wheel climbing the ramp */
@@ -300,6 +307,7 @@ static void test_move_and_turn (void)
     printf("\n[distance move on a downhill: slower but still accurate]\n");
     fresh_start();
     start = sim_true_distance_cm();
+    /* cast: result intentionally ignored */
     (void)motion_move_forward(30.0f);
 
     for (ms_flat = 0; (ms_flat < 15000)
@@ -311,6 +319,7 @@ static void test_move_and_turn (void)
     fresh_start();
     start = sim_true_distance_cm();
     set_imu(-1, -9.0f, 0, 0.0f);
+    /* cast: result intentionally ignored */
     (void)motion_move_forward(30.0f);
 
     for (ms_down = 0; (ms_down < 15000)
@@ -329,6 +338,7 @@ static void test_move_and_turn (void)
     fresh_start();
     h0 = sim_true_heading_deg();
     set_imu(0, 0.0f, 1, 5.0f);
+    /* cast: result intentionally ignored */
     (void)motion_turn_left(90.0f);
 
     for (t = 0; (t < 15000) && (!((t > 40) && (motion_is_idle()))); t += 20)
@@ -344,6 +354,7 @@ static void test_move_and_turn (void)
 int main (void)
 {
     printf("Terrain speed control host tests (simulated load, logic only)\n");
+    /* cast: result intentionally ignored */
     (void)motion_init();
     test_api();
     test_flat_unchanged();

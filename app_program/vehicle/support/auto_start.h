@@ -116,15 +116,15 @@ static inline auto_exec_t auto_start_exec_state (const auto_start_t * s)
     switch (s->phase)
     {
         case AUTO_BOOT_DELAY:
-        return s->restarting ? EXEC_RESTART_PENDING : EXEC_STARTUP_WAIT;
+            return s->restarting ? EXEC_RESTART_PENDING : EXEC_STARTUP_WAIT;
         case AUTO_WAIT_READY:
-        return s->restarting ? EXEC_RESTART_PENDING : EXEC_WAIT_READY;
+            return s->restarting ? EXEC_RESTART_PENDING : EXEC_WAIT_READY;
         case AUTO_RUNNING:
-        return EXEC_RUNNING;
+            return EXEC_RUNNING;
         case AUTO_LATCHED:
-        return EXEC_STOPPED;
+            return EXEC_STOPPED;
         default:
-        return EXEC_FAULTED;
+            return EXEC_FAULTED;
     }
 }
 
@@ -146,7 +146,7 @@ static inline auto_action_t auto_start_update (auto_start_t * s, uint32_t now,
 
     if ((AUTO_WAIT_READY == s->phase)
         && ((uint32_t)(now - s->since) >= B5_READY_DELAY_MS) && b_stopped
-                && ready)
+        && ready)
     {
         s->phase = AUTO_RUNNING;
         s->restarting = false;

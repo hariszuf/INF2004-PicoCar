@@ -36,12 +36,15 @@ static uint32_t s_count;
 __attribute__((weak)) void barcode_scan_on_decoded(const barcode39_result_t
         * p_result)
 {
+    /* cast: result intentionally ignored */
     (void)p_result;
 }
 
 __attribute__((weak)) void barcode_scan_on_run(bool black, uint32_t width_us)
 {
+    /* cast: result intentionally ignored */
     (void)black;
+    /* cast: result intentionally ignored */
     (void)width_us;
 }
 

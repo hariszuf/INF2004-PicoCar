@@ -74,7 +74,7 @@ void buddy4_obstruction_cancel (buddy4_obstruction_t * d, uint64_t now_us);
  * time faults cancel. Recovery starts a new full slowdown confirmation. */
 void buddy4_obstruction_update (buddy4_obstruction_t * d,
                                 const buddy4_obstruction_input_t * input,
-                                        uint64_t now_us);
+                                uint64_t now_us);
 /* Getters age the last observation; they neither consume a pulse nor count it
  * twice. A pulse belongs to one input until the next update/cancel/expiry. */
 buddy4_obstruction_output_t buddy4_obstruction_get (buddy4_obstruction_t * d,

@@ -176,6 +176,7 @@ void track_step_1ms (void)
     /* progress along the track = nearest line point to the robot centre line at
      * the sensors */
     sensor_pos(0.0, &sx, &sy);
+    /* cast: result intentionally ignored */
     (void)nearest(sx, sy, &idx);
 
     if ((idx > s_progress_idx) && (idx < (s_progress_idx + 150)))

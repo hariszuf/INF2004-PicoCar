@@ -112,15 +112,19 @@ int32_t b5_pass_x (int32_t x_face_mm, int32_t depth_mm, int32_t near_edge_mm,
                    int32_t far_edge_mm, int32_t offset_mm)
 {
 #if B5_PASS_SIMPLE
+    /* cast: result intentionally ignored */
     (void)depth_mm;
+    /* cast: result intentionally ignored */
     (void)near_edge_mm;
+    /* cast: result intentionally ignored */
     (void)far_edge_mm;
+    /* cast: result intentionally ignored */
     (void)offset_mm;
     /* distance to the box + box length + room past its rear face */
     return x_face_mm + B5_BOX_LENGTH_MM + B5_PASS_PAST_REAR_MM;
 #else
     float32_t bx0 = (float32_t)x_face_mm,
-            bx1 = (float32_t)(x_face_mm + depth_mm);
+    bx1 = (float32_t)(x_face_mm + depth_mm);
     float32_t bu0 = (float32_t)(-far_edge_mm), bu1 = (float32_t)near_edge_mm,
     m = (float32_t)B5_SWEEP_MARGIN_MM;
     int32_t limit =

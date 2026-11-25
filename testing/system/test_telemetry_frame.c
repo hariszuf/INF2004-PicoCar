@@ -39,7 +39,7 @@ static bool roundtrip (uint8_t s, uint8_t t, uint16_t f, int32_t a, int32_t b,
     return (n <= TF_TELEMETRY_MAX) && (tf_decode_telemetry(buf, n, &d))
             && (d.source == s) && (d.type == t) && (d.flags == f) &&
             (d.value_1 == a) && (d.value_2 == b)
-                    && (d.sequence == (q & 0xFFFFFFu));
+            && (d.sequence == (q & 0xFFFFFFu));
 }
 
 int main (void)

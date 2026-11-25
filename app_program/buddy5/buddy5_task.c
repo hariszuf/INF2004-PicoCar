@@ -205,7 +205,9 @@ static void publish (uint32_t now, int32_t servo_angle,
 
 static void scan_task (INT stacd, void * p_exinf)
 {
+    /* cast: result intentionally ignored */
     (void)stacd;
+    /* cast: result intentionally ignored */
     (void)p_exinf;
     uint32_t now = buddy5_clock_ms();
     int32_t servo = 0;
@@ -316,14 +318,14 @@ static void scan_task (INT stacd, void * p_exinf)
             {
                 seen_scans = core.scan_count;
                 tm_printf((UB*)"[B5-SCAN] #%u width=%d mm (left %d + right "
-                               "%d) seen "
+                          "%d) seen "
                           "L/R=%d/%d width_valid=%d\n",
                           (uint32_t)core.scan_count,
-                                  (int32_t)core.profile.width_mm,
+                          (int32_t)core.profile.width_mm,
                           (int32_t)core.profile.left_edge_mm,
-                                  (int32_t)core.profile.right_edge_mm,
+                          (int32_t)core.profile.right_edge_mm,
                           core.profile.left_seen ? 1 : 0,
-                                  core.profile.right_seen ? 1 : 0,
+                          core.profile.right_seen ? 1 : 0,
                           core.profile.width_valid ? 1 : 0);
             }
 
@@ -333,7 +335,7 @@ static void scan_task (INT stacd, void * p_exinf)
                 seen_dump = core.scan_count;
                 seen_nofaces_dump = core.noface_count;
                 tm_printf((UB*)"[B5-SCAN] raw scan -35..+25 (E=echo mm, N=no "
-                               "echo, "
+                          "echo, "
                           "-=invalid):");
 
                 for (int32_t idx = 0; idx < B5_SCAN_POINTS; idx++)
@@ -364,13 +366,13 @@ static void scan_task (INT stacd, void * p_exinf)
                 {
                     last_dbg = t;
                     tm_printf((UB*)"[B5-DBG] state=%s servo=%d raw=%d/st%d "
-                                   "clearance=%d "
+                              "clearance=%d "
                               "scans=%u nofaces=%u saved_width=%d\n",
                               (UB*)b5_state_name(core.state), servo,
-                                      (int32_t)s_raw_mm, (int32_t)s_raw_status,
+                              (int32_t)s_raw_mm, (int32_t)s_raw_status,
                               (int32_t)core.front_clearance_mm,
                               (uint32_t)core.scan_count,
-                                      (uint32_t)core.noface_count,
+                              (uint32_t)core.noface_count,
                               (int32_t)core.profile.width_mm);
                 }
             }
@@ -379,7 +381,7 @@ static void scan_task (INT stacd, void * p_exinf)
             {
                 seen_nofaces = core.noface_count;
                 tm_printf((UB*)"[B5-SCAN] no box face in scan (#%u), last "
-                               "saved width "
+                          "saved width "
                           "kept=%d mm\n", (uint32_t)seen_nofaces,
                           (int32_t)core.profile.width_mm);
             }

@@ -57,13 +57,16 @@ INT tk_rcv_mbf (ID id, void * message, INT timeout)
 
 ID tk_cre_tsk (const T_CTSK *definition)
 {
+    /* cast: result intentionally ignored */
     (void)definition;
     return 1;
 }
 
 ER tk_sta_tsk (ID id, INT code)
 {
+    /* cast: result intentionally ignored */
     (void)id;
+    /* cast: result intentionally ignored */
     (void)code;
     return E_OK;
 }

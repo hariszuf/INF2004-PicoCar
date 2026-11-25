@@ -35,6 +35,7 @@ static inline void terrain_link_feed (const buddy4_imu_t * p_imu,
         return;
     }
 
+    /* cast: result intentionally ignored */
     (void)motion_set_terrain(&input);
 }
 

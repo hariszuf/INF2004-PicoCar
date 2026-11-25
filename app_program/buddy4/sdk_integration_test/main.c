@@ -22,8 +22,9 @@ static drive_control_t control;
 static buddy4_obstruction_sdk_t s_obstruction;
 static buddy4_obstruction_output_t s_po;
 static int32_t bus_write (void * p_ctx, uint8_t a, const uint8_t * p, size_t n,
-                      bool b_ns)
+                          bool b_ns)
 {
+    /* cast: result intentionally ignored */
     (void)p_ctx;
     return i2c_write_timeout_us(i2c0, a, p, n, b_ns, BUDDY4_I2C_TIMEOUT_US);
 }
@@ -31,6 +32,7 @@ static int32_t bus_write (void * p_ctx, uint8_t a, const uint8_t * p, size_t n,
 static int32_t bus_read (void * p_ctx, uint8_t a, uint8_t * p, size_t n,
                          bool b_ns)
 {
+    /* cast: result intentionally ignored */
     (void)p_ctx;
     return i2c_read_timeout_us(i2c0, a, p, n, b_ns, BUDDY4_I2C_TIMEOUT_US);
 }
@@ -48,6 +50,7 @@ static void runtime (task_t * t, uint64_t start)
 int main (void)
 {
     /* Brake before USB or sensor setup. Boot never starts the line follower. */
+    /* cast: result intentionally ignored */
     (void)motion_init();
     line_follow_init();
     drive_init(&control);
@@ -106,16 +109,16 @@ int main (void)
             buddy4_obstruction_sdk_note_update(&s_obstruction, &observed,
                                                &control,
                                                start, speed_sample_us,
-                                                       motor.skipped);
+                                               motor.skipped);
             buddy4_encoder_yaw_update(&encoder_yaw, observed.left_speed_cm_s,
                                       observed.right_speed_cm_s, true,
-                                              speed_sample_us,
+                                      speed_sample_us,
                                       speed_sample_us);
             /* Buddy 2 snapshot has no timestamp: stamp only actual update
              * releases. */
             buddy4_motion_update(&motion_class, observed.left_speed_cm_s,
                                  observed.right_speed_cm_s, true,
-                                         speed_sample_us,
+                                 speed_sample_us,
                                  speed_sample_us);
             drive_safety(&control, usb, has_usable, time_us_64(), last_usable);
             runtime(&motor, start);
@@ -137,6 +140,7 @@ int main (void)
              */
             if ((!control.running) && (!imu.ready) && (start >= retry))
             {
+                /* cast: result intentionally ignored */
                 (void)buddy4_configure(&imu);
                 retry = time_us_64() + 1000000u;
             }
@@ -148,6 +152,7 @@ int main (void)
                 /* Quality failure is not a bus error. Publish invalid terrain.
                  */
                 const motion_terrain_input_t unavailable = {0};
+                /* cast: result intentionally ignored */
                 (void)motion_set_terrain(&unavailable);
             }
             else
@@ -168,7 +173,7 @@ int main (void)
                                  imu.output.accel_g[1],
                                  imu.output.accel_g[2], (BUDDY4_FRESH == result)
                                  && (imu.output.valid)
-                                         && (imu.output.acceleration_valid),
+                                 && (imu.output.acceleration_valid),
                                  imu.output.timestamp_us, time_us_64());
             runtime(&sensor, start);
             sampled = true;
@@ -181,13 +186,13 @@ int main (void)
         int32_t c = usb ? getchar_timeout_us(0) : PICO_ERROR_TIMEOUT;
         drive_command(&control, c, usb, (drive_imu_usable(&imu)) &&
                       has_usable && (time_us_64() - last_usable < 100000u),
-                              time_us_64());
+                      time_us_64());
         drive_safety(&control, usb, has_usable, time_us_64(), last_usable);
         /* Consume new observations only AFTER serial/safety decisions, so S or
          * a same-loop fault cancels pending obstruction before it can confirm.
          */
         s_po = buddy4_obstruction_sdk_poll(&s_obstruction,
-                                         &control, &imu, usb, time_us_64());
+                                           &control, &imu, usb, time_us_64());
         /* Bounded best-effort output outside updates. Slow readers may lose
          * data. */
         if (usb && header)
@@ -278,7 +283,7 @@ int main (void)
                        (uint64_t)o->timestamp_us,
                        o->ended_event.side, o->ended_event.peak_confirmed,
                        o->ended_event.peak_roll_deg,
-                               o->ended_event.peak_height_cm,
+                       o->ended_event.peak_height_cm,
                        o->ended_event.median_candidate_valid,
                        o->ended_event.median_candidate_roll_deg,
                        o->ended_event.median_candidate_height_cm);
@@ -292,7 +297,7 @@ int main (void)
                    "%.4f,%.5f,%.4f,%d,%llu,%.3f,%.3f,%s,%d,%d,%d,%lu,%llu,%llu,"
                    "%lu\n",
                    (uint32_t)seq++, (uint64_t)time_us_64(),
-                           result,
+                   result,
                    o->valid,
                    o->tilt_valid, o->acceleration_valid,
                    buddy4_quality_name(o->quality),
@@ -301,14 +306,14 @@ int main (void)
                    (uint64_t)o->timestamp_us,
                    (uint32_t)o->error_count,
                    o->raw[0], o->raw[1], o->raw[2], o->accel_g[0],
-                           o->accel_g[1],
+                   o->accel_g[1],
                    o->accel_g[2],
                    o->pitch_deg, o->roll_deg, o->filtered_pitch_deg,
                    o->filtered_roll_deg,
                    o->terrain, o->side, o->transient_g, o->transient_event,
                    o->wheel_height_cm,
                    o->event.side, o->event.peak_confirmed,
-                           o->event.peak_roll_deg,
+                   o->event.peak_roll_deg,
                    o->event.peak_height_cm,
                    o->event.median_candidate_valid,
                    o->event.median_candidate_roll_deg,
@@ -322,11 +327,11 @@ int main (void)
                    ? (control.running ? control.selected_right_cm_s : 0)
                    : l.right_cmd_cm_s,
                    (int32_t)m.left_count, (int32_t)m.right_count,
-                           m.left_speed_cm_s,
+                   m.left_speed_cm_s,
                    m.right_speed_cm_s, m.distance_cm,
                    m.state, m.fault, (uint32_t)control.stop_fault,
                    (int32_t)m.terrain, m.terrain_speed_scale,
-                           m.left_terrain_duty,
+                   m.left_terrain_duty,
                    m.right_terrain_duty,
                    (uint32_t)motor.skipped, (uint32_t)line.skipped,
                    (uint32_t)sensor.skipped,

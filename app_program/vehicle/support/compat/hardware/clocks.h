@@ -8,6 +8,7 @@ enum
 };
 static inline uint32_t clock_get_hz (int32_t clock)
 {
+    /* cast: result intentionally ignored */
     (void)clock;
     return 125000000u;
 }

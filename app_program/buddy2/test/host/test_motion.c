@@ -283,7 +283,7 @@ static void test_drive_and_stop (void)
     motion_get_status(&status);
     printf("  speeds after 1.5 s: left %.1f, right %.1f cm/s\n",
            (float64_t)status.left_speed_cm_s,
-                   (float64_t)status.right_speed_cm_s);
+           (float64_t)status.right_speed_cm_s);
     CHECK(fabs(status.left_speed_cm_s - 15.0) < 2.0,
           "left wheel reaches ~15 cm/s");
     CHECK(fabs(status.right_speed_cm_s - 15.0) < 2.0,

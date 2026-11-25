@@ -13,7 +13,9 @@ LOCAL void heartbeat_task (INT stacd, void * p_exinf)
     uint32_t sequence = 0U;
     ER error_code;
 
+    /* cast: result intentionally ignored */
     (void)stacd;
+    /* cast: result intentionally ignored */
     (void)p_exinf;
 
 

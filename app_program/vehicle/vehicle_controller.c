@@ -63,7 +63,7 @@ static ER report_measurement (uint8_t source, uint8_t type, uint16_t flags,
                               int32_t first, int32_t second, uint32_t sequence)
 {
     telemetry_message_t message = {source, type, flags, first, second,
-            sequence};
+        sequence};
     return buddy1_telemetry_submit(&message);
 }
 #if B2_ENC_DIAG
@@ -87,7 +87,7 @@ static uint16_t enc_diag_flags (void)
                       ((((en >> 16) & 12u) ? 1u : 0u) << 10)
                       | ((((en >> 24) & 12u) ? 1u : 0u) << 11) |
                       (nvic_en << 12) | (nvic_pend << 13)
-                              | ((((raw >> 16) & 12u) ? 1u : 0u) << 14)
+                      | ((((raw >> 16) & 12u) ? 1u : 0u) << 14)
                       | ((((raw >> 24) & 12u) ? 1u : 0u) << 15));
 }
 #define B2_ENC_FLAGS enc_diag_flags()
@@ -317,7 +317,7 @@ static void halt (full_nav_t * p_nav, auto_start_t * start, const char * p_why)
     tm_printf((UB*)"[AUTO] STOPPED: %s (code %d). %s\n", (UB*)p_why,
               (int32_t)code,
               AUTO_FAULTED == start->phase
-                      ? "Operator action needed: power-cycle."
+              ? "Operator action needed: power-cycle."
               : "Send START (dashboard) or R (USB) to restart.");
 }
 
@@ -364,14 +364,16 @@ static void controller_task (INT stacd, void * p_exinf)
     uint8_t lift_reason = 0;
     uint32_t lift_count = 0;
     int32_t lift_tilt_dec = 0;
+    /* cast: result intentionally ignored */
     (void)stacd;
+    /* cast: result intentionally ignored */
     (void)p_exinf;
     auto_start_init(&start, now);
     tm_printf((UB*)"[AUTO] Power-on automatic mode. 3s delay, then wait for "
-                   "line "
+              "line "
               "and forward observations.\n");
     tm_printf((UB*)"[AUTO] USB optional. Obstacle trigger=200mm from car "
-                   "front; "
+              "front; "
               "S/space stops.\n");
 
     for (;;)
@@ -435,7 +437,7 @@ static void controller_task (INT stacd, void * p_exinf)
              * rejected
              * after a persistent fault. */
             if (b_want_start && (!((AUTO_LATCHED == start.phase)
-                                 && (nav.settled < 3))))
+                                   && (nav.settled < 3))))
             {
                 robot_flags_clear(&ctl_flags, CF_START_PENDING);
                 auto_start_result_t r = auto_start_request(&start, now);
@@ -448,11 +450,11 @@ static void controller_task (INT stacd, void * p_exinf)
                 tm_printf((UB*)"[AUTO] START request: %s\n",
                           (UB*)(START_ACCEPTED == r
                                 ? "accepted, resetting and waiting for "
-                                  "readiness" :
+                                "readiness" :
                                 START_ALREADY_ACTIVE == r
-                                        ? "ignored, already starting or running"
+                                ? "ignored, already starting or running"
                                 : "rejected, operator action (power-cycle) "
-                                  "needed"));
+                                "needed"));
             }
         }
 
@@ -542,7 +544,7 @@ static void controller_task (INT stacd, void * p_exinf)
                 tm_printf((UB*)"[NAV] request=%d id=%u target_x/y=%d/%d\n",
                           request.kind,
                           (uint32_t)request.id, request.forward_mm,
-                                  request.lateral_mm);
+                          request.lateral_mm);
             }
         }
 
@@ -634,12 +636,12 @@ static void controller_task (INT stacd, void * p_exinf)
             if ((!LINE_JUNCTION) && (!B3_BARCODE_ONLY) && (CTL(CF_RUN_ENABLED))
                 && (!b_got)
                 && (!nav.active) && (B5_MONITORING == scan.state)
-                        && b_barcode_clear &&
+                && b_barcode_clear &&
                 (('A' == barcode_letter) || ('B' == barcode_letter)))
             {
                 b5_request_t turn = {.kind =
                     'A' == barcode_letter ? B5_REQ_BARCODE_LEFT
-                            : B5_REQ_BARCODE_RIGHT};
+                    : B5_REQ_BARCODE_RIGHT};
 
                 if (!full_nav_accept(&nav, &turn, now))
                 {
@@ -674,8 +676,9 @@ static void controller_task (INT stacd, void * p_exinf)
                 if (buddy4_task_time_us(&sample_us) >= E_OK)
                 {
                     buddy4_task_speed_t speed = {true, sample_us,
-                            motor.left_speed_cm_s,
+                        motor.left_speed_cm_s,
                         motor.right_speed_cm_s};
+                    /* cast: result intentionally ignored */
                     (void)buddy4_task_submit_speed(&speed);
                 }
 
@@ -694,6 +697,7 @@ static void controller_task (INT stacd, void * p_exinf)
                         terrain.roll_deg = imu.roll_deg;
                     }
 
+                    /* cast: result intentionally ignored */
                     (void)motion_set_terrain(&terrain);
                     /* Lifted or overturned: stop every motor now. The IMU no
                      * longer detects
@@ -751,7 +755,7 @@ static void controller_task (INT stacd, void * p_exinf)
                         && ((uint32_t)(now - scan.front_timestamp_ms) <= 400u);
                 full_nav_set_front(&nav,
                                    0 == scan.angle ? b_guard_fresh
-                                           : b_range_fresh,
+                                   : b_range_fresh,
                                    scan.front_clearance_mm, scan.angle);
             }
 
@@ -770,7 +774,7 @@ static void controller_task (INT stacd, void * p_exinf)
             if (nav.resumed)
             {
                 tm_printf((UB*)"[AUTO] LINE REACQUIRED: line following "
-                               "resumed.\n");
+                          "resumed.\n");
                 nav.resumed = false;
             }
         }
@@ -840,7 +844,7 @@ static void controller_task (INT stacd, void * p_exinf)
 
                 robot_flags_clear(&ctl_flags, CF_REQUEST_PENDING);
                 tm_printf((UB*)"[AUTO] Waiting for line and fresh forward "
-                               "observations; "
+                          "observations; "
                           "no keyboard command needed.\n");
             }
         }
@@ -866,11 +870,12 @@ static void controller_task (INT stacd, void * p_exinf)
             {
                 if (CTL(CF_BUDDY4_READY))
                 {
+                    /* cast: result intentionally ignored */
                     (void)buddy4_task_begin_run();
                 }
 
                 tm_printf((UB*)"[AUTO] RUNNING %s; front=%dmm (-1=out of "
-                               "range).\n",
+                          "range).\n",
                           (UB*)(b_restarting ? "after START" : "automatically"),
                           B5_CLEAR_FRONT_MM == scan.front_clearance_mm ? -1
                           : scan.front_clearance_mm);
@@ -949,9 +954,9 @@ static void controller_task (INT stacd, void * p_exinf)
                 ((uint32_t)(now - last_line_report) >= 1000u))
             {
                 if (E_OK == report_measurement(TELEMETRY_SOURCE_BUDDY3,
-                                       TELEMETRY_TYPE_LINE_SENSOR,
-                                       0,
-                                       mask, current.state,
+                                               TELEMETRY_TYPE_LINE_SENSOR,
+                                               0,
+                                               mask, current.state,
                                                report_sequence))
                 {
                     last_line_report = now;
@@ -975,14 +980,15 @@ static void controller_task (INT stacd, void * p_exinf)
                                            packed[0],
                                            packed[1], report_sequence))
             {
+                /* cast: result intentionally ignored */
                 (void)report_measurement(TELEMETRY_SOURCE_BUDDY3, 22, 0,
-                    packed[2],
-                    (int32_t)(
-                    (uint32_t)junction_map_version()
-                    | ((uint32_t)
-                    buddy1_barcode_map_result()
-                    << 16)),
-                    report_sequence);
+                                         packed[2],
+                                         (int32_t)(
+                        (uint32_t)junction_map_version()
+                        | ((uint32_t)
+                           buddy1_barcode_map_result()
+                           << 16)),
+                                         report_sequence);
                 last_map_report = now;
             }
         }
@@ -998,12 +1004,12 @@ static void controller_task (INT stacd, void * p_exinf)
              ((uint32_t)(now - last_lift_report) >= 1000u)))
         {
             if (E_OK == report_measurement(4, TELEMETRY_TYPE_LIFT,
-                                   (uint16_t)((b_lift_fresh ? 1u : 0u)
-                                              | (b_lift_active ? 2u : 0u)),
-                                   b_lift_active ? lift_reason : 0,
-                                   (int32_t)((lift_count & 0xFFFFu)
-                                             | ((uint32_t)lift_tilt_dec << 16)),
-                                   report_sequence))
+                                           (uint16_t)((b_lift_fresh ? 1u : 0u)
+                    | (b_lift_active ? 2u : 0u)),
+                                           b_lift_active ? lift_reason : 0,
+                                           (int32_t)((lift_count & 0xFFFFu)
+                    | ((uint32_t)lift_tilt_dec << 16)),
+                                           report_sequence))
             {
                 last_lift_report = now;
                 b_last_lift_reported = b_lift_active;
@@ -1048,7 +1054,7 @@ static void controller_task (INT stacd, void * p_exinf)
             {
                 int32_t mask =
                         (p_pr->width_valid ? 1 : 0)
-                                | (p_pr->depth_valid ? 2 : 0)
+                        | (p_pr->depth_valid ? 2 : 0)
                         | (((p_pr->left_seen) && (p_pr->right_seen)) ? 4 : 0);
 #if B5_SCAN_ONLY
                 if ((!p_pr->width_valid) && (p_pr->width_mm > 0))
@@ -1062,10 +1068,10 @@ static void controller_task (INT stacd, void * p_exinf)
                 static const uint8_t why_code[6] = {0, 6, 3, 4, 4, 0};
                 uint32_t reason =
                         (uint32_t)p_pr->side_reason < 6u
-                                ? why_code[p_pr->side_reason] : 0u;
+                        ? why_code[p_pr->side_reason] : 0u;
                 uint32_t info =
                         reason | (p_pr->left_seen ? 16u : 0u)
-                                | (p_pr->right_seen ? 32u : 0u)
+                        | (p_pr->right_seen ? 32u : 0u)
                         | (scan.rescans > 0u ? 64u : 0u) |
                         ((uint32_t)f.turn_fixes << 8)
                         | ((uint32_t)f.block_fixes << 16)
@@ -1135,7 +1141,7 @@ static void controller_task (INT stacd, void * p_exinf)
                     report_measurement(TELEMETRY_SOURCE_BUDDY3,
                                        TELEMETRY_TYPE_BARCODE, 0,
                                        (int32_t)letter, age_ms > INT32_MAX
-                                               ? INT32_MAX : (int32_t)age_ms,
+                                       ? INT32_MAX : (int32_t)age_ms,
                                        report_sequence);
                 }
             }
@@ -1154,7 +1160,8 @@ static void controller_task (INT stacd, void * p_exinf)
 
                 if (buddy4_task_get(&imu) >= E_OK)
                 {
-/* measuring build: keep the telemetry channel free for Buddy 5 */
+                    /* measuring build: keep the telemetry channel free for
+                     * Buddy 5 */
 #if TM_WIFI_MQTT && !B5_SCAN_ONLY
                     /* Tilt (4/7) goes first: the dashboard calls the IMU stale
                      * when it is
@@ -1171,12 +1178,12 @@ static void controller_task (INT stacd, void * p_exinf)
 
                     report_measurement(4, TELEMETRY_TYPE_IMU,
                                        b_tilt_valid ? TELEMETRY_IMU_TILT_VALID
-                                               : 0, pitch, roll,
+                                       : 0, pitch, roll,
                                        report_sequence);
                     b_imu_sent = true;
                     report_measurement(4, 11, imu.valid ? 1 : 0,
                                        UINT32_MAX == imu.sample_age_ms ? -1
-                                               : (int32_t)imu.sample_age_ms,
+                                       : (int32_t)imu.sample_age_ms,
                                        imu.io_errors, report_sequence);
 
                     if (0u == report_sequence % 5u)
@@ -1193,10 +1200,10 @@ static void controller_task (INT stacd, void * p_exinf)
                                        imu.terrain, imu.side, report_sequence);
                     report_measurement(4, 14,
                                        (imu.motion_valid ? 1 : 0)
-                                               | (imu.yaw_valid ? 2 : 0),
+                                       | (imu.yaw_valid ? 2 : 0),
                                        imu.motion_state, imu.yaw_valid
-                                        ? (int32_t)(imu.encoder_yaw_deg_s * 100)
-                                                   : 0, report_sequence);
+                                       ? (int32_t)(imu.encoder_yaw_deg_s * 100)
+                                       : 0, report_sequence);
                     report_measurement(4, 15, (imu.valid)
                                        && (imu.tilt_valid) ? 1 : 0,
                                        /* right wheel up: hump height fixed at
@@ -1205,7 +1212,7 @@ static void controller_task (INT stacd, void * p_exinf)
                                        ? ((imu.side > 0) ? 5
                                           : (int32_t)(imu.height_cm * 10)) : 0,
                                        imu.measurement_quality,
-                                               report_sequence);
+                                       report_sequence);
 
                     /* saved ramp results: every 5th report */
                     if (0u == report_sequence % 5u)
@@ -1215,37 +1222,37 @@ static void controller_task (INT stacd, void * p_exinf)
                                            | (imu.last_event.median_valid ? 2
                                               : 0),
                                            imu.last_event.stable_valid
-                                            ? (int32_t)(imu.last_event.stable_cm
-                                                   * 10)
-                                               : 0,
+                                           ? (int32_t)(imu.last_event.stable_cm
+                                * 10)
+                                           : 0,
                                            imu.last_event.median_valid
-                                            ? (int32_t)(imu.last_event.median_cm
-                                                   * 10)
-                                               : 0, report_sequence);
+                                           ? (int32_t)(imu.last_event.median_cm
+                                * 10)
+                                           : 0, report_sequence);
                         report_measurement(4, 17, imu.last_event.end_us ? 1 : 0,
                                            imu.last_event.side,
                                            (int32_t)(imu.last_event.end_us
-                                                   / 1000u), report_sequence);
+                                / 1000u), report_sequence);
                         report_measurement(4, TELEMETRY_TYPE_HIGHEST_HUMP,
                                            imu.highest_hump_valid ? 1 : 0,
                                            imu.highest_hump_valid
-                                               ? (int32_t)(imu.highest_hump_cm
-                                                   * 10)
-                                               : 0,
+                                           ? (int32_t)(imu.highest_hump_cm
+                                * 10)
+                                           : 0,
                                            (int32_t)imu.run_id,
-                                                   report_sequence);
+                                           report_sequence);
                     }
 #endif
                     tm_printf((UB*)"[B4] imu=%d tilt=%d age_ms=%u terrain=%d "
-                                   "side=%d "
+                              "side=%d "
                               "lifted=%d lifts=%u motion=%d yaw=%d "
                               "io_errors=%u\n",
                               imu.valid, imu.tilt_valid,
-                                      (uint32_t)imu.sample_age_ms, imu.terrain,
+                              (uint32_t)imu.sample_age_ms, imu.terrain,
                               imu.side,
                               imu.lifted ? 1 : 0, (uint32_t)imu.lift_count,
                               imu.motion_valid ? imu.motion_state : -1,
-                                      imu.yaw_valid,
+                              imu.yaw_valid,
                               (uint32_t)imu.io_errors);
                 }
             }
@@ -1257,14 +1264,14 @@ static void controller_task (INT stacd, void * p_exinf)
                                TELEMETRY_TYPE_MOTOR_SPEED, 0,
                                (int32_t)(motor.left_speed_cm_s * 10),
                                (int32_t)(motor.right_speed_cm_s * 10),
-                                       report_sequence);
+                               report_sequence);
             report_measurement(2, TELEMETRY_TYPE_ENCODER, B2_ENC_FLAGS,
 #if B2_ENC_DIAG
                                /* DIAG: left=edges seen by IRQ, right=callback
                                 * calls */
                                (int32_t)g_b5p_dbg_enc_events,
-                                       (int32_t)b5p_dbg_cb_calls,
-                                       report_sequence);
+                               (int32_t)b5p_dbg_cb_calls,
+                               report_sequence);
 #else
             motion_encoder_get_count(MOTION_SIDE_LEFT),
             motion_encoder_get_count(MOTION_SIDE_RIGHT), report_sequence);
@@ -1282,25 +1289,25 @@ static void controller_task (INT stacd, void * p_exinf)
             report_measurement(TELEMETRY_SOURCE_BUDDY2, TELEMETRY_TYPE_ODOMETRY,
                                0,
                                (int32_t)(motor.distance_cm * 10), motor.fault,
-                                       report_sequence);
+                               report_sequence);
 
             if (!b_imu_sent)
             {   /* no IMU snapshot this time: still report "tilt unavailable" */
                 report_measurement(TELEMETRY_SOURCE_BUDDY4, TELEMETRY_TYPE_IMU,
                                    b_tilt_valid ? TELEMETRY_IMU_TILT_VALID : 0,
-                                           pitch, roll,
+                                   pitch, roll,
                                    report_sequence);
             }
 #endif
             tm_printf((UB*)"[LINE] state=%d mask=%u target_mm_s=%d/%d "
                       "actual_mm_s=%d/%d\n",
                       line.state, (uint32_t)mask,
-                              (int32_t)(line.left_cmd_cm_s * 10),
+                      (int32_t)(line.left_cmd_cm_s * 10),
                       (int32_t)(line.right_cmd_cm_s * 10),
                       (int32_t)(motor.left_speed_cm_s * 10),
-                              (int32_t)(motor.right_speed_cm_s * 10));
+                      (int32_t)(motor.right_speed_cm_s * 10));
             tm_printf((UB*)"[AUTO] phase=%d enabled=%d line_mask=%u scan=%s "
-                           "fault=%d "
+                      "fault=%d "
                       "nominal_servo=%d front=%d guard=%d fresh=%d x/y=%d/%d "
                       "heading=%d width=%d depth=%d..%d\n",
                       start.phase, CTL(CF_RUN_ENABLED), (uint32_t)mask,
@@ -1312,7 +1319,7 @@ static void controller_task (INT stacd, void * p_exinf)
                       scan.profile.width_valid ? scan.profile.width_mm : -1,
                       scan.profile.depth_valid ? scan.profile.depth_low_mm : -1,
                       scan.profile.depth_valid ? scan.profile.depth_high_mm
-                              : -1);
+                      : -1);
             last_report = now;
         }
 

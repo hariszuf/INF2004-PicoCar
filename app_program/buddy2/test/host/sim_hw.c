@@ -219,7 +219,9 @@ void motion_encoder_init (void)
 
 void motion_encoder_irq_handler (uint32_t gpio, uint32_t events)
 {
+    /* cast: result intentionally ignored */
     (void)gpio;
+    /* cast: result intentionally ignored */
     (void)events;
 }
 

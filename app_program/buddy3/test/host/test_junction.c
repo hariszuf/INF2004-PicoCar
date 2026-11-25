@@ -40,7 +40,9 @@ uint8_t line_sensors_read (void)
 
 bool motion_get_tilt (float32_t * p, float32_t * p_r)
 {
+    /* cast: result intentionally ignored */
     (void)p;
+    /* cast: result intentionally ignored */
     (void)p_r;
     return false;
 }
@@ -63,7 +65,9 @@ void motion_stop (void)
 
 motion_result_t motion_drive (float32_t l, float32_t r)
 {
+    /* cast: result intentionally ignored */
     (void)l;
+    /* cast: result intentionally ignored */
     (void)r;
     s_drive_calls++;
     return MOTION_OK;
@@ -79,6 +83,7 @@ motion_result_t motion_move_forward (float32_t d)
 
 motion_result_t motion_move_backward (float32_t d)
 {
+    /* cast: result intentionally ignored */
     (void)d;
     s_idle = false;
     return MOTION_OK;

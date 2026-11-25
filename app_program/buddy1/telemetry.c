@@ -86,7 +86,9 @@ LOCAL void telemetry_task (INT stacd, void * p_exinf)
     ER send_result;
 #endif
 
+    /* cast: result intentionally ignored */
     (void)stacd;
+    /* cast: result intentionally ignored */
     (void)p_exinf;
 
     for (;;)
@@ -176,8 +178,8 @@ ER buddy1_telemetry_init (void)
     {
 
         s_telemetry_buffer_id = tk_cre_mbf(
-                                         &telemetry_buffer_config
-                                         );
+                                           &telemetry_buffer_config
+                                           );
 
         if (s_telemetry_buffer_id < E_OK)
         {
@@ -190,8 +192,8 @@ ER buddy1_telemetry_init (void)
     {
 
         s_mqtt_outbox_id = tk_cre_mbf(
-                                    &mqtt_outbox_config
-                                    );
+                                      &mqtt_outbox_config
+                                      );
 
         if (s_mqtt_outbox_id < E_OK)
         {
@@ -308,6 +310,7 @@ ER buddy1_mqtt_telemetry_receive (
 
     return E_OBJ;
 #else
+    /* cast: result intentionally ignored */
     (void)message;
     return E_OBJ;
 #endif

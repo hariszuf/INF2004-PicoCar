@@ -165,98 +165,100 @@ bool full_nav_accept (full_nav_t * n, const b5_request_t * p_r, uint32_t now)
     switch (p_r->kind)
     {
         case B5_REQ_STOP:
-        line_follow_stop();
-        motion_stop();
-        n->settled = 0;
-        n->turn_fixes_total = n->block_fixes_total = 0;
+            line_follow_stop();
+            motion_stop();
+            n->settled = 0;
+            n->turn_fixes_total = n->block_fixes_total = 0;
         break;
         case B5_REQ_BYPASS:
-        trip(n, (float32_t)p_r->lateral_mm, false);
+            trip(n, (float32_t)p_r->lateral_mm, false);
         break;
         case B5_REQ_ADVANCE:
-        if ((p_r->forward_mm <= n->x)
-            || (absolute(n->heading) > NAV_HEADING_ALIGNED_DEG))
-        {
-            fail(n);
-            return false;
-        }
-
-        {
-            float32_t dx = (float32_t)p_r->forward_mm - n->x,
-                    dy = (float32_t)p_r->lateral_mm - n->y;
-            /* Small corrections only while alongside the box: a large spin
-             * could
-             * swing the long rear of the chassis into it. Correct residual
-             * error
-             * gradually across successive waypoints. */
-            float32_t bearing = atan2f(dy, dx) * 57.2957795f;
-
-            if (bearing > 8)
+            if ((p_r->forward_mm <= n->x)
+                || (absolute(n->heading) > NAV_HEADING_ALIGNED_DEG))
             {
-                bearing = 8;
+                fail(n);
+                return false;
             }
 
-            if (bearing < -8)
             {
-                bearing = -8;
-            }
+                float32_t dx = (float32_t)p_r->forward_mm - n->x,
+                dy = (float32_t)p_r->lateral_mm - n->y;
+                /* Small corrections only while alongside the box: a large spin
+                 * could
+                 * swing the long rear of the chassis into it. Correct residual
+                 * error
+                 * gradually across successive waypoints. */
+                float32_t bearing = atan2f(dy, dx) * 57.2957795f;
 
-            n->count = 3;
-            n->actions[0] = (full_action_t){TURN, bearing};
-            n->actions[1] = (full_action_t){MOVE,
+                if (bearing > 8)
+                {
+                    bearing = 8;
+                }
+
+                if (bearing < -8)
+                {
+                    bearing = -8;
+                }
+
+                n->count = 3;
+                n->actions[0] = (full_action_t){TURN, bearing};
+                n->actions[1] = (full_action_t){MOVE,
                     dx / cosf(bearing * 0.01745329252f)};
-            n->actions[2] = (full_action_t){TURN, 0};
-        }
+                n->actions[2] = (full_action_t){TURN, 0};
+            }
         break;
         case B5_REQ_RECOVER_LINE:
-        {
-            /* Back to the line, mirrored from the "+" junction turn:
-             * face the line, sweep until a sensor sees it, drive on to put the
-             * axle over
-             * it, turn most of the way
-             * back to the original heading, then pivot slowly until a sensor
-             * sees the
-             * line. */
-            /* +1: line is on the left */
-            float32_t side = (n->y > 0.0f) ? -1.0f : 1.0f;
-            n->acquired = false;
-            n->search_phase = 0;
-            n->retries = 0;
-            n->front_ok = false;
-            n->recover_side = side;
-            n->sweep_block = false;
-            n->check_y = 0;
-            build_recover(n, side, false, 0.0f);
-        }
+            {
+                /* Back to the line, mirrored from the "+" junction turn:
+                 * face the line, sweep until a sensor sees it, drive on to put
+                 * the
+                 * axle over
+                 * it, turn most of the way
+                 * back to the original heading, then pivot slowly until a
+                 * sensor
+                 * sees the
+                 * line. */
+                /* +1: line is on the left */
+                float32_t side = (n->y > 0.0f) ? -1.0f : 1.0f;
+                n->acquired = false;
+                n->search_phase = 0;
+                n->retries = 0;
+                n->front_ok = false;
+                n->recover_side = side;
+                n->sweep_block = false;
+                n->check_y = 0;
+                build_recover(n, side, false, 0.0f);
+            }
         break;
         case B5_REQ_RESUME_LINE:
         break;
         case B5_REQ_BACKUP:
-        line_follow_stop();
-        n->settled = 0;
-        n->count = 1;
-        n->actions[0] = (full_action_t){BACK, (float32_t)p_r->forward_mm};
+            line_follow_stop();
+            n->settled = 0;
+            n->count = 1;
+            n->actions[0] = (full_action_t){BACK, (float32_t)p_r->forward_mm};
         break;
         case B5_REQ_LOOK:
-        /* Pivot on the spot to look past the box (lateral_mm = heading in
-         * degrees);
-         * the origin is kept. */
-        line_follow_stop();
-        n->settled = 0;
-        n->count = 1;
-        n->actions[0] = (full_action_t){TURN, (float32_t)p_r->lateral_mm};
+            /* Pivot on the spot to look past the box (lateral_mm = heading in
+             * degrees);
+             * the origin is kept. */
+            line_follow_stop();
+            n->settled = 0;
+            n->count = 1;
+            n->actions[0] = (full_action_t){TURN, (float32_t)p_r->lateral_mm};
         break;
         case B5_REQ_BARCODE_LEFT:
         case B5_REQ_BARCODE_RIGHT:
-        line_follow_stop();
-        n->settled = 0;
-        n->count = 1;
-        n->actions[0] = (full_action_t){TURN,
-            B5_REQ_BARCODE_LEFT == p_r->kind ? 90.0f : -90.0f};
+            line_follow_stop();
+            n->settled = 0;
+            n->count = 1;
+            n->actions[0] = (full_action_t){TURN,
+                B5_REQ_BARCODE_LEFT == p_r->kind ? 90.0f : -90.0f};
         break;
         default:
-        n->active = false;
-        return false;
+            n->active = false;
+            return false;
     }
 
     return true;
@@ -279,7 +281,8 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
 {
     float32_t heading = corrected_heading(m);
     float32_t mid = ((heading
-                  + n->last_heading) * 0.5f-n->heading_origin) * 0.01745329252f;
+                      + n->last_heading) * 0.5f-n->heading_origin)
+                              * 0.01745329252f;
     float32_t ds = (m->distance_cm - n->last_distance) * 10.0f;
     n->x += ds * cosf(mid);
     n->y += ds * sinf(mid);
@@ -368,7 +371,7 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
     if ((B5_REQ_RECOVER_LINE == n->request.kind) && (n->issued)
         && (n->index < n->count) &&
         (SWEEP == n->actions[n->index].kind) && (!n->recovery_stop)
-                && (!n->sweep_block))
+        && (!n->sweep_block))
     {
         /* Sonar watch on the way to the line: an echo that is close and clearly
          * short
@@ -653,7 +656,7 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
         if (B5_REQ_BYPASS == n->request.kind)
         {
             b_pose = b_pose && ((n->block_fixes_total > 0)
-                            || (absolute(n->x) <= B5_ADV_TOL_X_MM))
+                                || (absolute(n->x) <= B5_ADV_TOL_X_MM))
                     && (absolute(n->y
                                  - n->request.lateral_mm) <= B5_ADV_TOL_Y_MM);
         }

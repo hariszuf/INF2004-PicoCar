@@ -12,10 +12,10 @@
 /* Callbacks return transferred byte count; use bounded hardware transfers.
  * no_stop keeps the bus active for the following repeated-start read. */
 typedef int32_t (*buddy4_write_fn)(void * context, uint8_t address,
-                               const uint8_t * data, size_t count,
-                                       bool no_stop);
+                                   const uint8_t * data, size_t count,
+                                   bool no_stop);
 typedef int32_t (*buddy4_read_fn)(void * context, uint8_t address,
-                              uint8_t * data, size_t count, bool no_stop);
+                                  uint8_t * data, size_t count, bool no_stop);
 
 typedef struct
 {

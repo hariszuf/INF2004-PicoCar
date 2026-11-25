@@ -56,22 +56,22 @@ const char * buddy4_quality_name (int32_t quality)
     switch (quality)
     {
         case BUDDY4_QUALITY_GRAVITY_LIKE:
-        return "GRAVITY_LIKE";
+            return "GRAVITY_LIKE";
         case BUDDY4_QUALITY_CLIPPED:
-        return "CLIPPED";
+            return "CLIPPED";
         case BUDDY4_QUALITY_NONFINITE:
-        return "NONFINITE";
+            return "NONFINITE";
         case BUDDY4_QUALITY_NON_GRAVITY:
-        return "NON_GRAVITY";
+            return "NON_GRAVITY";
         default:
-        return "UNAVAILABLE";
+            return "UNAVAILABLE";
     }
 }
 
 static int32_t classify_angle (int32_t previous,
-                           float32_t angle,
-                           float32_t enter_deg,
-                           float32_t exit_deg)
+                               float32_t angle,
+                               float32_t enter_deg,
+                               float32_t exit_deg)
 {
     if (angle >= enter_deg)
     {
@@ -136,7 +136,9 @@ static void finish_side_event (side_event_t * event,
         return;
     }
 
+    /* cast: result intentionally ignored */
     (void)timestamp;
+    /* cast: result intentionally ignored */
     (void)p_reason;
     *event = (side_event_t){0};
 }
@@ -360,7 +362,7 @@ static bool read_registers (buddy4_imu_t * p_imu, uint8_t reg,
             (1 == p_imu->bus.write(p_imu->bus.context, LSM303D_ADDRESS,
                                    &reg, 1, true)) &&
             (p_imu->bus.read(p_imu->bus.context, LSM303D_ADDRESS,
-                           data, count, false) == (int32_t)count);
+                             data, count, false) == (int32_t)count);
 }
 
 /* Clear per-call flags while retaining the last fresh measurements. */
@@ -443,7 +445,7 @@ bool buddy4_configure (buddy4_imu_t * p_imu)
          / sizeof(settings[0]); ++index)
     {
         if (p_imu->bus.write(p_imu->bus.context, LSM303D_ADDRESS,
-                           settings[index], 2, false) != 2)
+                             settings[index], 2, false) != 2)
         {
             goto fail;
         }

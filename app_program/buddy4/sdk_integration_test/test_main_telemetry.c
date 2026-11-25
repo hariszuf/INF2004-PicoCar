@@ -5,7 +5,6 @@
  * faults. */
 #include "../../barrc_types.h"
 #include <assert.h>
-#include <setjmp.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,7 +18,6 @@ static int32_t capture_printf (const char * p_format, ...);
 #undef main
 #undef printf
 
-static jmp_buf s_finished;
 static int32_t s_scenario;
 static bool s_stop_received;
 static bool s_driven;
@@ -131,7 +129,7 @@ static bool io_error (void)
 
 int32_t i2c_write_timeout_us (i2c_inst_t * p_bus, uint8_t address,
                               const uint8_t * p,
-                          size_t n, bool b_no_stop, uint32_t timeout)
+                              size_t n, bool b_no_stop, uint32_t timeout)
 {
     assert((p_bus == i2c0) && (0x1d == address)
            && (BUDDY4_I2C_TIMEOUT_US == timeout));
@@ -156,7 +154,7 @@ int32_t i2c_write_timeout_us (i2c_inst_t * p_bus, uint8_t address,
 }
 
 int32_t i2c_read_timeout_us (i2c_inst_t * p_bus, uint8_t address, uint8_t * p,
-                         size_t n, bool b_no_stop, uint32_t timeout)
+                             size_t n, bool b_no_stop, uint32_t timeout)
 {
     assert((p_bus == i2c0) && (0x1d == address) && (!b_no_stop)
            && (BUDDY4_I2C_TIMEOUT_US == timeout));
@@ -256,34 +254,10 @@ static int32_t capture_printf (const char * p_format, ...)
     return count;
 }
 
-void tight_loop_contents (void)
+/* Runs the end-of-test checks, then ends the process. The SDK main loop
+ * never returns, so this replaces the former non-local jump exit. */
+static void finish_run (void)
 {
-    if (s_stop_received)
-    {
-        assert((!control.running) && (!control.armed));
-        assert((sim_is_braked(MOTION_SIDE_LEFT))
-               && (sim_is_braked(MOTION_SIDE_RIGHT)));
-    }
-
-    if (host_time_us() >= 6500000)
-    {
-        longjmp(s_finished, 1);
-    }
-
-    sim_advance_ms(1);
-}
-
-int main (int argc, char ** argv)
-{
-    assert(2 == argc);
-    s_scenario = atoi(argv[1]);
-    assert((s_scenario >= 0) && (s_scenario <= 3));
-
-    if (!setjmp(s_finished))
-    {
-        actual_sdk_main();
-    }
-
     assert(s_driven && s_stop_received && s_seen_error);
     assert((s_rows_before > 20) && (s_rows_after > 100)
            && (s_received_after_resume > 100));
@@ -305,7 +279,34 @@ int main (int argc, char ** argv)
     printf("Actual SDK main-loop scenario %d: %u received rows before S, %u "
            "after S, %u dropped writes, motors remain latched stopped\n",
            s_scenario, s_rows_before, s_rows_after, s_dropped);
-    return 0;
+    (void)fflush(stdout);
+    _Exit(0);
+}
+
+void tight_loop_contents (void)
+{
+    if (s_stop_received)
+    {
+        assert((!control.running) && (!control.armed));
+        assert((sim_is_braked(MOTION_SIDE_LEFT))
+               && (sim_is_braked(MOTION_SIDE_RIGHT)));
+    }
+
+    if (host_time_us() >= 6500000)
+    {
+        finish_run();
+    }
+
+    sim_advance_ms(1);
+}
+
+int main (int argc, char ** argv)
+{
+    assert(2 == argc);
+    s_scenario = atoi(argv[1]);
+    assert((s_scenario >= 0) && (s_scenario <= 3));
+    actual_sdk_main();
+    return 1;
 }
 
 /*** end of file ***/

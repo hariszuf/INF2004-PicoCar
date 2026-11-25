@@ -9,14 +9,14 @@ void buddy4_obstruction_sdk_init (buddy4_obstruction_sdk_t * a)
 
 void buddy4_obstruction_sdk_note_update (buddy4_obstruction_sdk_t * a,
                                          const motion_status_t * status,
-                                                 const drive_control_t
-                                                         * p_demand,
+                                         const drive_control_t
+                                         * p_demand,
                                          uint64_t begin, uint64_t end,
-                                                 uint32_t skipped)
+                                         uint32_t skipped)
 {
     a->timing_ok = (a->have_update) && (!a->pending) && (begin > a->begin_us) &&
             (begin - a->begin_us >= 10000u)
-                    && (begin - a->begin_us <= 30000u) &&
+            && (begin - a->begin_us <= 30000u) &&
             (end >= begin) && (end - begin <= 5000u) && (skipped == a->skipped);
     a->status = *status;
     a->demand = *p_demand;
@@ -29,7 +29,7 @@ void buddy4_obstruction_sdk_note_update (buddy4_obstruction_sdk_t * a,
 buddy4_obstruction_output_t buddy4_obstruction_sdk_poll (
         buddy4_obstruction_sdk_t * a,
         const drive_control_t * c, const buddy4_imu_t * p_imu, bool b_usb,
-                uint64_t now)
+        uint64_t now)
 {
     const buddy4_output_t * p_o = &p_imu->output;
     const motion_status_t * m = &a->status;
@@ -37,25 +37,25 @@ buddy4_obstruction_output_t buddy4_obstruction_sdk_poll (
             && (DRIVE_MANUAL == c->mode) &&
             (MOTION_FAULT_NONE == c->stop_fault) && (a->demand.running) &&
             (a->demand.mode == c->mode)
-                    && (a->demand.started_us == c->started_us) &&
+            && (a->demand.started_us == c->started_us) &&
             (a->demand.selected_left_cm_s == c->selected_left_cm_s) &&
             (a->demand.selected_right_cm_s == c->selected_right_cm_s) &&
             (MOTION_STATE_EXECUTING == m->state)
-                    && (MOTION_FAULT_NONE == m->fault) &&
+            && (MOTION_FAULT_NONE == m->fault) &&
             (isfinite(m->left_speed_cm_s)) && (isfinite(m->right_speed_cm_s)) &&
             (MOTION_TERRAIN_FLAT == m->terrain)
-                    && (isfinite(m->terrain_speed_scale)) &&
+            && (isfinite(m->terrain_speed_scale)) &&
             (fabsf(m->terrain_speed_scale - 1) < 0.001f) &&
             (isfinite(m->left_terrain_duty))
-                    && (isfinite(m->right_terrain_duty)) &&
+            && (isfinite(m->right_terrain_duty)) &&
             (fabsf(m->left_terrain_duty) < 0.001f)
             && (fabsf(m->right_terrain_duty) < 0.001f) &&
             (p_imu->ready) && (p_o->valid) && (p_o->acceleration_valid)
-                    && (p_o->tilt_valid) &&
+            && (p_o->tilt_valid) &&
             (!p_o->clipped_axes) && (0 == p_o->terrain) && (0 == p_o->side) &&
             (isfinite(p_o->pitch_deg)) && (isfinite(p_o->roll_deg)) &&
             (isfinite(p_o->filtered_pitch_deg))
-                    && (isfinite(p_o->filtered_roll_deg)) &&
+            && (isfinite(p_o->filtered_roll_deg)) &&
             /* Roll/terrain/quality guards cancel immediately. A brief
              * pitch-only
              * excursion is passed as an explicit pause, never as level

@@ -144,6 +144,7 @@ static uint32_t critical_enter (void)
 static void critical_exit (uint32_t saved)
 {
 #if defined(MOTION_HOST_TEST)
+    /* cast: result intentionally ignored */
     (void)saved;
 #elif defined(MOTION_USE_UTKERNEL)
     motion_mtk_irq_restore(saved);
@@ -538,7 +539,7 @@ static void start_command (const command_t * p_command)
 static float32_t stop_lead_cm (void)
 {
     float32_t mean_speed = 0.5f * (abs_f(s_speed_cm_s[MOTION_SIDE_LEFT]) +
-                               abs_f(s_speed_cm_s[MOTION_SIDE_RIGHT]));
+                                   abs_f(s_speed_cm_s[MOTION_SIDE_RIGHT]));
 
     return mean_speed * MOTION_STOP_LEAD_S;
 }
@@ -632,7 +633,7 @@ static void profile_drive (float32_t target[MOTION_SIDE_COUNT])
         /* At crawl speed, keep the correction small enough for both wheels to
          * drive. */
         float32_t limit = clamp_f((speed - ZERO_SPEED_CM_S) * 0.5f,
-                              0.0f, MOTION_STRAIGHT_TRIM_MAX_CM_S);
+                                  0.0f, MOTION_STRAIGHT_TRIM_MAX_CM_S);
         float32_t trim = straight_trim(left - right, limit);
         target[MOTION_SIDE_LEFT] -= trim;
         target[MOTION_SIDE_RIGHT] += trim;
@@ -654,16 +655,16 @@ static void run_executing (float32_t dt_s)
     switch (s_active.type)
     {
         case COMMAND_MOVE:
-        b_done = profile_move(target);
+            b_done = profile_move(target);
         break;
         case COMMAND_TURN:
-        b_done = profile_turn(target);
+            b_done = profile_turn(target);
         break;
         case COMMAND_DRIVE:
-        profile_drive(target);
+            profile_drive(target);
         break;
         default:
-        b_done = true;
+            b_done = true;
         break;
     }
 
@@ -829,15 +830,15 @@ void motion_update (void)
     switch (s_state)
     {
         case MOTION_STATE_EXECUTING:
-        run_executing(dt_s);
+            run_executing(dt_s);
         break;
         case MOTION_STATE_STOPPING:
-        run_stopping();
+            run_stopping();
         break;
         case MOTION_STATE_IDLE:
         case MOTION_STATE_ERROR:
         default:
-        motion_motor_brake_all();
+            motion_motor_brake_all();
         break;
     }
 }
@@ -1023,6 +1024,7 @@ void motion_stop (void)
     command.value = 0.0f;
     command.left_cm_s = 0.0f;
     command.right_cm_s = 0.0f;
+    /* cast: result intentionally ignored */
     (void)queue_command(&command);
 }
 

@@ -25,7 +25,7 @@ static float32_t clamp_f (float32_t value, float32_t low, float32_t high)
 void motion_pid_init (motion_pid_t * p_pid, float32_t kp, float32_t ki,
                       float32_t kd,
                       float32_t integral_limit, float32_t out_min,
-                              float32_t out_max)
+                      float32_t out_max)
 {
     if (p_pid == (motion_pid_t *)0)
     {
@@ -54,7 +54,7 @@ void motion_pid_reset (motion_pid_t * p_pid)
 }
 
 float32_t motion_pid_update (motion_pid_t * p_pid, float32_t setpoint,
-                         float32_t measurement, float32_t dt_s)
+                             float32_t measurement, float32_t dt_s)
 {
     float32_t error;
     float32_t derivative = 0.0f;

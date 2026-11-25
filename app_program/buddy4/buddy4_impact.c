@@ -35,7 +35,7 @@ bool buddy4_impact_init (buddy4_impact_t * d, buddy4_impact_config_t cfg)
     d->configured = (isfinite(cfg.trigger_g)) && (isfinite(cfg.release_g)) &&
             (cfg.release_g >= 0) && (cfg.trigger_g > cfg.release_g) &&
             (cfg.confirm_us > 0) && (cfg.max_gap_us > 0)
-                    && (cfg.cooldown_us > 0) &&
+            && (cfg.cooldown_us > 0) &&
             (cfg.baseline_tau_us > 0);
     return d->configured;
 }

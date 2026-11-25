@@ -18,11 +18,12 @@ left of `==`, `else` at the end of every `else if` chain).
 
 | Rule | Deviation | Reason |
 |---|---|---|
-| 1.6 | Casts are not individually commented (about 760) | A useful comment needs a reason per cast. Generic comments would add noise. |
+| 1.6 | The 105 `(void)` casts are commented. The other casts (about 650) are not | Rule 1.6.a asks how the code keeps the value in range. That needs a reason per cast and cannot be generated reliably. |
 | 4.1 | `buddy4_*.c` file names share their first 8 characters | Renaming changes includes and build scripts that cannot be built without the Pico SDK. |
 | 5.2 | Plain `char` is kept for text, `int main` and `__wrap___errno` keep `int` | Required by the C standard or the linker wrap. |
 | 6.2a | Functions over 100 lines (table below) | Splitting them changes shared local state and cannot be tested without the car. |
-| - | `setjmp`/`longjmp` in `app_program/buddy4/sdk_integration_test/test_main_telemetry.c` | Host test only, never built for the car. |
+| 8.2.b | `if` blocks nested three or more deep (91 places in 13 files, mostly `vehicle_nav.c`, `vehicle_controller.c` and `line_follow.c`) | Flattening changes control flow and needs a hardware run to confirm. |
+| 1.7.d | `continue` is used in loops | The standard only lists avoiding it as a preferred practice, not a rule. |
 
 ## Functions over 100 lines
 

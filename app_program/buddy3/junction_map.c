@@ -70,22 +70,22 @@ int32_t junction_map_apply (const char * p_codes, uint32_t length)
         switch (c)
         {
             case 'L':
-            next[idx] = (uint8_t)JUNCTION_LEFT;
+                next[idx] = (uint8_t)JUNCTION_LEFT;
             break;
             case 'S':
-            next[idx] = (uint8_t)JUNCTION_STRAIGHT;
+                next[idx] = (uint8_t)JUNCTION_STRAIGHT;
             break;
             case 'R':
-            next[idx] = (uint8_t)JUNCTION_RIGHT;
+                next[idx] = (uint8_t)JUNCTION_RIGHT;
             break;
             case 'U':
-            next[idx] = (uint8_t)JUNCTION_UTURN;
+                next[idx] = (uint8_t)JUNCTION_UTURN;
             break;
             case 'N':
-            next[idx] = (uint8_t)JUNCTION_NONE;
+                next[idx] = (uint8_t)JUNCTION_NONE;
             break;
             default:
-            return -1;
+                return -1;
         }
     }
 
@@ -128,15 +128,15 @@ const char * junction_action_name (junction_action_t action)
     switch (action)
     {
         case JUNCTION_LEFT:
-        return "LEFT";
+            return "LEFT";
         case JUNCTION_STRAIGHT:
-        return "STRAIGHT";
+            return "STRAIGHT";
         case JUNCTION_RIGHT:
-        return "RIGHT";
+            return "RIGHT";
         case JUNCTION_UTURN:
-        return "UTURN";
+            return "UTURN";
         default:
-        return "NONE";
+            return "NONE";
     }
 }
 
