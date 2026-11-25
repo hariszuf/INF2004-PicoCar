@@ -13,27 +13,27 @@
 #define CONFIG_RETRY_US 1000000
 
 static int32_t bus_write (void * context, uint8_t address, const uint8_t * data,
-                      size_t count, bool no_stop)
+                      size_t count, bool b_no_stop)
 {
     (void)context;
-    return i2c_write_timeout_us(IMU_I2C_BUS, address, data, count, no_stop,
+    return i2c_write_timeout_us(IMU_I2C_BUS, address, data, count, b_no_stop,
                                 BUDDY4_I2C_TIMEOUT_US);
 }
 
 static int32_t bus_read (void * context, uint8_t address, uint8_t * data,
-                     size_t count, bool no_stop)
+                     size_t count, bool b_no_stop)
 {
     (void)context;
-    return i2c_read_timeout_us(IMU_I2C_BUS, address, data, count, no_stop,
+    return i2c_read_timeout_us(IMU_I2C_BUS, address, data, count, b_no_stop,
                                BUDDY4_I2C_TIMEOUT_US);
 }
 
 /* Reprint on each observed USB connection so a new recording has a schema. */
-static void log_csv_header (const buddy4_config_t * config)
+static void log_csv_header (const buddy4_config_t * p_config)
 {
     printf("# preliminary_six_position,imperfect_orientation_alignment,"
            "mounting_offsets_need_recalibration=%d\n",
-           config->mounting_offsets_need_recalibration);
+           p_config->mounting_offsets_need_recalibration);
     printf("seq,poll_time_us,result,valid,tilt_valid,acceleration_valid,"
            "measurement_quality,clipped_axes,clipped_samples,"
            "unsuitable_samples,sample_time_us,error_count,"

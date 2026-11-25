@@ -18,7 +18,7 @@
 
 #if TM_WIFI_CYW43
 
-LOCAL void network_status_task (INT stacd, void * exinf)
+LOCAL void network_status_task (INT stacd, void * p_exinf)
 {
     T_CYW43_UTK_STATUS status;
 
@@ -29,7 +29,7 @@ LOCAL void network_status_task (INT stacd, void * exinf)
     uint32_t dns_reported = 0U;
 
     (void)stacd;
-    (void)exinf;
+    (void)p_exinf;
 
 
     /*

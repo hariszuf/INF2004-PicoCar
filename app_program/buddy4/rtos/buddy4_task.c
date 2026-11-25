@@ -169,14 +169,14 @@ ER buddy4_task_get (buddy4_task_snapshot_t * out)
 
 static void copy_lift (void)
 {
-    const buddy4_lift_output_t * l = &lift.output;
-    next.lift_valid = l->valid;
-    next.lifted = l->lifted;
-    next.lift_reason = l->lifted ? l->reason : 0;
-    next.lift_count = l->count;
-    next.lift_since_us = l->since_us;
-    next.tilt_deg = l->tilt_deg;
-    next.lift_deviation_g = l->deviation_g;
+    const buddy4_lift_output_t * p_l = &lift.output;
+    next.lift_valid = p_l->valid;
+    next.lifted = p_l->lifted;
+    next.lift_reason = p_l->lifted ? p_l->reason : 0;
+    next.lift_count = p_l->count;
+    next.lift_since_us = p_l->since_us;
+    next.tilt_deg = p_l->tilt_deg;
+    next.lift_deviation_g = p_l->deviation_g;
 }
 
 static void publish (void)
@@ -214,17 +214,17 @@ static void save_completed_event (const side_event_t * event, uint64_t end_us)
 static void process_once (uint64_t now)
 {
     buddy4_task_speed_t speed = {0};
-    bool reset_run = false;
+    bool b_reset_run = false;
 
     if (tk_loc_mtx(data_mutex, TMO_FEVR) >= E_OK)
     {
         speed = mailbox;
-        reset_run = pending_run_reset;
+        b_reset_run = pending_run_reset;
         pending_run_reset = false;
         (void)tk_unl_mtx(data_mutex);
     }
 
-    if (reset_run)
+    if (b_reset_run)
     {
         next.run_id++;
         next.highest_hump_valid = false;
@@ -277,17 +277,17 @@ static void process_once (uint64_t now)
             next.timing_valid ? elapsed_ms(finished, acquired) : UINT32_MAX;
     next.poll_interval_ms =
             next.sequence ? elapsed_ms(acquired, next.poll_us) : 0;
-    buddy4_output_t * o = &imu.output;
+    buddy4_output_t * p_o = &imu.output;
     /* Only gravity-like samples (0.8-1.2 g) say anything about tilt. A reading
      * that is not ~1 g (bad range,
      * wiring, a stuck bus) gives a meaningless angle, and used to latch
      * "lifted" forever, which blocked the start.
      * Such samples now count as "no data", and the lift state releases after
      * invalid_release_us. */
-    buddy4_lift_update(&lift, o->accel_g[0], o->accel_g[1],
-                       o->accel_g[2], (BUDDY4_FRESH == result) && (o->valid)
-                               && (o->tilt_valid),
-                       o->timestamp_us, acquired);
+    buddy4_lift_update(&lift, p_o->accel_g[0], p_o->accel_g[1],
+                       p_o->accel_g[2], (BUDDY4_FRESH == result) && (p_o->valid)
+                               && (p_o->tilt_valid),
+                       p_o->timestamp_us, acquired);
 
     if (!speed.valid)
     {
@@ -312,21 +312,21 @@ static void process_once (uint64_t now)
     buddy4_encoder_yaw_output_t yo = buddy4_encoder_yaw_get(&yaw, acquired);
     next.sequence++;
     next.poll_us = acquired;
-    next.sample_us = o->timestamp_us;
-    next.valid = o->valid;
+    next.sample_us = p_o->timestamp_us;
+    next.valid = p_o->valid;
     next.poll_result = result;
-    next.tilt_valid = (o->valid) && (o->tilt_valid);
-    next.acceleration_valid = (o->valid) && (o->acceleration_valid);
-    next.measurement_quality = o->quality;
-    next.clipped_axes = o->clipped_axes;
-    next.status_a = o->status_a;
-    next.clipped_samples = o->clipped_samples;
-    next.unsuitable_samples = o->unsuitable_samples;
+    next.tilt_valid = (p_o->valid) && (p_o->tilt_valid);
+    next.acceleration_valid = (p_o->valid) && (p_o->acceleration_valid);
+    next.measurement_quality = p_o->quality;
+    next.clipped_axes = p_o->clipped_axes;
+    next.status_a = p_o->status_a;
+    next.clipped_samples = p_o->clipped_samples;
+    next.unsuitable_samples = p_o->unsuitable_samples;
     next.sensor_config_valid = imu.sensor_config.valid;
     next.who_am_i = imu.sensor_config.who_am_i;
     memcpy(next.sensor_ctrl, imu.sensor_config.ctrl, sizeof(next.sensor_ctrl));
 
-    if (o->error_count != next.io_errors)
+    if (p_o->error_count != next.io_errors)
     {
         next.saved_error_present = true;
         next.saved_error_code = device.last_error;
@@ -338,24 +338,24 @@ static void process_once (uint64_t now)
         next.saved_error_time_valid = next.timing_valid;
     }
 
-    next.io_errors = o->error_count;
+    next.io_errors = p_o->error_count;
     next.device_error = device.last_error;
-    memcpy(next.raw, o->raw, sizeof(next.raw));
-    memcpy(next.acceleration_g, o->accel_g, sizeof(next.acceleration_g));
-    memcpy(next.uncorrected_g, o->uncorrected_accel_g,
+    memcpy(next.raw, p_o->raw, sizeof(next.raw));
+    memcpy(next.acceleration_g, p_o->accel_g, sizeof(next.acceleration_g));
+    memcpy(next.uncorrected_g, p_o->uncorrected_accel_g,
            sizeof(next.uncorrected_g));
-    next.magnitude_g = o->magnitude_g;
-    next.pitch_deg = o->filtered_pitch_deg;
-    next.roll_deg = o->filtered_roll_deg;
-    next.height_cm = o->wheel_height_cm;
-    next.terrain = o->terrain;
-    next.side = o->side;
-    next.bump_event = (o->transient_event) && (o->valid);
-    next.side_event_ended = (o->event_ended) && (o->valid);
+    next.magnitude_g = p_o->magnitude_g;
+    next.pitch_deg = p_o->filtered_pitch_deg;
+    next.roll_deg = p_o->filtered_roll_deg;
+    next.height_cm = p_o->wheel_height_cm;
+    next.terrain = p_o->terrain;
+    next.side = p_o->side;
+    next.bump_event = (p_o->transient_event) && (p_o->valid);
+    next.side_event_ended = (p_o->event_ended) && (p_o->valid);
 
     if (next.side_event_ended)
     {
-        save_completed_event(&o->ended_event, o->timestamp_us);
+        save_completed_event(&p_o->ended_event, p_o->timestamp_us);
     }
 
     copy_lift();
@@ -369,19 +369,19 @@ static void process_once (uint64_t now)
 
 /* A periodic kernel event avoids the extra tick added to every relative delay.
  * The handler only sets one coalescing bit: no I/O, mutex, logging or math. */
-static void release_handler (void * unused)
+static void release_handler (void * p_unused)
 {
-    (void)unused;
+    (void)p_unused;
     (void)tk_set_flg(release_flag, 1u);
 }
 
 /* Consume at most one current release. Old releases are counted, never
  * replayed. */
-static bool claim_release (uint64_t * target, bool * started, uint64_t now)
+static bool claim_release (uint64_t * target, bool * p_started, uint64_t now)
 {
-    if (!*started)
+    if (!*p_started)
     {
-        *started = true;
+        *p_started = true;
         *target = now + BUDDY4_PERIOD_US;
         return true;
     }
@@ -406,12 +406,12 @@ static bool claim_release (uint64_t * target, bool * started, uint64_t now)
     return true;
 }
 
-static void sensor_task (INT code, void * info)
+static void sensor_task (INT code, void * p_info)
 {
     (void)code;
-    (void)info;
+    (void)p_info;
     uint64_t target = 0;
-    bool started = false;
+    bool b_started = false;
 
     for (;;)
     {
@@ -439,7 +439,7 @@ static void sensor_task (INT code, void * info)
             continue;
         }
 
-        if (claim_release(&target, &started, now))
+        if (claim_release(&target, &b_started, now))
         {
             process_once(now);
         }

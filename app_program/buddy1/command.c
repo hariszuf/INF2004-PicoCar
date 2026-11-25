@@ -56,13 +56,13 @@ LOCAL const char * command_type_to_string (uint8_t type)
 /*
  * Command consumer task.
  */
-LOCAL void command_task (INT stacd, void * exinf)
+LOCAL void command_task (INT stacd, void * p_exinf)
 {
     command_message_t message;
     INT received_size;
 
     (void)stacd;
-    (void)exinf;
+    (void)p_exinf;
 
     for (;;)
     {
@@ -194,9 +194,9 @@ static uint32_t mqtt_command_sequence = 0U;
  * and are not guaranteed to be null-terminated.
  */
 static uint8_t command_text_matches (
-                                     const char * payload,
+                                     const char * p_payload,
                                      uint16_t payload_length,
-                                     const char * expected,
+                                     const char * p_expected,
                                      uint16_t expected_length)
 {
     uint16_t idx;
@@ -208,7 +208,7 @@ static uint8_t command_text_matches (
 
     for (idx = 0U; idx < expected_length; idx++)
     {
-        if (payload[idx] != expected[idx])
+        if (p_payload[idx] != p_expected[idx])
         {
             return 0U;
         }
@@ -253,7 +253,7 @@ int32_t buddy1_barcode_map_result (void)
     return barcode_map_result;
 }
 
-static int32_t barcode_map_command (const char * payload,
+static int32_t barcode_map_command (const char * p_payload,
                                     uint16_t payload_length)
 {
     if ((NULL == junction_map_apply) || (NULL == junction_map_reset))
@@ -268,15 +268,15 @@ static int32_t barcode_map_command (const char * payload,
         return (int32_t)E_BUSY;
     }
 
-    if (0U != command_text_matches(payload, payload_length, "MAPRESET", 8U))
+    if (0U != command_text_matches(p_payload, payload_length, "MAPRESET", 8U))
     {
         junction_map_reset();
         barcode_map_result = 1;
         return 0;
     }
 
-    if ((30U == payload_length) && (' ' == payload[3]) &&
-        (0 == junction_map_apply(&payload[4], 26U)))
+    if ((30U == payload_length) && (' ' == p_payload[3]) &&
+        (0 == junction_map_apply(&p_payload[4], 26U)))
     {
         barcode_map_result = 1;
         return 0;
@@ -287,28 +287,28 @@ static int32_t barcode_map_command (const char * payload,
 }
 
 int32_t buddy1_mqtt_command_ingest (
-                                    const char * payload,
+                                    const char * p_payload,
                                     uint16_t payload_length)
 {
     command_message_t message = {0};
 
-    if (NULL == payload)
+    if (NULL == p_payload)
     {
         return (int32_t)E_PAR;
     }
 
     if ((payload_length >= 1U)
-        && (0U != ((uint8_t)payload[0] & TF_BINARY_MARK)))
+        && (0U != ((uint8_t)p_payload[0] & TF_BINARY_MARK)))
     {
         /* Compact binary command from the dashboard (see telemetry_frame.h). */
-        uint8_t opcode = (uint8_t)payload[0] & 0x7FU;
+        uint8_t opcode = (uint8_t)p_payload[0] & 0x7FU;
 
         if (TF_CMD_MAP == opcode)
         {
             char text[4U + TF_MAP_LETTERS + 1U] = { 'M', 'A', 'P', ' ' };
 
             if ((TF_CMD_MAP_LENGTH != payload_length) ||
-                (!tf_decode_map((const uint8_t *) & payload[1], &text[4])))
+                (!tf_decode_map((const uint8_t *) & p_payload[1], &text[4])))
             {
                 barcode_map_result = 2;
                 return (int32_t)E_PAR;
@@ -347,27 +347,27 @@ int32_t buddy1_mqtt_command_ingest (
             return (int32_t)E_PAR;
         }
     }
-    else if ((payload_length >= 3U) && ('M' == payload[0])
-             && ('A' == payload[1]) && ('P' == payload[2]))
+    else if ((payload_length >= 3U) && ('M' == p_payload[0])
+             && ('A' == p_payload[1]) && ('P' == p_payload[2]))
     {
-        return barcode_map_command(payload, payload_length);
+        return barcode_map_command(p_payload, payload_length);
     }
-    else if (command_text_matches(payload, payload_length,
+    else if (command_text_matches(p_payload, payload_length,
                                   "START", 5U) != 0U)
     {
         message.type = COMMAND_TYPE_START;
     }
-    else if (command_text_matches(payload, payload_length,
+    else if (command_text_matches(p_payload, payload_length,
                                   "STOP", 4U) != 0U)
     {
         message.type = COMMAND_TYPE_STOP;
     }
-    else if (command_text_matches(payload, payload_length,
+    else if (command_text_matches(p_payload, payload_length,
                                   "PAUSE", 5U) != 0U)
     {
         message.type = COMMAND_TYPE_PAUSE;
     }
-    else if (command_text_matches(payload, payload_length,
+    else if (command_text_matches(p_payload, payload_length,
                                   "RESUME", 6U) != 0U)
     {
         message.type = COMMAND_TYPE_RESUME;

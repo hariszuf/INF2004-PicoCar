@@ -414,16 +414,16 @@ static void phased_20ms_updates (void)
         buddy4_obstruction_sdk_note_update(&a, &motor, &control, t, t + 100,
                                            skipped);
         uint64_t previous = a.observer.output.observation_us;
-        bool delayed = idx % 2;
+        bool b_delayed = idx % 2;
 
-        if (!delayed)
+        if (!b_delayed)
         {
             imu.output.timestamp_us = t + 500;
         }
 
         buddy4_obstruction_output_t out = poll();
 
-        if (delayed)
+        if (b_delayed)
         {
             if (idx > 2)
             {
@@ -571,25 +571,26 @@ static void actual_foam_transition (void)
 {
     reset();
     uint64_t event = 0;
-    bool established_before_asymmetry = false;
+    bool b_established_before_asymmetry = false;
 
     for (uint32_t idx = 0; idx < sizeof(recorded_contact)
          / sizeof(recorded_contact[0]); idx++)
     {
-        const contact_row_t * sample = &recorded_contact[idx];
-        const drive_row_t * r = &sample->row;
+        const contact_row_t * p_sample = &recorded_contact[idx];
+        const drive_row_t * p_r = &p_sample->row;
         /* Retain recorded gaps, simulate update phase. */
-        t = sample->sample_us - 20000;
-        imu.output.pitch_deg = r->pitch;
-        imu.output.roll_deg = r->roll;
-        imu.output.filtered_pitch_deg = r->filtered_pitch;
-        imu.output.filtered_roll_deg = r->filtered_roll;
-        buddy4_obstruction_output_t out = step(r->left, r->right);
+        t = p_sample->sample_us - 20000;
+        imu.output.pitch_deg = p_r->pitch;
+        imu.output.roll_deg = p_r->roll;
+        imu.output.filtered_pitch_deg = p_r->filtered_pitch;
+        imu.output.filtered_roll_deg = p_r->filtered_roll;
+        buddy4_obstruction_output_t out = step(p_r->left, p_r->right);
 
-        if ((sample->sample_us >= 87480295) && (sample->sample_us < 87600302)
+        if ((p_sample->sample_us >= 87480295)
+            && (p_sample->sample_us < 87600302)
             && (out.established))
         {
-            established_before_asymmetry = true;
+            b_established_before_asymmetry = true;
         }
 
         if (out.possible_obstruction)
@@ -598,7 +599,7 @@ static void actual_foam_transition (void)
         }
     }
 
-    assert(established_before_asymmetry);
+    assert(b_established_before_asymmetry);
     assert((event >= 87840000) && (event < 88224602)
            && (1 == a.observer.output.event_count));
     control.running = false;
@@ -627,13 +628,13 @@ static void recorded_angles_and_cooperative_schedule (void)
     for (uint32_t idx = 0; idx < sizeof(recorded_drive)
          / sizeof(recorded_drive[0]); idx++)
     {
-        const drive_row_t * r = &recorded_drive[idx];
-        bool pitch = fabsf(r->pitch) > 3, roll = fabsf(r->roll) > 2;
-        pitch_rejections += pitch;
+        const drive_row_t * p_r = &recorded_drive[idx];
+        bool b_pitch = fabsf(p_r->pitch) > 3, roll = fabsf(p_r->roll) > 2;
+        pitch_rejections += b_pitch;
         roll_rejections += roll;
-        angle_rejections += pitch || roll;
-        assert((fabsf(r->filtered_pitch) <= 3)
-               && (fabsf(r->filtered_roll) <= 2));
+        angle_rejections += b_pitch || roll;
+        assert((fabsf(p_r->filtered_pitch) <= 3)
+               && (fabsf(p_r->filtered_roll) <= 2));
     }
 
     assert((60 == pitch_rejections) && (69 == roll_rejections)
@@ -653,28 +654,28 @@ static void recorded_angles_and_cooperative_schedule (void)
 
         while (row < sizeof(recorded_drive) / sizeof(recorded_drive[0]))
         {
-            const drive_row_t * r = &recorded_drive[row];
+            const drive_row_t * p_r = &recorded_drive[row];
             uint64_t loop_now = clock;
             clock += 60; /* Safety/status work after main captures its 'now'. */
             if (due(&motor_release, loop_now))
             {
                 uint64_t begin = clock;
                 clock += 100;
-                motor.left_speed_cm_s = r->left;
-                motor.right_speed_cm_s = r->right;
+                motor.left_speed_cm_s = p_r->left;
+                motor.right_speed_cm_s = p_r->right;
                 buddy4_obstruction_sdk_note_update(&a, &motor, &control, begin,
                         clock, motor_release.skipped);
             }
 
-            bool sampled = due(&imu_release, clock);
+            bool b_sampled = due(&imu_release, clock);
 
-            if (sampled)
+            if (b_sampled)
             {
                 imu.output.timestamp_us = clock;
-                imu.output.pitch_deg = flat_control ? 0 : r->pitch;
-                imu.output.roll_deg = flat_control ? 0 : r->roll;
-                imu.output.filtered_pitch_deg = r->filtered_pitch;
-                imu.output.filtered_roll_deg = r->filtered_roll;
+                imu.output.pitch_deg = flat_control ? 0 : p_r->pitch;
+                imu.output.roll_deg = flat_control ? 0 : p_r->roll;
+                imu.output.filtered_pitch_deg = p_r->filtered_pitch;
+                imu.output.filtered_roll_deg = p_r->filtered_roll;
                 /* Bounded acquisition duration similar to capture. */
                 clock += 1500;
             }
@@ -685,7 +686,7 @@ static void recorded_angles_and_cooperative_schedule (void)
                     buddy4_obstruction_sdk_poll(&a, &control, &imu, true,
                                                 clock);
 
-            if (sampled)
+            if (b_sampled)
             {
                 repeated += out.observation_us == previous_observation;
                 previous_observation = out.observation_us;
@@ -740,7 +741,8 @@ static void recorded_angles_and_cooperative_schedule (void)
     }
 }
 
-static void recorded_ramp (const char * name, uint32_t expected_rows, bool held)
+static void recorded_ramp (const char * name, uint32_t expected_rows,
+                           bool b_held)
 {
     /* Historical 69-column outputs already include their original calibration.
      * Retain actual sample gaps. Callback/I2C phase is synthetic, not a replay
@@ -761,8 +763,8 @@ static void recorded_ramp (const char * name, uint32_t expected_rows, bool held)
 
     snprintf(path, sizeof(path), "%.*s../evidence/2026-10-28/raw/%s",
              (int32_t)prefix, __FILE__, name);
-    FILE *file = fopen(path, "r");
-    assert(file);
+    FILE *p_file = fopen(path, "r");
+    assert(p_file);
     reset();
     establish(); /* Stress the ramp against an already armed observer. */
     char line[8192];
@@ -771,7 +773,7 @@ static void recorded_ramp (const char * name, uint32_t expected_rows, bool held)
     uint64_t first = 0;
     uint64_t base = t + 20000;
 
-    while (fgets(line, sizeof(line), file))
+    while (fgets(line, sizeof(line), p_file))
     {
         if ((line[0]<'0') || (line[0]>'9'))
         {
@@ -781,9 +783,10 @@ static void recorded_ramp (const char * name, uint32_t expected_rows, bool held)
         char * field[70];
         uint32_t n = 0;
 
-        for (char * v = strtok(line, ","); v && (n < 70); v = strtok(NULL, ","))
+        for (char * p_v = strtok(line, ","); p_v
+             && (n < 70); p_v = strtok(NULL, ","))
         {
-            field[n++] = v;
+            field[n++] = p_v;
         }
 
         if (69 != n)
@@ -799,31 +802,32 @@ static void recorded_ramp (const char * name, uint32_t expected_rows, bool held)
         }
 
         t = base + (stamp - first) - 20000;
-        control.running = held ? true : 0 != atoi(field[28]);
+        control.running = b_held ? true : 0 != atoi(field[28]);
         control.mode = (drive_mode_t)atoi(field[29]);
         motor.state =
-                held ? MOTION_STATE_EXECUTING : (motion_state_t)atoi(field[39]);
+                b_held ? MOTION_STATE_EXECUTING
+                        : (motion_state_t)atoi(field[39]);
         motor.fault =
-                held ? MOTION_FAULT_NONE : (motion_fault_t)atoi(field[40]);
+                b_held ? MOTION_FAULT_NONE : (motion_fault_t)atoi(field[40]);
         imu.output.valid = (0 != atoi(field[3])) && (0 == atoi(field[2]));
         float32_t x = strtof(field[9], NULL), y = strtof(field[10], NULL),
         z = strtof(field[11], NULL);
         float32_t mag = hypotf(hypotf(x, y), z);
-        bool clipped = false;
+        bool b_clipped = false;
 
         for (int32_t idx = 6; idx <= 8; idx++)
         {
             if ((atoi(field[idx]) <= INT16_MIN)
                 || (atoi(field[idx]) >= INT16_MAX))
             {
-                clipped = true;
+                b_clipped = true;
             }
         }
 
-        imu.output.acceleration_valid = (!clipped) && (isfinite(mag));
+        imu.output.acceleration_valid = (!b_clipped) && (isfinite(mag));
         imu.output.tilt_valid = (imu.output.acceleration_valid) && (mag >= 0.8f)
                 && (mag <= 1.2f);
-        imu.output.clipped_axes = clipped ? 7 : 0;
+        imu.output.clipped_axes = b_clipped ? 7 : 0;
         imu.output.pitch_deg = strtof(field[12], NULL);
         imu.output.roll_deg = strtof(field[13], NULL);
         imu.output.filtered_pitch_deg = strtof(field[14], NULL);
@@ -845,10 +849,10 @@ static void recorded_ramp (const char * name, uint32_t expected_rows, bool held)
         rows++;
     }
 
-    fclose(file);
+    fclose(p_file);
     assert((rows == expected_rows) && (guarded > 0));
 
-    if (held)
+    if (b_held)
     {
         /* Artificial continuing demand, recorded held tilt/speeds. */
         assert(guarded == rows);
@@ -1010,7 +1014,7 @@ static void reported_contact_confirmation_limits (void)
 }
 
 static void new_recorded_contact (const char * name, uint32_t expected_rows,
-                                  bool should_detect)
+                                  bool b_should_detect)
 {
     /* Original CSV vectors and sensor gaps, with a synthetic motor/IMU callback
      * phase. Unlogged callbacks and encoder acquisition times are not invented
@@ -1029,14 +1033,14 @@ static void new_recorded_contact (const char * name, uint32_t expected_rows,
     snprintf(path, sizeof(path), "%.*s../evidence/2026-11-02/%s",
              (int32_t)prefix,
              __FILE__, name);
-    FILE *file = fopen(path, "r");
-    assert(file);
+    FILE *p_file = fopen(path, "r");
+    assert(p_file);
     reset();
     char line[8192];
     uint32_t rows = 0;
     uint64_t event = 0;
 
-    while (fgets(line, sizeof(line), file))
+    while (fgets(line, sizeof(line), p_file))
     {
         char * data = strstr(line, " -> ");
         data = data ? data + 4 : line;
@@ -1049,9 +1053,10 @@ static void new_recorded_contact (const char * name, uint32_t expected_rows,
         char * field[87];
         uint32_t n = 0;
 
-        for (char * v = strtok(data, ","); v && (n < 87); v = strtok(NULL, ","))
+        for (char * p_v = strtok(data, ","); p_v
+             && (n < 87); p_v = strtok(NULL, ","))
         {
-            field[n++] = v;
+            field[n++] = p_v;
         }
 
         if (86 != n)
@@ -1090,10 +1095,10 @@ static void new_recorded_contact (const char * name, uint32_t expected_rows,
         rows++;
     }
 
-    fclose(file);
+    fclose(p_file);
     assert(rows == expected_rows);
 
-    if (should_detect)
+    if (b_should_detect)
     {
         assert((event > 9180000) && (event < 9498713)
                && (1 == a.observer.output.event_count));

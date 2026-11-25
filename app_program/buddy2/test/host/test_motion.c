@@ -65,7 +65,7 @@ static void run_for (int32_t ms)
     }
 }
 
-static void test_move (const char * name, float32_t distance_cm, bool forward)
+static void test_move (const char * name, float32_t distance_cm, bool b_forward)
 {
     float64_t start = sim_true_distance_cm();
     float64_t start_heading = sim_true_heading_deg();
@@ -77,7 +77,7 @@ static void test_move (const char * name, float32_t distance_cm, bool forward)
 
     printf("\n[%s]\n", name);
 
-    if (forward)
+    if (b_forward)
     {
         motion_move_forward(distance_cm);
     }

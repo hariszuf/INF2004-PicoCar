@@ -41,7 +41,8 @@ void buddy4_obstruction_sdk_init (buddy4_obstruction_sdk_t * a);
  */
 void buddy4_obstruction_sdk_note_update (buddy4_obstruction_sdk_t * a,
                                          const motion_status_t * status,
-                                                 const drive_control_t * demand,
+                                                 const drive_control_t
+                                                         * p_demand,
                                          uint64_t begin_us, uint64_t end_us,
                                                  uint32_t skipped);
 /* Call AFTER serial/safety/mode processing on every loop, including loops with
@@ -50,7 +51,7 @@ void buddy4_obstruction_sdk_note_update (buddy4_obstruction_sdk_t * a,
  * existing age/gap/skew limits hold. Waiting polls never advance evidence. */
 buddy4_obstruction_output_t buddy4_obstruction_sdk_poll (
         buddy4_obstruction_sdk_t * a,
-        const drive_control_t * control, const buddy4_imu_t * imu, bool usb,
+        const drive_control_t * control, const buddy4_imu_t * p_imu, bool b_usb,
         uint64_t now_us);
 #endif
 

@@ -33,7 +33,7 @@ void motion_motor_brake_all (void);
  * Safety latch. While set, motion_motor_set() only brakes. Used by the
  * emergency stop so normal movement commands cannot override it.
  */
-void motion_motor_set_latch (bool latched);
+void motion_motor_set_latch (bool b_latched);
 
 #endif /* MOTION_MOTOR_H */
 

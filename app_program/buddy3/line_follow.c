@@ -87,7 +87,7 @@ static bool s_rejoin;
 static int8_t s_rejoin_result;
 #if LINE_JUNCTION_USE_BARCODE
 /* barcode_task.c */
-extern bool buddy3_barcode_latest (char * letter, uint32_t * read_ms);
+extern bool buddy3_barcode_latest (char * letter, uint32_t * p_read_ms);
 static bool s_barcode_used;
 static uint32_t s_barcode_used_ms;
 #endif
@@ -264,33 +264,33 @@ static void rj_track (float32_t h)
     for (idx = 0; idx < 2; ++idx)
     {
         bool black = (0u != (s_mask & rj_bit(idx)));
-        rj_event_t * e = &s_ev[idx];
+        rj_event_t * p_e = &s_ev[idx];
 
-        if (e->done)
+        if (p_e->done)
         {
             continue;
         }
 
-        if (e->ignore)
+        if (p_e->ignore)
         {
             if (!black)
             {
-                e->ignore = false;
+                p_e->ignore = false;
             }
 
             continue;
         }
 
-        if (black && (!e->in))
+        if (black && (!p_e->in))
         {
-            e->in = true;
-            e->enter = h;
+            p_e->in = true;
+            p_e->enter = h;
         }
-        else if ((!black) && (e->in))
+        else if ((!black) && (p_e->in))
         {
-            e->in = false;
-            e->done = true;
-            e->centre = 0.5f * (e->enter + h);
+            p_e->in = false;
+            p_e->done = true;
+            p_e->centre = 0.5f * (p_e->enter + h);
         }
         else
         {
@@ -747,7 +747,7 @@ void line_follow_update (void)
        commands and ignore the sensors. No timer: released the moment the tilt
        is gone. */
     {
-        bool tilted = (MOTION_TERRAIN_FLAT != status.terrain);
+        bool b_tilted = (MOTION_TERRAIN_FLAT != status.terrain);
         float32_t pitch_deg = 0.0f;
         float32_t roll_deg = 0.0f;
 
@@ -758,7 +758,7 @@ void line_follow_update (void)
                 (pitch_deg > LINE_FREEZE_PITCH_DEG)
                 || (pitch_deg < -LINE_FREEZE_PITCH_DEG))
             {
-                tilted = true;
+                b_tilted = true;
             }
         }
 
@@ -769,10 +769,10 @@ void line_follow_update (void)
             s_freeze_cool_ms =
                     (s_freeze_cool_ms > LINE_UPDATE_PERIOD_MS)
                     ? (s_freeze_cool_ms - LINE_UPDATE_PERIOD_MS) : 0u;
-            tilted = false;
+            b_tilted = false;
         }
 
-        if (!tilted)
+        if (!b_tilted)
         {
             s_freeze_ms = 0u;
         }
@@ -784,11 +784,11 @@ void line_follow_update (void)
             {
                 s_freeze_ms = 0u;
                 s_freeze_cool_ms = LINE_FREEZE_COOLDOWN_MS;
-                tilted = false;
+                b_tilted = false;
             }
         }
 
-        if (tilted)
+        if (b_tilted)
         {
             s_lost_ms = 0u;
             /* visible in telemetry as line_state=7 */

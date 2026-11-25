@@ -63,7 +63,7 @@ typedef struct
  * Direction is detected automatically from the start/stop '*', which looks
  * different when read backwards, so a code crossed either way gives the same
  * text; result.reversed tells you which way the car crossed it. */
-void barcode39_init (barcode39_t * d, bool letters_only);
+void barcode39_init (barcode39_t * d, bool b_letters_only);
 void barcode39_reset (barcode39_t * d);
 
 /* Feed one run: is_black = sensor saw black for `width` units, then changed.
@@ -72,13 +72,13 @@ void barcode39_reset (barcode39_t * d);
  * run.
  * Zero-width runs are ignored. Safe to call from a task, not from an ISR that
  * could race with another feeder. */
-bool barcode39_feed (barcode39_t * d, bool is_black, uint32_t width,
+bool barcode39_feed (barcode39_t * d, bool b_is_black, uint32_t width,
                      barcode39_result_t * out);
 
 /* Decode a complete element array (black first, black last, 10k+9 entries).
  * Used internally and handy for tests. */
-bool barcode39_decode_elements (const uint32_t * w, uint8_t count,
-                                const barcode39_cfg_t * cfg,
+bool barcode39_decode_elements (const uint32_t * p_w, uint8_t count,
+                                const barcode39_cfg_t * p_cfg,
                                 barcode39_result_t * out);
 
 /* Diagnostics: reason and count of decode attempts that looked like a barcode
@@ -86,7 +86,7 @@ bool barcode39_decode_elements (const uint32_t * w, uint8_t count,
 /* Optional hook, called with the element widths of a complete-looking window
  * that failed to decode.
  * Weak no-op default; define a strong version to print or log it. */
-void barcode39_on_fail (const uint32_t * w, uint8_t n, uint8_t reason);
+void barcode39_on_fail (const uint32_t * p_w, uint8_t n, uint8_t reason);
 uint8_t barcode39_last_fail (void);
 uint32_t barcode39_fail_count (void);
 

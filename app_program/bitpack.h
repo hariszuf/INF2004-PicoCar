@@ -13,7 +13,7 @@
 
 #include <stdint.h>
 
-static inline uint32_t bitpack_get (const uint8_t * buf, uint32_t bit,
+static inline uint32_t bitpack_get (const uint8_t * p_buf, uint32_t bit,
                                     uint32_t width)
 {
     uint32_t value = 0u;
@@ -21,13 +21,13 @@ static inline uint32_t bitpack_get (const uint8_t * buf, uint32_t bit,
     for (uint32_t idx = 0u; idx < width; idx++)
     {
         uint32_t b = bit + idx;
-        value |= (uint32_t)((buf[b >> 3] >> (b & 7u)) & 1u) << idx;
+        value |= (uint32_t)((p_buf[b >> 3] >> (b & 7u)) & 1u) << idx;
     }
 
     return value;
 }
 
-static inline void bitpack_put (uint8_t * buf, uint32_t bit, uint32_t width,
+static inline void bitpack_put (uint8_t * p_buf, uint32_t bit, uint32_t width,
                                 uint32_t value)
 {
     for (uint32_t idx = 0u; idx < width; idx++)
@@ -37,11 +37,11 @@ static inline void bitpack_put (uint8_t * buf, uint32_t bit, uint32_t width,
 
         if ((value >> idx) & 1u)
         {
-            buf[b >> 3] |= mask;
+            p_buf[b >> 3] |= mask;
         }
         else
         {
-            buf[b >> 3] &= (uint8_t)~mask;
+            p_buf[b >> 3] &= (uint8_t)~mask;
         }
     }
 }

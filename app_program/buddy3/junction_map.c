@@ -48,19 +48,19 @@ void junction_map_reset (void)
     s_version++;
 }
 
-int32_t junction_map_apply (const char * codes, uint32_t length)
+int32_t junction_map_apply (const char * p_codes, uint32_t length)
 {
     uint8_t next[JUNCTION_MAP_LETTERS];
     uint32_t idx;
 
-    if ((0 == codes) || (JUNCTION_MAP_LETTERS != length))
+    if ((0 == p_codes) || (JUNCTION_MAP_LETTERS != length))
     {
         return -1;
     }
 
     for (idx = 0u; idx < JUNCTION_MAP_LETTERS; idx++)
     {
-        char c = codes[idx];
+        char c = p_codes[idx];
 
         if ((c >= 'a') && (c <= 'z'))
         {

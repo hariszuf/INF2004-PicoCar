@@ -170,7 +170,8 @@ static volatile bool reset_req;
 static line_scan_status_t status_shared;
 static ID scan_tid;
 
-static void publish (uint32_t now, int32_t servo_angle, const b5_range_t * last,
+static void publish (uint32_t now, int32_t servo_angle,
+                     const b5_range_t * p_last,
                      uint32_t last_ms)
 {
     line_scan_status_t s = {0};
@@ -179,7 +180,7 @@ static void publish (uint32_t now, int32_t servo_angle, const b5_range_t * last,
     s.profile = core.profile;
     s.front_clearance_mm = core.front_clearance_mm;
     s.angle = servo_angle;
-    s.front_valid = last->valid;
+    s.front_valid = p_last->valid;
     s.front_timestamp_ms = last_ms;
     s.heartbeat_ms = now;
     s.obstacle_id = obstacle_id;
@@ -202,10 +203,10 @@ static void publish (uint32_t now, int32_t servo_angle, const b5_range_t * last,
     EI(irq);
 }
 
-static void scan_task (INT stacd, void * exinf)
+static void scan_task (INT stacd, void * p_exinf)
 {
     (void)stacd;
-    (void)exinf;
+    (void)p_exinf;
     uint32_t now = buddy5_clock_ms();
     int32_t servo = 0;
     uint32_t settle_until = now + B5_SERVO_SETTLE_MS;
@@ -258,7 +259,7 @@ static void scan_task (INT stacd, void * exinf)
         }
 
         b5_range_t out;
-        bool have = false;
+        bool b_have = false;
 
         if ((int32_t)(now - next_ping) >= 0)
         {
@@ -270,22 +271,22 @@ static void scan_task (INT stacd, void * exinf)
 
                 if (b5_sampler_push(&sampler, &sample, &out))
                 {
-                    have = true;
+                    b_have = true;
                 }
             }
         }
 
-        if (have)
+        if (b_have)
         {
             last = out;
             last_ms = buddy5_clock_ms();
         }
 
         b5_feedback_t fb;
-        bool fb_ok = line_controller_feedback(&fb);
+        bool b_fb_ok = line_controller_feedback(&fb);
         b5_core_update(&core, buddy5_clock_ms(),
-                       fb_ok ? &fb : (b5_feedback_t *)0,
-                       have ? &out : (b5_range_t *)0);
+                       b_fb_ok ? &fb : (b5_feedback_t *)0,
+                       b_have ? &out : (b5_range_t *)0);
         {
             static b5_state_t prev_state = B5_MONITORING;
 

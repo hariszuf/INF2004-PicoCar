@@ -5,9 +5,9 @@
 #undef main
 /* Include implementation to exercise exact filtered-roll window boundaries. */
 #include "../buddy4_imu.c"
-static void feed (side_event_t * e, uint64_t t, float32_t roll)
+static void feed (side_event_t * p_e, uint64_t t, float32_t roll)
 {
-    update_median(e, t, fabsf(roll), 11.3f);
+    update_median(p_e, t, fabsf(roll), 11.3f);
 }
 
 static void test_windows (void)

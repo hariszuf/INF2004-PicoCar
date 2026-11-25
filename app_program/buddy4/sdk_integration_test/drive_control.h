@@ -29,15 +29,15 @@ typedef struct
     float32_t selected_right_cm_s;
 } drive_control_t;
 void drive_init (drive_control_t * c);
-void drive_stop (drive_control_t * c, const char * reason,
+void drive_stop (drive_control_t * c, const char * p_reason,
                  motion_fault_t fault);
 /* has_fresh/last_fresh refer to the last USABLE IMU measurement, not merely
  * a successful acquisition. The existing 500 ms missing-data watchdog remains.
  */
-void drive_safety (drive_control_t * c, bool usb, bool has_fresh,
+void drive_safety (drive_control_t * c, bool b_usb, bool b_has_fresh,
                    uint64_t now, uint64_t last_fresh);
-void drive_command (drive_control_t * c, int32_t key, bool usb,
-                    bool imu_healthy,
+void drive_command (drive_control_t * c, int32_t key, bool b_usb,
+                    bool b_imu_healthy,
                     uint64_t now_us);
 void drive_line_update (drive_control_t * c);
 /* SDK test-firmware permission, separate from acquisition freshness. A usable
@@ -45,8 +45,8 @@ void drive_line_update (drive_control_t * c);
  * never mean healthy. A fresh bad measurement latches stopped immediately.
  * Missing/I2C-error polls retain the existing bounded invalid-data watchdog.
  * Recovery cannot rearm; the operator must explicitly use R then G. */
-bool drive_imu_usable (const buddy4_imu_t * imu);
-bool drive_imu_poll (drive_control_t * c, const buddy4_imu_t * imu,
+bool drive_imu_usable (const buddy4_imu_t * p_imu);
+bool drive_imu_poll (drive_control_t * c, const buddy4_imu_t * p_imu,
                      buddy4_result_t result);
 #endif
 

@@ -12,7 +12,7 @@
  * Returns 0 on success, or an error code.
  */
 int32_t buddy1_mqtt_command_ingest (
-                                    const char * payload,
+                                    const char * p_payload,
                                     uint16_t payload_length
                                     );
 

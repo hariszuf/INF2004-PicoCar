@@ -31,7 +31,7 @@ float64_t sim_true_heading_deg (void);
 float64_t sim_true_distance_cm (void);
 
 /** Lock a wheel to emulate a stalled motor. */
-void sim_set_stall (motion_side_t side, bool stalled);
+void sim_set_stall (motion_side_t side, bool b_stalled);
 
 /** Terrain load on a wheel as a duty equivalent (+ resists forward motion,
  *  e.g. climbing; - helps it, e.g. going downhill). 0 = flat. */

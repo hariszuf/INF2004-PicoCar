@@ -12,28 +12,28 @@ static int32_t s_failures;
 #define CHECK(cond, text) do { if (cond) { printf("  PASS  %s\n", text); } \
     else { printf("  FAIL  %s\n", text); s_failures++; } } while (0)
 
-static void hex (const char * label, const uint8_t * b, size_t n)
+static void hex (const char * p_label, const uint8_t * p_b, size_t n)
 {
-    printf("  FRAME %s ", label);
+    printf("  FRAME %s ", p_label);
 
     for (size_t idx = 0; idx < n; idx++)
     {
-        printf("%02x", b[idx]);
+        printf("%02x", p_b[idx]);
     }
 
     printf("\n");
 }
 
 static bool roundtrip (uint8_t s, uint8_t t, uint16_t f, int32_t a, int32_t b,
-                       uint32_t q, size_t * len_out)
+                       uint32_t q, size_t * p_len_out)
 {
     uint8_t buf[TF_TELEMETRY_MAX];
     tf_telemetry_t d;
     size_t n = tf_encode_telemetry(buf, s, t, f, a, b, q);
 
-    if (len_out)
+    if (p_len_out)
     {
-        *len_out = n;
+        *p_len_out = n;
     }
 
     return (n <= TF_TELEMETRY_MAX) && (tf_decode_telemetry(buf, n, &d))

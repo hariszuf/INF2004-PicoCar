@@ -27,9 +27,9 @@ static uint32_t s_now_us;
 static char s_hook_letter;
 static int32_t s_hook_calls;
 
-void barcode_scan_on_decoded (const barcode39_result_t * r)
+void barcode_scan_on_decoded (const barcode39_result_t * p_r)
 {
-    s_hook_letter = r->text[0];
+    s_hook_letter = p_r->text[0];
     s_hook_calls++;
 }
 
@@ -47,14 +47,14 @@ static void hold (bool black, uint32_t us)
 
 /* Drive over a barcode: white lead-in, the bars (black first), white lead-out.
  * us_per_px sets the speed. */
-static void drive_over (const uint32_t * w, int32_t n, uint32_t us_per_px,
-                        bool backwards, uint32_t glitch_gap)
+static void drive_over (const uint32_t * p_w, int32_t n, uint32_t us_per_px,
+                        bool b_backwards, uint32_t glitch_gap)
 {
     hold(false, 600000u);
 
     for (int32_t idx = 0; idx < n; idx++)
     {
-        uint32_t px = backwards ? w[n - 1 - idx] : w[idx];
+        uint32_t px = b_backwards ? p_w[n - 1 - idx] : p_w[idx];
         bool black = 0 == (idx % 2);
         uint32_t us = px * us_per_px;
 
@@ -75,25 +75,25 @@ static void drive_over (const uint32_t * w, int32_t n, uint32_t us_per_px,
     hold(false, 600000u);
 }
 
-static void expect (const char * name, const uint32_t * w, char letter,
+static void expect (const char * name, const uint32_t * p_w, char letter,
                     uint32_t us_per_px,
-                    bool backwards, uint32_t glitch)
+                    bool b_backwards, uint32_t glitch)
 {
     barcode39_result_t r;
     s_hook_calls = 0;
     memset(&r, 0, sizeof r);
     barcode_scan_init();
     s_now_us = 1000u;
-    drive_over(w, 29, us_per_px, backwards, glitch);
-    bool got = barcode_scan_take(&r);
-    CHECK(got, "%s: no barcode decoded", name);
+    drive_over(p_w, 29, us_per_px, b_backwards, glitch);
+    bool b_got = barcode_scan_take(&r);
+    CHECK(b_got, "%s: no barcode decoded", name);
 
-    if (got)
+    if (b_got)
     {
         CHECK((r.text[0] == letter) && (1 == r.length),
               "%s: got '%s' want '%c'",
               name, r.text, letter);
-        CHECK(r.reversed == backwards, "%s: reversed flag %d", name,
+        CHECK(r.reversed == b_backwards, "%s: reversed flag %d", name,
               r.reversed);
         CHECK((1 == s_hook_calls) && (s_hook_letter == letter),
               "%s: hook calls=%d",

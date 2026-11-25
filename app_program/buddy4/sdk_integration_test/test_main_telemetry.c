@@ -12,7 +12,7 @@
 #include <string.h>
 #include "sim_hw.h"
 #include "host_platform.h"
-static int32_t capture_printf (const char * format, ...);
+static int32_t capture_printf (const char * p_format, ...);
 #define printf capture_printf
 #define main actual_sdk_main
 #include "main.c"
@@ -105,19 +105,19 @@ uint8_t line_sensors_read (void)
     return LINE_SENSOR_LEFT | LINE_SENSOR_RIGHT;
 }
 
-uint32_t i2c_init (i2c_inst_t * bus, uint32_t baudrate)
+uint32_t i2c_init (i2c_inst_t * p_bus, uint32_t baudrate)
 {
-    assert((bus == i2c0) && (100000 == baudrate));
-    memset(bus, 0, sizeof(*bus));
-    bus->reg[0x0f] = 0x49;
-    bus->reg[0x27] = 8;
+    assert((p_bus == i2c0) && (100000 == baudrate));
+    memset(p_bus, 0, sizeof(*p_bus));
+    p_bus->reg[0x0f] = 0x49;
+    p_bus->reg[0x27] = 8;
     /* Recorded healthy stationary vector. */
     const int16_t raw[] = {901, 456, -14521};
 
     for (uint32_t idx = 0; idx < 3; idx++)
     {
-        bus->reg[0x28 + 2 * idx] = (uint16_t)raw[idx] & 255;
-        bus->reg[0x29 + 2 * idx] = (uint16_t)raw[idx] >> 8;
+        p_bus->reg[0x28 + 2 * idx] = (uint16_t)raw[idx] & 255;
+        p_bus->reg[0x29 + 2 * idx] = (uint16_t)raw[idx] >> 8;
     }
 
     return baudrate;
@@ -129,11 +129,11 @@ static bool io_error (void)
             && (host_time_us() < 4000000);
 }
 
-int32_t i2c_write_timeout_us (i2c_inst_t * bus, uint8_t address,
+int32_t i2c_write_timeout_us (i2c_inst_t * p_bus, uint8_t address,
                               const uint8_t * p,
-                          size_t n, bool no_stop, uint32_t timeout)
+                          size_t n, bool b_no_stop, uint32_t timeout)
 {
-    assert((bus == i2c0) && (0x1d == address)
+    assert((p_bus == i2c0) && (0x1d == address)
            && (BUDDY4_I2C_TIMEOUT_US == timeout));
 
     if (io_error())
@@ -143,22 +143,22 @@ int32_t i2c_write_timeout_us (i2c_inst_t * bus, uint8_t address,
 
     if (1 == n)
     {
-        assert(no_stop);
-        bus->pointer = p[0];
+        assert(b_no_stop);
+        p_bus->pointer = p[0];
     }
     else
     {
-        assert((2 == n) && (!no_stop));
-        bus->reg[p[0]] = p[1];
+        assert((2 == n) && (!b_no_stop));
+        p_bus->reg[p[0]] = p[1];
     }
 
     return (int32_t)n;
 }
 
-int32_t i2c_read_timeout_us (i2c_inst_t * bus, uint8_t address, uint8_t * p,
-                         size_t n, bool no_stop, uint32_t timeout)
+int32_t i2c_read_timeout_us (i2c_inst_t * p_bus, uint8_t address, uint8_t * p,
+                         size_t n, bool b_no_stop, uint32_t timeout)
 {
-    assert((bus == i2c0) && (0x1d == address) && (!no_stop)
+    assert((p_bus == i2c0) && (0x1d == address) && (!b_no_stop)
            && (BUDDY4_I2C_TIMEOUT_US == timeout));
 
     if (io_error())
@@ -168,18 +168,18 @@ int32_t i2c_read_timeout_us (i2c_inst_t * bus, uint8_t address, uint8_t * p,
 
     for (size_t idx = 0; idx < n; idx++)
     {
-        p[idx] = bus->reg[(bus->pointer & 0x7f) + idx];
+        p[idx] = p_bus->reg[(p_bus->pointer & 0x7f) + idx];
     }
 
     return (int32_t)n;
 }
 
-static int32_t capture_printf (const char * format, ...)
+static int32_t capture_printf (const char * p_format, ...)
 {
     char text[4096];
     va_list ap;
-    va_start(ap, format);
-    int32_t count = vsnprintf(text, sizeof(text), format, ap);
+    va_start(ap, p_format);
+    int32_t count = vsnprintf(text, sizeof(text), p_format, ap);
     va_end(ap);
     assert((count >= 0) && ((size_t)count < sizeof(text)));
     attempted++;
@@ -198,7 +198,7 @@ static int32_t capture_printf (const char * format, ...)
         return count;
     }
 
-    if (strncmp(format, "%lu,%llu,", 9))
+    if (strncmp(p_format, "%lu,%llu,", 9))
     {
         return count;
     }

@@ -58,15 +58,15 @@ void buddy4_lift_update (buddy4_lift_t * d, float32_t x, float32_t y,
                          float32_t z,
                          bool valid, uint64_t sample_us, uint64_t now_us)
 {
-    buddy4_lift_output_t * o = &d->output;
+    buddy4_lift_output_t * p_o = &d->output;
     float32_t mag = sqrtf(x * x + y * y + z * z);
     float32_t c_up = d->config.up_sign;
-    bool ok = (d->configured) && valid && (isfinite(mag))
+    bool b_ok = (d->configured) && valid && (isfinite(mag))
             && (sample_us <= now_us) &&
             (now_us - sample_us <= d->config.max_gap_us) &&
             ((!d->has_time) || (sample_us > d->last_time_us));
 
-    if (!ok)
+    if (!b_ok)
     {
         /* One poll without a new sample (the IMU updates slower than the 20 ms
          * poll) must not
@@ -74,7 +74,7 @@ void buddy4_lift_update (buddy4_lift_t * d, float32_t x, float32_t y,
         if ((!d->has_time) || (now_us < d->last_time_us)
             || (now_us - d->last_time_us > 250000u))
         {
-            o->valid = false;
+            p_o->valid = false;
         }
 
         clear_pending(d);
@@ -84,10 +84,10 @@ void buddy4_lift_update (buddy4_lift_t * d, float32_t x, float32_t y,
             d->invalid_pending = true;
             d->invalid_since_us = now_us;
         }
-        else if ((o->lifted) && (now_us >= d->invalid_since_us) &&
+        else if ((p_o->lifted) && (now_us >= d->invalid_since_us) &&
                  (now_us - d->invalid_since_us >= d->config.invalid_release_us))
         {
-            o->lifted = false; /* sensor gone: unknown is not "lifted" */
+            p_o->lifted = false; /* sensor gone: unknown is not "lifted" */
         }
         else
         {
@@ -100,17 +100,17 @@ void buddy4_lift_update (buddy4_lift_t * d, float32_t x, float32_t y,
     d->invalid_pending = false;
     d->has_time = true;
     d->last_time_us = sample_us;
-    o->valid = true;
-    o->tilt_deg = atan2f(sqrtf(x * x + y * y), c_up * z) * RAD_TO_DEG;
-    o->deviation_g = fabsf(mag - 1.0f);
+    p_o->valid = true;
+    p_o->tilt_deg = atan2f(sqrtf(x * x + y * y), c_up * z) * RAD_TO_DEG;
+    p_o->deviation_g = fabsf(mag - 1.0f);
     const buddy4_lift_config_t * c = &d->config;
 
-    if (!o->lifted)
+    if (!p_o->lifted)
     {
-        bool tilted = o->tilt_deg >= c->tilt_enter_deg;
-        bool moving = o->deviation_g >= c->accel_enter_g;
+        bool b_tilted = p_o->tilt_deg >= c->tilt_enter_deg;
+        bool b_moving = p_o->deviation_g >= c->accel_enter_g;
 
-        if (tilted)
+        if (b_tilted)
         {
             if (!d->tilt_pending)
             {
@@ -123,7 +123,7 @@ void buddy4_lift_update (buddy4_lift_t * d, float32_t x, float32_t y,
             d->tilt_pending = false;
         }
 
-        if (moving)
+        if (b_moving)
         {
             if (!d->accel_pending)
             {
@@ -141,7 +141,7 @@ void buddy4_lift_update (buddy4_lift_t * d, float32_t x, float32_t y,
         if ((d->tilt_pending)
             && (sample_us - d->tilt_since_us >= c->tilt_confirm_us))
         {
-            reason = o->tilt_deg >= c->overturn_deg ? BUDDY4_LIFT_OVERTURNED
+            reason = p_o->tilt_deg >= c->overturn_deg ? BUDDY4_LIFT_OVERTURNED
                     : BUDDY4_LIFT_TILTED;
         }
         else if ((d->accel_pending)
@@ -156,13 +156,13 @@ void buddy4_lift_update (buddy4_lift_t * d, float32_t x, float32_t y,
 
         if (reason)
         {
-            o->lifted = true;
-            o->reason = reason;
-            o->since_us = sample_us;
+            p_o->lifted = true;
+            p_o->reason = reason;
+            p_o->since_us = sample_us;
 
-            if (UINT32_MAX != o->count)
+            if (UINT32_MAX != p_o->count)
             {
-                o->count++;
+                p_o->count++;
             }
 
             clear_pending(d);
@@ -171,10 +171,10 @@ void buddy4_lift_update (buddy4_lift_t * d, float32_t x, float32_t y,
     else
     {
         /* Latched: release only after a continuous level, still period. */
-        bool calm = (o->tilt_deg <= c->tilt_exit_deg)
-                && (o->deviation_g <= c->accel_exit_g);
+        bool b_calm = (p_o->tilt_deg <= c->tilt_exit_deg)
+                && (p_o->deviation_g <= c->accel_exit_g);
 
-        if (!calm)
+        if (!b_calm)
         {
             d->calm_pending = false;
         }
@@ -185,7 +185,7 @@ void buddy4_lift_update (buddy4_lift_t * d, float32_t x, float32_t y,
         }
         else if (sample_us - d->calm_since_us >= c->clear_us)
         {
-            o->lifted = false;
+            p_o->lifted = false;
             clear_pending(d);
         }
         else

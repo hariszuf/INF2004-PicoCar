@@ -47,25 +47,25 @@ void lwip_utk_assert (const char * message)
     abort();
 }
 
-int32_t tm_printf (const uint8_t * format, ...)
+int32_t tm_printf (const uint8_t * p_format, ...)
 {
-    (void)format;
+    (void)p_format;
     return 0;
 }
 
-int32_t tm_sprintf (uint8_t * buffer, const uint8_t * format, ...)
+int32_t tm_sprintf (uint8_t * buffer, const uint8_t * p_format, ...)
 {
     va_list args;
-    va_start(args, format);
-    int32_t n = vsprintf((char *)buffer, (const char *)format, args);
+    va_start(args, p_format);
+    int32_t n = vsprintf((char *)buffer, (const char *)p_format, args);
     va_end(args);
     return n;
 }
 
-static err_t observed_connect (mqtt_client_t * client, const ip_addr_t * ip,
+static err_t observed_connect (mqtt_client_t * p_client, const ip_addr_t * p_ip,
                                u16_t port,
-                               mqtt_connection_cb_t cb, void * arg,
-                               const struct mqtt_connect_client_info_t * info)
+                               mqtt_connection_cb_t cb, void * p_arg,
+                               const struct mqtt_connect_client_info_t * p_info)
 {
     assert(attempts < 32);
     attempt_time[attempts++] = test_now;
@@ -76,7 +76,7 @@ static err_t observed_connect (mqtt_client_t * client, const ip_addr_t * ip,
         return ERR_RTE;
     }
 
-    return mqtt_client_connect(client, ip, port, cb, arg, info);
+    return mqtt_client_connect(p_client, p_ip, port, cb, p_arg, p_info);
 }
 
 static mqtt_client_t * observed_new (void)
@@ -161,7 +161,7 @@ static void inspect_mqtt (const uint8_t * p, uint32_t length)
         } while (p[offset++] & 128);
         /* Test messages fit in one TCP segment. */
         assert(offset + remaining <= length);
-        const uint8_t * body = p + offset;
+        const uint8_t * p_body = p + offset;
         uint32_t type = p[0] >> 4;
 
         if (1 == type)
@@ -172,37 +172,37 @@ static void inspect_mqtt (const uint8_t * p, uint32_t length)
         if (8 == type)
         {
             assert(remaining >= 5);
-            subscribe_id = (body[0] << 8) | body[1];
-            uint32_t topic_length = (body[2] << 8) | body[3];
+            subscribe_id = (p_body[0] << 8) | p_body[1];
+            uint32_t topic_length = (p_body[2] << 8) | p_body[3];
             assert(topic_length == strlen(MQTT_COMMAND_TOPIC));
             assert((remaining == topic_length + 5)
-                   && (!memcmp(body + 4, MQTT_COMMAND_TOPIC, topic_length)));
+                   && (!memcmp(p_body + 4, MQTT_COMMAND_TOPIC, topic_length)));
         }
 
         if (3 == type)
         {
             publishes++;
             assert(remaining >= 2);
-            uint32_t topic_length = (body[0] << 8) | body[1];
+            uint32_t topic_length = (p_body[0] << 8) | p_body[1];
             assert(remaining >= topic_length + 2);
             uint32_t payload_length = remaining - topic_length - 2;
-            const uint8_t * payload = body + 2 + topic_length;
+            const uint8_t * p_payload = p_body + 2 + topic_length;
 
             if ((topic_length == strlen(MQTT_STATUS_TOPIC))
-                && (!memcmp(body + 2, MQTT_STATUS_TOPIC, topic_length)))
+                && (!memcmp(p_body + 2, MQTT_STATUS_TOPIC, topic_length)))
             {
                 assert((payload_length >= 14)
-                       && (!memcmp(payload, "heartbeat seq=", 14)));
+                       && (!memcmp(p_payload, "heartbeat seq=", 14)));
                 status_messages++;
             }
 
             if ((topic_length == strlen(MQTT_TELEMETRY_TOPIC))
-                && (!memcmp(body + 2, MQTT_TELEMETRY_TOPIC, topic_length)))
+                && (!memcmp(p_body + 2, MQTT_TELEMETRY_TOPIC, topic_length)))
             {
-                const char * expected =
+                const char * p_expected =
                         "src=1 type=1 seq=42 value1=7 value2=-9";
-                assert((payload_length == strlen(expected))
-                       && (!memcmp(payload, expected, payload_length)));
+                assert((payload_length == strlen(p_expected))
+                       && (!memcmp(p_payload, p_expected, payload_length)));
                 telemetry_messages++;
             }
         }
@@ -256,10 +256,10 @@ static err_t wire_output (struct netif * n, struct pbuf * p)
 
         if (len)
         {
-            const uint8_t * payload =
+            const uint8_t * p_payload =
                     (const uint8_t *)tcp + TCPH_HDRLEN_BYTES(tcp);
             sent_next = lwip_ntohl(tcp->seqno) + len;
-            inspect_mqtt(payload, len);
+            inspect_mqtt(p_payload, len);
         }
     }
 
@@ -297,30 +297,30 @@ static void advance (uint32_t ms)
     }
 }
 
-static void deliver (const void * frame, uint32_t size)
+static void deliver (const void * p_frame, uint32_t size)
 {
     struct pbuf * p = pbuf_alloc(PBUF_RAW, (u16_t)size, PBUF_RAM);
     assert(p);
-    assert(ERR_OK == pbuf_take(p, frame, (u16_t)size));
+    assert(ERR_OK == pbuf_take(p, p_frame, (u16_t)size));
     assert(ERR_OK == iface.input(p, &iface));
 }
 
 static struct ip_hdr
-        * ip_header (uint8_t * frame, uint32_t size, u8_t proto,
-                                  const ip4_addr_t * src,
-                                          const ip4_addr_t * dst)
+        * ip_header (uint8_t * p_frame, uint32_t size, u8_t proto,
+                                  const ip4_addr_t * p_src,
+                                          const ip4_addr_t * p_dst)
 {
-    struct eth_hdr * eth = (void *)frame;
+    struct eth_hdr * eth = (void *)p_frame;
     memcpy(eth->src.addr, peer_mac, 6);
     memcpy(eth->dest.addr, client_mac, 6);
     eth->type = lwip_htons(ETHTYPE_IP);
-    struct ip_hdr * ip = (void *)(frame + SIZEOF_ETH_HDR);
+    struct ip_hdr * ip = (void *)(p_frame + SIZEOF_ETH_HDR);
     IPH_VHL_SET(ip, 4, 5);
     IPH_LEN_SET(ip, lwip_htons(size - SIZEOF_ETH_HDR));
     IPH_TTL_SET(ip, 64);
     IPH_PROTO_SET(ip, proto);
-    ip->src.addr = src->addr;
-    ip->dest.addr = dst->addr;
+    ip->src.addr = p_src->addr;
+    ip->dest.addr = p_dst->addr;
     IPH_CHKSUM_SET(ip, inet_chksum(ip, IP_HLEN));
     return ip;
 }
@@ -375,7 +375,7 @@ static void arp_reply (void)
 }
 
 static void tcp_reply (uint32_t flags, u32_t seq, u32_t ack,
-                       const void * payload,
+                       const void * p_payload,
                        uint32_t len)
 {
     uint8_t frame[SIZEOF_ETH_HDR + IP_HLEN + TCP_HLEN + 256] = {0};
@@ -393,7 +393,7 @@ static void tcp_reply (uint32_t flags, u32_t seq, u32_t ack,
 
     if (len)
     {
-        memcpy((uint8_t *)tcp + TCP_HLEN, payload, len);
+        memcpy((uint8_t *)tcp + TCP_HLEN, p_payload, len);
     }
 
     struct pbuf * sum = pbuf_alloc(PBUF_RAW, (u16_t)(TCP_HLEN + len), PBUF_RAM);

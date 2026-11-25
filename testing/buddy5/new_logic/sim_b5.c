@@ -58,17 +58,17 @@ typedef struct
     float64_t x[4];
     float64_t y[4];
 } quadr_t;
-static int32_t sat (const quadr_t * a, const quadr_t * b)
+static int32_t sat (const quadr_t * a, const quadr_t * p_b)
 {
-    const quadr_t * q[2] = {a, b};
+    const quadr_t * p_q[2] = {a, p_b};
 
     for (int32_t k = 0; k < 2; k++)
     {
         for (int32_t i = 0; i < 4; i++)
         {
             int32_t jdx = (i + 1) & 3;
-            float64_t ax = -(q[k]->y[jdx] - q[k]->y[i]),
-            ay = q[k]->x[jdx] - q[k]->x[i];
+            float64_t ax = -(p_q[k]->y[jdx] - p_q[k]->y[i]),
+            ay = p_q[k]->x[jdx] - p_q[k]->x[i];
             float64_t amin = 1e30;
             float64_t amax = -1e30;
             float64_t bmin = 1e30;
@@ -77,7 +77,7 @@ static int32_t sat (const quadr_t * a, const quadr_t * b)
             for (int32_t p = 0; p < 4; p++)
             {
                 float64_t da = ax * a->x[p] + ay * a->y[p];
-                float64_t db = ax * b->x[p] + ay * b->y[p];
+                float64_t db = ax * p_b->x[p] + ay * p_b->y[p];
 
                 if (da < amin)
                 {
@@ -330,105 +330,105 @@ typedef struct
     float64_t min_clear;
     float64_t worst_t;
 } veh_t;
-static float64_t nav_x (const veh_t * v)
+static float64_t nav_x (const veh_t * p_v)
 {
-    float64_t dx = v->px - v->ox;
-    float64_t dy = v->py - v->oy;
-    return dx * cos(v->oh * D2R) + dy * sin(v->oh * D2R);
+    float64_t dx = p_v->px - p_v->ox;
+    float64_t dy = p_v->py - p_v->oy;
+    return dx * cos(p_v->oh * D2R) + dy * sin(p_v->oh * D2R);
 }
 
-static float64_t nav_y (const veh_t * v)
+static float64_t nav_y (const veh_t * p_v)
 {
-    float64_t dx = v->px - v->ox;
-    float64_t dy = v->py - v->oy;
-    return -dx * sin(v->oh * D2R) + dy * cos(v->oh * D2R);
+    float64_t dx = p_v->px - p_v->ox;
+    float64_t dy = p_v->py - p_v->oy;
+    return -dx * sin(p_v->oh * D2R) + dy * cos(p_v->oh * D2R);
 }
 
-static float64_t nav_h (const veh_t * v)
+static float64_t nav_h (const veh_t * p_v)
 {
-    return v->ph - v->oh;
+    return p_v->ph - p_v->oh;
 }
 
-static bool ir_black (const veh_t * v)
+static bool ir_black (const veh_t * p_v)
 {
-    float64_t yy = v->py + B5_AXLE_TO_SENSOR_MM * sin(v->ph * D2R);
+    float64_t yy = p_v->py + B5_AXLE_TO_SENSOR_MM * sin(p_v->ph * D2R);
     return fabs(yy) <= 10.0;
 }
 
-static void build_recover (veh_t * v, bool extend)
+static void build_recover (veh_t * p_v, bool b_extend)
 {
     int32_t i = 0;
 
-    if (extend)
+    if (b_extend)
     {
-        v->act[i++] = (act_t){A_TURN, 0};
-        v->act[i++] = (act_t){A_MOVE, B5_EXTEND_MM};
+        p_v->act[i++] = (act_t){A_TURN, 0};
+        p_v->act[i++] = (act_t){A_MOVE, B5_EXTEND_MM};
     }
 
-    v->act[i++] = (act_t){A_TURN, v->recover_side * 90.0};
-    v->act[i++] = (act_t){A_CHECK, 0};
-    v->act[i++] = (act_t){A_SWEEP, fabs(nav_y(v)) + B5_LINE_SWEEP_EXTRA_MM};
-    v->act[i++] = (act_t){A_REJOIN, -v->recover_side};
-    v->n = i;
-    v->idx = 0;
-    v->issued = false;
-    v->tape_in = false;
-    v->tape_meas = false;
-    v->check_since = -1;
+    p_v->act[i++] = (act_t){A_TURN, p_v->recover_side * 90.0};
+    p_v->act[i++] = (act_t){A_CHECK, 0};
+    p_v->act[i++] = (act_t){A_SWEEP, fabs(nav_y(p_v)) + B5_LINE_SWEEP_EXTRA_MM};
+    p_v->act[i++] = (act_t){A_REJOIN, -p_v->recover_side};
+    p_v->n = i;
+    p_v->idx = 0;
+    p_v->issued = false;
+    p_v->tape_in = false;
+    p_v->tape_meas = false;
+    p_v->check_since = -1;
 }
 
-static bool nav_accept (veh_t * v, const b5_request_t * r)
+static bool nav_accept (veh_t * p_v, const b5_request_t * p_r)
 {
-    if (v->failed)
+    if (p_v->failed)
     {
         return false;
     }
 
-    if ((v->active) && (r->kind != B5_REQ_STOP))
+    if ((p_v->active) && (p_r->kind != B5_REQ_STOP))
     {
         return false;
     }
 
-    v->req = *r;
-    v->active = true;
-    v->issued = false;
-    v->idx = v->n = 0;
-    v->turn_tries = 0;
-    v->lf = false;
-    v->acquired = false;
-    v->retries = 0;
-    v->front_ok = false;
+    p_v->req = *p_r;
+    p_v->active = true;
+    p_v->issued = false;
+    p_v->idx = p_v->n = 0;
+    p_v->turn_tries = 0;
+    p_v->lf = false;
+    p_v->acquired = false;
+    p_v->retries = 0;
+    p_v->front_ok = false;
 
-    switch (r->kind)
+    switch (p_r->kind)
     {
         case B5_REQ_STOP:
-        v->mot = 0;
-        v->mot_rem = 0;
-        v->still = 0;
+        p_v->mot = 0;
+        p_v->mot_rem = 0;
+        p_v->still = 0;
         break;   /* braking handled in step */
         case B5_REQ_LOOK:
-        v->act[0] = (act_t){A_TURN, (float64_t)r->lateral_mm};
-        v->n = 1;
+        p_v->act[0] = (act_t){A_TURN, (float64_t)p_r->lateral_mm};
+        p_v->n = 1;
         break;
         case B5_REQ_BYPASS:
         {
-            float64_t d = r->lateral_mm - nav_y(v);
-            v->act[0] = (act_t){A_TURN, d >= 0 ? 90 : -90};
-            v->act[1] = (act_t){A_MOVE, fabs(d)};
-            v->act[2] = (act_t){A_TURN, 0};
-            v->n = 3;
+            float64_t d = p_r->lateral_mm - nav_y(p_v);
+            p_v->act[0] = (act_t){A_TURN, d >= 0 ? 90 : -90};
+            p_v->act[1] = (act_t){A_MOVE, fabs(d)};
+            p_v->act[2] = (act_t){A_TURN, 0};
+            p_v->n = 3;
             break;
         }
         case B5_REQ_ADVANCE:
         {
-            if ((r->forward_mm <= nav_x(v)) || (fabs(nav_h(v)) > 8))
+            if ((p_r->forward_mm <= nav_x(p_v)) || (fabs(nav_h(p_v)) > 8))
             {
-                v->failed = true;
+                p_v->failed = true;
                 return false;
             }
 
-            float64_t dx = r->forward_mm - nav_x(v),
-                    dy = r->lateral_mm - nav_y(v);
+            float64_t dx = p_r->forward_mm - nav_x(p_v),
+                    dy = p_r->lateral_mm - nav_y(p_v);
             float64_t b = atan2(dy, dx) / D2R;
 
             if (b > 8)
@@ -441,41 +441,41 @@ static bool nav_accept (veh_t * v, const b5_request_t * r)
                 b = -8;
             }
 
-            v->act[0] = (act_t){A_TURN, b};
-            v->act[1] = (act_t){A_MOVE, dx / cos(b * D2R)};
-            v->act[2] = (act_t){A_TURN, 0};
-            v->n = 3;
+            p_v->act[0] = (act_t){A_TURN, b};
+            p_v->act[1] = (act_t){A_MOVE, dx / cos(b * D2R)};
+            p_v->act[2] = (act_t){A_TURN, 0};
+            p_v->n = 3;
             break;
         }
         case B5_REQ_RECOVER_LINE:
-        v->recover_side = (nav_y(v) > 0) ? -1 : 1;
-        build_recover(v, false);
+        p_v->recover_side = (nav_y(p_v) > 0) ? -1 : 1;
+        build_recover(p_v, false);
         break;
         case B5_REQ_RESUME_LINE:
         break;
         default:
-        v->active = false;
+        p_v->active = false;
         return false;
     }
 
     return true;
 }
 
-static void begin_turn (veh_t * v, float64_t by_deg)
+static void begin_turn (veh_t * p_v, float64_t by_deg)
 {
-    v->mot = 1;
-    v->mot_target = v->ph + by_deg + gauss() * 1.0;
-    v->mot_rem = fabs(by_deg);
-    v->mot_dir = by_deg >= 0 ? 1 : -1;
-    v->mot_speed = 90.0;
+    p_v->mot = 1;
+    p_v->mot_target = p_v->ph + by_deg + gauss() * 1.0;
+    p_v->mot_rem = fabs(by_deg);
+    p_v->mot_dir = by_deg >= 0 ? 1 : -1;
+    p_v->mot_speed = 90.0;
 }
 
-static void begin_move (veh_t * v, float64_t mm, float64_t speed)
+static void begin_move (veh_t * p_v, float64_t mm, float64_t speed)
 {
-    v->mot = 2;
-    v->mot_dir = mm >= 0 ? 1 : -1;
-    v->mot_rem = fabs(mm) * (1.0+gauss() * 0.01);
-    v->mot_speed = speed;
+    p_v->mot = 2;
+    p_v->mot_dir = mm >= 0 ? 1 : -1;
+    p_v->mot_rem = fabs(mm) * (1.0+gauss() * 0.01);
+    p_v->mot_speed = speed;
 }
 
 typedef struct
@@ -485,218 +485,224 @@ typedef struct
     bool fresh;
 } front_t;
 /* one 10 ms step of the vehicle */
-static void veh_step (const scen_t * s, veh_t * v, float64_t now, float64_t dt,
+static void veh_step (const scen_t * s, veh_t * p_v, float64_t now,
+                      float64_t dt,
                       front_t fr)
 {
-    if (v->halted)
+    if (p_v->halted)
     {
         return;
     }
 
     /* motion */
-    if (1 == v->mot)
+    if (1 == p_v->mot)
     {
-        float64_t step = v->mot_speed * dt;
-        float64_t err = v->mot_target - v->ph;
+        float64_t step = p_v->mot_speed * dt;
+        float64_t err = p_v->mot_target - p_v->ph;
 
         if (fabs(err) <= step)
         {
-            v->ph = v->mot_target;
-            v->mot = 0;
-            v->still = 0;
+            p_v->ph = p_v->mot_target;
+            p_v->mot = 0;
+            p_v->still = 0;
         }
         else
         {
-            v->ph += err > 0 ? step : -step;
+            p_v->ph += err > 0 ? step : -step;
         }
     }
-    else if (2 == v->mot)
+    else if (2 == p_v->mot)
     {
-        float64_t step = v->mot_speed * dt;
+        float64_t step = p_v->mot_speed * dt;
 
-        if (step > v->mot_rem)
+        if (step > p_v->mot_rem)
         {
-            step = v->mot_rem;
+            step = p_v->mot_rem;
         }
 
-        v->px += v->mot_dir * step * cos(v->ph * D2R);
-        v->py += v->mot_dir * step * sin(v->ph * D2R);
-        v->mot_rem -= step;
+        p_v->px += p_v->mot_dir * step * cos(p_v->ph * D2R);
+        p_v->py += p_v->mot_dir * step * sin(p_v->ph * D2R);
+        p_v->mot_rem -= step;
 
-        if (v->mot_rem <= 1e-9)
+        if (p_v->mot_rem <= 1e-9)
         {
-            v->mot = 0;
-            v->still = 0;
+            p_v->mot = 0;
+            p_v->still = 0;
         }
     }
     else
     {
-        if (v->still < 1000)
+        if (p_v->still < 1000)
         {
-            v->still++;
+            p_v->still++;
         }
     }
 
     /* collision bookkeeping */
-    float64_t cl = clearance(s, v->px, v->py, v->ph);
+    float64_t cl = clearance(s, p_v->px, p_v->py, p_v->ph);
 
-    if (cl < v->min_clear)
+    if (cl < p_v->min_clear)
     {
-        v->min_clear = cl;
-        v->worst_t = now;
+        p_v->min_clear = cl;
+        p_v->worst_t = now;
     }
 
     /* line following: drive along the line */
-    if ((v->lf) && (!v->active))
+    if ((p_v->lf) && (!p_v->active))
     {
-        v->px += 100.0*dt;
-        v->py *= 0.9;
-        v->ph *= 0.9;
+        p_v->px += 100.0*dt;
+        p_v->py *= 0.9;
+        p_v->ph *= 0.9;
 
-        if (fabs(v->ph) < 0.05)
+        if (fabs(p_v->ph) < 0.05)
         {
-            v->ph = 0;
+            p_v->ph = 0;
         }
 
         return;
     }
 
-    if (!v->active)
+    if (!p_v->active)
     {
         return;
     }
 
-    bool still = ((0 == v->mot) && (v->still >= 3));
+    bool b_still = ((0 == p_v->mot) && (p_v->still >= 3));
     /* STOP */
-    if (B5_REQ_STOP == v->req.kind)
+    if (B5_REQ_STOP == p_v->req.kind)
     {
-        if ((!v->issued) && (0 == v->mot))
+        if ((!p_v->issued) && (0 == p_v->mot))
         {
-            v->issued = true;
-            begin_move(v, s->stop_overshoot, 150.0);
+            p_v->issued = true;
+            begin_move(p_v, s->stop_overshoot, 150.0);
             return;
         }
 
-        if (still && (v->issued))
+        if (b_still && (p_v->issued))
         {
-            v->ox = v->px;
-            v->oy = v->py;
-            v->oh = v->ph;
-            v->active = false;
-            v->completed_id = v->req.id;
+            p_v->ox = p_v->px;
+            p_v->oy = p_v->py;
+            p_v->oh = p_v->ph;
+            p_v->active = false;
+            p_v->completed_id = p_v->req.id;
         }
 
         return;
     }
 
-    if (B5_REQ_RESUME_LINE == v->req.kind)
+    if (B5_REQ_RESUME_LINE == p_v->req.kind)
     {
-        if (still && ((ir_black(v)) || (v->acquired) || (fabs(v->py) < 12)))
+        if (b_still && ((ir_black(p_v)) || (p_v->acquired)
+                        || (fabs(p_v->py) < 12)))
         {
-            v->lf = true;
-            v->completed_id = v->req.id;
-            v->active = false;
-            v->resumed = true;
+            p_v->lf = true;
+            p_v->completed_id = p_v->req.id;
+            p_v->active = false;
+            p_v->resumed = true;
         }
 
         return;
     }
 
     /* sonar watch during the sweep to the line */
-    if ((B5_REQ_RECOVER_LINE == v->req.kind) && (v->issued) && (v->idx < v->n)
-        && (A_SWEEP == v->act[v->idx].k) && (!v->sweep_stop) && (2 == v->mot))
+    if ((B5_REQ_RECOVER_LINE == p_v->req.kind) && (p_v->issued)
+        && (p_v->idx < p_v->n)
+        && (A_SWEEP == p_v->act[p_v->idx].k) && (!p_v->sweep_stop)
+                && (2 == p_v->mot))
     {
-        if ((!v->tape_in) && (fr.fresh) && (0 == fr.ang)
+        if ((!p_v->tape_in) && (fr.fresh) && (0 == fr.ang)
             && (fr.fr_mm != B5_CLEAR_FRONT_MM)
             && (fr.fr_mm >= 0))
         {
             float64_t remain =
-                    fabs(nav_y(v) + B5_AXLE_TO_SENSOR_MM * sin(nav_h(v) * D2R));
+                    fabs(nav_y(p_v) + B5_AXLE_TO_SENSOR_MM
+                         * sin(nav_h(p_v) * D2R));
 
             if ((fr.fr_mm < remain - B5_CHECK_MARGIN_MM)
                 && (fr.fr_mm <= B5_SWEEP_STOP_MM))
             {
-                v->mot = 0;
-                v->mot_rem = 0;
-                v->still = 0;
-                v->sweep_stop = true;
+                p_v->mot = 0;
+                p_v->mot_rem = 0;
+                p_v->still = 0;
+                p_v->sweep_stop = true;
             }
         }
 
-        bool black = ir_black(v);
-        float64_t sy = nav_y(v) + B5_AXLE_TO_SENSOR_MM * sin(nav_h(v) * D2R);
+        bool black = ir_black(p_v);
+        float64_t sy =
+                nav_y(p_v) + B5_AXLE_TO_SENSOR_MM * sin(nav_h(p_v) * D2R);
 
-        if (black && (!v->tape_in))
+        if (black && (!p_v->tape_in))
         {
-            v->tape_in = true;
-            v->tape_enter_y = sy;
+            p_v->tape_in = true;
+            p_v->tape_enter_y = sy;
         }
-        else if ((v->tape_in)
+        else if ((p_v->tape_in)
                  && ((!black) || (fabs(sy
-                                       - v->tape_enter_y) >= B5_TAPE_MAX_MM)))
+                                       - p_v->tape_enter_y) >= B5_TAPE_MAX_MM)))
         {
-            v->tape_y = 0.5*(v->tape_enter_y + sy);
-            v->tape_meas = true;
-            v->mot = 0;
-            v->mot_rem = 0;
-            v->still = 0;
-            v->sweep_stop = true;
-            v->tape_in = false;
-            v->acquired = true;
+            p_v->tape_y = 0.5*(p_v->tape_enter_y + sy);
+            p_v->tape_meas = true;
+            p_v->mot = 0;
+            p_v->mot_rem = 0;
+            p_v->still = 0;
+            p_v->sweep_stop = true;
+            p_v->tape_in = false;
+            p_v->acquired = true;
         }
     }
 
-    if (v->sweep_stop)
+    if (p_v->sweep_stop)
     {
-        if (!((0 == v->mot) && (v->still >= 3)))
+        if (!((0 == p_v->mot) && (p_v->still >= 3)))
         {
             return;
         }
 
-        v->sweep_stop = false;
+        p_v->sweep_stop = false;
 
-        if (!v->tape_meas) /* blocked on the way: extend */
+        if (!p_v->tape_meas) /* blocked on the way: extend */
         {
-            if (v->retries >= B5_MAX_EXTENDS)
+            if (p_v->retries >= B5_MAX_EXTENDS)
             {
-                v->failed = true;
+                p_v->failed = true;
                 return;
             }
 
-            ++v->retries;
-            v->front_ok = false;
-            build_recover(v, true);
+            ++p_v->retries;
+            p_v->front_ok = false;
+            build_recover(p_v, true);
             return;
         }
 
-        v->issued = false;
-        ++v->idx;
+        p_v->issued = false;
+        ++p_v->idx;
         return;
     }
 
-    if (v->issued)
+    if (p_v->issued)
     {
-        if ((0 == v->mot) && (v->still >= 3))
+        if ((0 == p_v->mot) && (p_v->still >= 3))
         {
-            v->issued = false;
+            p_v->issued = false;
 
-            if (A_TURN == v->act[v->idx].k)
+            if (A_TURN == p_v->act[p_v->idx].k)
             {
-                float64_t err = v->act[v->idx].v - nav_h(v);
+                float64_t err = p_v->act[p_v->idx].v - nav_h(p_v);
 
-                if ((fabs(err) > 2.0) && (v->turn_tries < 3))
+                if ((fabs(err) > 2.0) && (p_v->turn_tries < 3))
                 {
-                    ++v->turn_tries;
+                    ++p_v->turn_tries;
                 }
                 else
                 {
-                    ++v->idx;
-                    v->turn_tries = 0;
+                    ++p_v->idx;
+                    p_v->turn_tries = 0;
                 }
             }
             else
             {
-                ++v->idx;
+                ++p_v->idx;
             }
         }
         else
@@ -705,81 +711,83 @@ static void veh_step (const scen_t * s, veh_t * v, float64_t now, float64_t dt,
         }
     }
 
-    if (v->idx >= v->n)
+    if (p_v->idx >= p_v->n)
     {
-        bool pose = fabs(nav_h(v)) <= 8;
+        bool b_pose = fabs(nav_h(p_v)) <= 8;
 
-        if (B5_REQ_RECOVER_LINE == v->req.kind)
+        if (B5_REQ_RECOVER_LINE == p_v->req.kind)
         {
-            pose = fabs(nav_h(v)) <= 30;
+            b_pose = fabs(nav_h(p_v)) <= 30;
         }
 
-        if (B5_REQ_LOOK == v->req.kind)
+        if (B5_REQ_LOOK == p_v->req.kind)
         {
-            pose = fabs(nav_h(v) - v->req.lateral_mm) <= 12;
+            b_pose = fabs(nav_h(p_v) - p_v->req.lateral_mm) <= 12;
         }
 
-        if (B5_REQ_BYPASS == v->req.kind)
+        if (B5_REQ_BYPASS == p_v->req.kind)
         {
-            pose = pose && (fabs(nav_x(v)) <= B5_ADV_TOL_X_MM)
-                    && (fabs(nav_y(v) - v->req.lateral_mm) <= B5_ADV_TOL_Y_MM);
+            b_pose = b_pose && (fabs(nav_x(p_v)) <= B5_ADV_TOL_X_MM)
+                    && (fabs(nav_y(p_v)
+                             - p_v->req.lateral_mm) <= B5_ADV_TOL_Y_MM);
         }
 
-        if (B5_REQ_ADVANCE == v->req.kind)
+        if (B5_REQ_ADVANCE == p_v->req.kind)
         {
-            pose = pose && (fabs(nav_x(v)
-                                 - v->req.forward_mm) <= B5_ADV_TOL_X_MM)
-                    && (fabs(nav_y(v) - v->req.lateral_mm) <= B5_ADV_TOL_Y_MM);
+            b_pose = b_pose && (fabs(nav_x(p_v)
+                                 - p_v->req.forward_mm) <= B5_ADV_TOL_X_MM)
+                    && (fabs(nav_y(p_v)
+                             - p_v->req.lateral_mm) <= B5_ADV_TOL_Y_MM);
         }
 
-        if ((B5_REQ_RECOVER_LINE == v->req.kind) && (v->acquired))
+        if ((B5_REQ_RECOVER_LINE == p_v->req.kind) && (p_v->acquired))
         {
-            pose = true;
+            b_pose = true;
         }
 
-        if (!pose)
+        if (!b_pose)
         {
-            v->failed = true;
+            p_v->failed = true;
             return;
         }
 
-        v->completed_id = v->req.id;
-        v->active = false;
+        p_v->completed_id = p_v->req.id;
+        p_v->active = false;
         return;
     }
 
-    if ((v->mot != 0) || (v->still < 3))
+    if ((p_v->mot != 0) || (p_v->still < 3))
     {
         return;
     }
 
-    act_t a = v->act[v->idx];
+    act_t a = p_v->act[p_v->idx];
 
     if (A_TURN == a.k)
     {
-        float64_t err = a.v - nav_h(v);
+        float64_t err = a.v - nav_h(p_v);
 
         if (fabs(err) <= 2.0)
         {
-            ++v->idx;
-            v->turn_tries = 0;
+            ++p_v->idx;
+            p_v->turn_tries = 0;
             return;
         }
 
-        begin_turn(v, err);
-        v->issued = true;
+        begin_turn(p_v, err);
+        p_v->issued = true;
         return;
     }
 
     if (A_CHECK == a.k)
     {
-        if (v->check_since < 0)
+        if (p_v->check_since < 0)
         {
-            v->check_since = now;
-            v->look[0] = v->look[1] = v->look[2] = 0;
+            p_v->check_since = now;
+            p_v->look[0] = p_v->look[1] = p_v->look[2] = 0;
         }
 
-        if (now - v->check_since < B5_CHECK_SETTLE_MS)
+        if (now - p_v->check_since < B5_CHECK_SETTLE_MS)
         {
             return;
         }
@@ -787,65 +795,65 @@ static void veh_step (const scen_t * s, veh_t * v, float64_t now, float64_t dt,
         if (fr.fresh)
         {
             float64_t to_line =
-                    fabs(nav_y(v)) - B5_AXLE_TO_SENSOR_MM - B5_CHECK_MARGIN_MM
+                    fabs(nav_y(p_v)) - B5_AXLE_TO_SENSOR_MM - B5_CHECK_MARGIN_MM
                     + (fr.ang != 0 ? B5_CHECK_BEYOND_MM : 0);
             float64_t c = cos(fr.ang * D2R);
             int32_t ok = (fr.fr_mm >= to_line / (c > 0.5 ? c : 0.5)) ? 1 : 2;
             int32_t aa = (int32_t)fabs(fr.ang);
             int32_t k = 0 == aa ? 0 : (aa <= 20 ? 1 : 2);
 
-            if (v->look[k] != 2)
+            if (p_v->look[k] != 2)
             {
-                v->look[k] = ok;
+                p_v->look[k] = ok;
             }
         }
 
-        bool blocked = (2 == v->look[0]) || (2 == v->look[1])
-                || (2 == v->look[2]);
-        bool done = (v->look[0]) && (v->look[1]) && (v->look[2]);
+        bool b_blocked = (2 == p_v->look[0]) || (2 == p_v->look[1])
+                || (2 == p_v->look[2]);
+        bool b_done = (p_v->look[0]) && (p_v->look[1]) && (p_v->look[2]);
 
-        if ((!blocked) && (!done))
+        if ((!b_blocked) && (!b_done))
         {
-            if (now - v->check_since < B5_CHECK_SETTLE_MS + 4
+            if (now - p_v->check_since < B5_CHECK_SETTLE_MS + 4
                 * B5_LOOK_PERIOD_MS)
             {
                 return;
             }
 
-            if (!v->look[0])
+            if (!p_v->look[0])
             {
-                blocked = true;
+                b_blocked = true;
             }
         }
 
-        if (!blocked)
+        if (!b_blocked)
         {
-            v->front_ok = true;
-            ++v->idx;
-            v->check_since = -1;
+            p_v->front_ok = true;
+            ++p_v->idx;
+            p_v->check_since = -1;
             return;
         }
 
-        if (v->retries >= B5_MAX_EXTENDS)
+        if (p_v->retries >= B5_MAX_EXTENDS)
         {
-            v->failed = true;
+            p_v->failed = true;
             return;
         }
 
-        ++v->retries;
-        v->front_ok = false;
-        build_recover(v, true);
+        ++p_v->retries;
+        p_v->front_ok = false;
+        build_recover(p_v, true);
         return;
     }
 
     if (A_REJOIN == a.k)
     {
         float64_t adv = B5_LINE_SWEEP_EXTRA_MM * 0;
-        float64_t sn = sin(nav_h(v) * D2R);
+        float64_t sn = sin(nav_h(p_v) * D2R);
 
-        if ((v->tape_meas) && (fabs(sn) > 0.5))
+        if ((p_v->tape_meas) && (fabs(sn) > 0.5))
         {
-            adv = (v->tape_y - nav_y(v)) / sn;
+            adv = (p_v->tape_y - nav_y(p_v)) / sn;
         }
 
         if (adv > B5_LINE_ADVANCE_MM_SIM + 80)
@@ -853,27 +861,27 @@ static void veh_step (const scen_t * s, veh_t * v, float64_t now, float64_t dt,
             adv = B5_LINE_ADVANCE_MM_SIM + 80;
         }
 
-        begin_move(v, adv, 60.0);
-        v->issued = true;
+        begin_move(p_v, adv, 60.0);
+        p_v->issued = true;
         /* then pivot back: modelled as an extra TURN action */
-        v->act[v->idx] = (act_t){A_TURN, 0};
-        v->act[v->idx + 1] = (act_t){A_TURN, 0};
-        v->n = v->idx + 2;
+        p_v->act[p_v->idx] = (act_t){A_TURN, 0};
+        p_v->act[p_v->idx + 1] = (act_t){A_TURN, 0};
+        p_v->n = p_v->idx + 2;
         return;
     }
 
     /* MOVE / SWEEP */
-    if ((A_MOVE == a.k) && (B5_REQ_BYPASS == v->req.kind) && (fr.fresh)
+    if ((A_MOVE == a.k) && (B5_REQ_BYPASS == p_v->req.kind) && (fr.fresh)
         && (0 == fr.ang)
         && (fr.fr_mm <= B5_BYPASS_GUARD_FRONT_MM))
     {
-        v->halted = 1;
-        v->halt_why = "front blocked during bypass";
+        p_v->halted = 1;
+        p_v->halt_why = "front blocked during bypass";
         return;
     }
 
-    begin_move(v, a.v, B5_BYPASS_SPEED_CM_S * 10.0);
-    v->issued = true;
+    begin_move(p_v, a.v, B5_BYPASS_SPEED_CM_S * 10.0);
+    p_v->issued = true;
 }
 
 /* ======================================================================== run
@@ -937,7 +945,7 @@ static result_t run (const scen_t * s, int32_t verbose)
         veh_step(s, &v, t * 1000.0, dt, fr);
         /* scan task */
         b5_range_t out;
-        bool have = false;
+        bool b_have = false;
         int32_t ang = b5_core_angle(&core);
 
         if (ang != servo)
@@ -958,12 +966,12 @@ static result_t run (const scen_t * s, int32_t verbose)
 
                 if (b5_sampler_push(&smp, &sample, &out))
                 {
-                    have = true;
+                    b_have = true;
                 }
             }
         }
 
-        if (have)
+        if (b_have)
         {
             last = out;
             last_ang = servo;
@@ -980,7 +988,7 @@ static result_t run (const scen_t * s, int32_t verbose)
         f.forward_mm = (int32_t)lround(nav_x(&v));
         f.lateral_mm = (int32_t)lround(nav_y(&v));
         f.heading_aligned = fabs(nav_h(&v)) <= 8;
-        b5_core_update(&core, now, &f, have ? &out : NULL);
+        b5_core_update(&core, now, &f, b_have ? &out : NULL);
         b5_request_t rq;
 
         if (b5_core_peek_request(&core, &rq))

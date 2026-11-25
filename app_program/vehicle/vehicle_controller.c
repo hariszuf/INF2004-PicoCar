@@ -243,16 +243,16 @@ bool line_controller_feedback (b5_feedback_t * f)
     return f->valid;
 }
 
-bool line_controller_request (const b5_request_t * r)
+bool line_controller_request (const b5_request_t * p_r)
 {
     UW irq;
     bool accepted = false;
     DI(irq);
 
-    if (((CTL(CF_RUN_ENABLED)) || (B5_REQ_STOP == r->kind))
-        && ((!CTL(CF_REQUEST_PENDING)) || (B5_REQ_STOP == r->kind)))
+    if (((CTL(CF_RUN_ENABLED)) || (B5_REQ_STOP == p_r->kind))
+        && ((!CTL(CF_REQUEST_PENDING)) || (B5_REQ_STOP == p_r->kind)))
     {
-        pending_request = *r;
+        pending_request = *p_r;
         robot_flags_set_nl(&ctl_flags, CF_REQUEST_PENDING);
         accepted = true;
     }
@@ -261,12 +261,12 @@ bool line_controller_request (const b5_request_t * r)
     return accepted;
 }
 
-void vehicle_controller_execution_status (int32_t * state, int32_t * reason)
+void vehicle_controller_execution_status (int32_t * state, int32_t * p_reason)
 {
     UW irq;
     DI(irq);
     *state = execution_state;
-    *reason = execution_reason;
+    *p_reason = execution_reason;
     EI(irq);
 }
 
@@ -279,48 +279,49 @@ static const char * const halt_reasons[] = {"user stop",
     "navigation failed/pose mismatch", "motor reset failed",
     "line follower could not start",
     "junction stopped without a barcode action", "robot lifted or overturned"};
-static void halt (full_nav_t * nav, auto_start_t * start, const char * why)
+static void halt (full_nav_t * p_nav, auto_start_t * start, const char * p_why)
 {
     int32_t code = 0;
 
     for (uint32_t idx = 0; idx < sizeof(halt_reasons)
          / sizeof(halt_reasons[0]); idx++)
     {
-        const char * a = why;
-        const char * b = halt_reasons[idx];
+        const char * a = p_why;
+        const char * p_b = halt_reasons[idx];
 
-        while ((*a) && (*a == *b))
+        while ((*a) && (*a == *p_b))
         {
             a++;
-            b++;
+            p_b++;
         }
 
-        if ((0 == *a) && (0 == *b))
+        if ((0 == *a) && (0 == *p_b))
         {
             code = (int32_t)idx + 1;
             break;
         }
     }
 
-    bool persistent = ((8 == code) && (CTL(CF_FAULT_LATCHED))) || (11 == code);
-    auto_start_halt(start, code, persistent);
+    bool b_persistent = ((8 == code) && (CTL(CF_FAULT_LATCHED)))
+            || (11 == code);
+    auto_start_halt(start, code, b_persistent);
     robot_flags_clear(&ctl_flags, CF_RUN_ENABLED);
-    nav->active = false;
-    nav->moving = false;
-    nav->forward_moving = false;
-    nav->settled = 0;
+    p_nav->active = false;
+    p_nav->moving = false;
+    p_nav->forward_moving = false;
+    p_nav->settled = 0;
     line_follow_stop();
     motion_emergency_stop();
     line_scan_abort();
     discard_commands();
-    tm_printf((UB*)"[AUTO] STOPPED: %s (code %d). %s\n", (UB*)why,
+    tm_printf((UB*)"[AUTO] STOPPED: %s (code %d). %s\n", (UB*)p_why,
               (int32_t)code,
               AUTO_FAULTED == start->phase
                       ? "Operator action needed: power-cycle."
               : "Send START (dashboard) or R (USB) to restart.");
 }
 
-static void controller_task (INT stacd, void * exinf)
+static void controller_task (INT stacd, void * p_exinf)
 {
     motion_status_t motor;
     line_scan_status_t scan;
@@ -340,7 +341,7 @@ static void controller_task (INT stacd, void * exinf)
     uint32_t last_lift_report = now - 1000u;
     uint32_t last_lift_count_reported = 0;
     uint32_t last_map_report = now - 1000u;
-    bool last_lift_reported = false;
+    bool b_last_lift_reported = false;
 #if TM_WIFI_MQTT && !B5_DISABLED
     uint32_t b5_seq = 0;
     uint32_t b5_next = now + 500u;
@@ -353,18 +354,18 @@ static void controller_task (INT stacd, void * exinf)
     uint32_t last_guard_clear = 0;
 #if TM_CONSOLE_USB_CDC || TM_WIFI_MQTT
     uint32_t last_barcode_action_ms = 0;
-    bool barcode_seen = false;
+    bool b_barcode_seen = false;
 #endif
     uint8_t mask = 0;
     robot_flags_clear(&ctl_flags, CF_FAULT_LATCHED);
     /* Buddy 4 lift/overturn state, refreshed every 20 ms motor slot. */
-    bool lift_active = false;
-    bool lift_fresh = false;
+    bool b_lift_active = false;
+    bool b_lift_fresh = false;
     uint8_t lift_reason = 0;
     uint32_t lift_count = 0;
     int32_t lift_tilt_dec = 0;
     (void)stacd;
-    (void)exinf;
+    (void)p_exinf;
     auto_start_init(&start, now);
     tm_printf((UB*)"[AUTO] Power-on automatic mode. 3s delay, then wait for "
                    "line "
@@ -388,8 +389,8 @@ static void controller_task (INT stacd, void * exinf)
         scan.front_timestamp_ms = now;
         scan.front_clearance_mm = B5_CLEAR_FRONT_MM;
 #endif
-        bool stop_cmd = b5_line_take_stop();
-        int32_t command = stop_cmd ? 'S' : b5_line_take_command();
+        bool b_stop_cmd = b5_line_take_stop();
+        int32_t command = b_stop_cmd ? 'S' : b5_line_take_command();
 
         if ('S' == command)
         {
@@ -412,11 +413,11 @@ static void controller_task (INT stacd, void * exinf)
                 robot_flags_set(&ctl_flags, CF_START_PENDING);
             }
 
-            bool want_start;
+            bool b_want_start;
             {
                 UW sirq;
                 DI(sirq);
-                want_start = CTL(CF_START_PENDING);
+                b_want_start = CTL(CF_START_PENDING);
 
                 if (CTL(CF_START_REJECTED))
                 {
@@ -433,7 +434,7 @@ static void controller_task (INT stacd, void * exinf)
              * starting or running (never resets a running maneuver) and is
              * rejected
              * after a persistent fault. */
-            if (want_start && (!((AUTO_LATCHED == start.phase)
+            if (b_want_start && (!((AUTO_LATCHED == start.phase)
                                  && (nav.settled < 3))))
             {
                 robot_flags_clear(&ctl_flags, CF_START_PENDING);
@@ -517,12 +518,12 @@ static void controller_task (INT stacd, void * exinf)
         }
 
         UW irq;
-        bool got;
+        bool b_got;
         b5_request_t request = {0};
         DI(irq);
-        got = CTL(CF_REQUEST_PENDING);
+        b_got = CTL(CF_REQUEST_PENDING);
 
-        if (got)
+        if (b_got)
         {
             request = pending_request;
             robot_flags_clear_nl(&ctl_flags, CF_REQUEST_PENDING);
@@ -530,7 +531,7 @@ static void controller_task (INT stacd, void * exinf)
 
         EI(irq);
 
-        if (got && (CTL(CF_RUN_ENABLED)))
+        if (b_got && (CTL(CF_RUN_ENABLED)))
         {
             if (!full_nav_accept(&nav, &request, now))
             {
@@ -548,18 +549,18 @@ static void controller_task (INT stacd, void * exinf)
         int32_t guard_limit =
                 ((nav.active) && (B5_REQ_BYPASS == nav.request.kind)) ?
                 B5_BYPASS_GUARD_FRONT_MM : B5_GUARD_FRONT_MM;
-        bool guard_fresh = (0 == scan.angle) && (scan.front_valid) &&
+        bool b_guard_fresh = (0 == scan.angle) && (scan.front_valid) &&
                 ((uint32_t)(now - scan.front_timestamp_ms) <= 400u);
-        bool guard = false;
+        bool b_guard = false;
 
-        if (guard_fresh)
+        if (b_guard_fresh)
         {
             /* A measured close return stops immediately. Only a missing/invalid
              * batch
              * receives a short grace period. */
-            guard = scan.front_clearance_mm > guard_limit;
+            b_guard = scan.front_clearance_mm > guard_limit;
 
-            if (guard)
+            if (b_guard)
             {
                 last_guard_clear = now;
             }
@@ -573,7 +574,7 @@ static void controller_task (INT stacd, void * exinf)
                   ((B5_TIGHT_COURSE && (nav.active)
                     && (B5_REQ_BYPASS == nav.request.kind)) ? 4000u : 600u)))
         {
-            guard = true;
+            b_guard = true;
         }
         else
         {
@@ -585,9 +586,9 @@ static void controller_task (INT stacd, void * exinf)
          */
         if ((nav.active) && (B5_REQ_ADVANCE == nav.request.kind)
             && (!nav.forward_moving) &&
-            (!guard_fresh))
+            (!b_guard_fresh))
         {
-            guard = false;
+            b_guard = false;
         }
 #if B5_BYPASS_IGNORE_GUARD
         /* Moving back to the line after the box: the box itself can be inside
@@ -601,19 +602,19 @@ static void controller_task (INT stacd, void * exinf)
                              || (B5_REQ_RECOVER_LINE == nav.request.kind) ||
                              (B5_REQ_BACKUP == nav.request.kind)))
         {
-            guard = true;
+            b_guard = true;
         }
 #endif
 #if TM_CONSOLE_USB_CDC || TM_WIFI_MQTT
-        bool barcode_clear = guard_fresh
+        bool b_barcode_clear = b_guard_fresh
                 && (scan.front_clearance_mm > B5_STOP_FRONT_MM);
         char barcode_letter;
         uint32_t barcode_read_ms;
 
         if ((buddy3_barcode_latest(&barcode_letter, &barcode_read_ms)) &&
-            ((!barcode_seen) || (barcode_read_ms != last_barcode_action_ms)))
+            ((!b_barcode_seen) || (barcode_read_ms != last_barcode_action_ms)))
         {
-            barcode_seen = true;
+            b_barcode_seen = true;
             last_barcode_action_ms = barcode_read_ms;
 #if TM_WIFI_MQTT && !B5_SCAN_ONLY
             /* Report a new barcode letter at once (age 0). The once-a-second
@@ -631,9 +632,9 @@ static void controller_task (INT stacd, void * exinf)
             /* With the "+" junction logic on, line_follow.c owns barcode-based
              * turns. */
             if ((!LINE_JUNCTION) && (!B3_BARCODE_ONLY) && (CTL(CF_RUN_ENABLED))
-                && (!got)
+                && (!b_got)
                 && (!nav.active) && (B5_MONITORING == scan.state)
-                        && barcode_clear &&
+                        && b_barcode_clear &&
                 (('A' == barcode_letter) || ('B' == barcode_letter)))
             {
                 b5_request_t turn = {.kind =
@@ -649,7 +650,7 @@ static void controller_task (INT stacd, void * exinf)
 
         if (full_nav_barcode_turn_active(&nav))
         {
-            guard = barcode_clear;
+            b_guard = b_barcode_clear;
         }
 #endif
         if ((uint32_t)(now - last_motor) >= 20u)
@@ -700,8 +701,8 @@ static void controller_task (INT stacd, void * exinf)
                      * lifting the car is the end-of-run signal. A latched lift
                      * needs START
                      * after the car is set down. */
-                    lift_active = imu.lifted;
-                    lift_fresh = imu.lift_valid;
+                    b_lift_active = imu.lifted;
+                    b_lift_fresh = imu.lift_valid;
                     lift_reason = imu.lift_reason;
                     lift_count = imu.lift_count;
                     lift_tilt_dec = (int32_t)(imu.tilt_deg * 10.0f);
@@ -716,7 +717,7 @@ static void controller_task (INT stacd, void * exinf)
                         lift_tilt_dec = 1800;
                     }
 
-                    if (lift_active && (CTL(CF_RUN_ENABLED)))
+                    if (b_lift_active && (CTL(CF_RUN_ENABLED)))
                     {
                         halt(&nav, &start, "robot lifted or overturned");
                     }
@@ -736,7 +737,7 @@ static void controller_task (INT stacd, void * exinf)
             /* Bypass sideways leg: a blocked front means the car did not turn
              * enough;
              * stop and correct instead of halting. */
-            if ((CTL(CF_RUN_ENABLED)) && (nav.forward_moving) && (!guard)
+            if ((CTL(CF_RUN_ENABLED)) && (nav.forward_moving) && (!b_guard)
                 && (!full_nav_block_stop(&nav)))
             {
                 halt(&nav, &start, "forward range unavailable while moving");
@@ -746,14 +747,15 @@ static void controller_task (INT stacd, void * exinf)
                 /* Any fresh reading with its servo angle (the return to the
                  * line looks back
                  * toward the box). */
-                bool range_fresh = (scan.front_valid)
+                bool b_range_fresh = (scan.front_valid)
                         && ((uint32_t)(now - scan.front_timestamp_ms) <= 400u);
                 full_nav_set_front(&nav,
-                                   0 == scan.angle ? guard_fresh : range_fresh,
+                                   0 == scan.angle ? b_guard_fresh
+                                           : b_range_fresh,
                                    scan.front_clearance_mm, scan.angle);
             }
 
-            full_nav_update(&nav, now, &motor, mask, guard);
+            full_nav_update(&nav, now, &motor, mask, b_guard);
 
             if ((CTL(CF_RUN_ENABLED)) && (nav.failed))
             {
@@ -800,11 +802,11 @@ static void controller_task (INT stacd, void * exinf)
         /* obstacle-measuring build: the car must never start moving */
         ready = false;
 #endif
-        const bool restarting = start.restarting;
+        const bool b_restarting = start.restarting;
 
-        if (restarting)
+        if (b_restarting)
         {
-            ready = ready && (B5_MONITORING == scan.state) && guard_fresh &&
+            ready = ready && (B5_MONITORING == scan.state) && b_guard_fresh &&
                     ((uint32_t)(scan.front_timestamp_ms
                                 - start.since) <= (uint32_t)(now
                     - start.since));
@@ -812,7 +814,7 @@ static void controller_task (INT stacd, void * exinf)
 
         auto_action_t action =
                 auto_start_update(&start, now, nav.settled >= 3, ready
-                                  && (!CTL(CF_USER_STOP)) && (!lift_active));
+                                  && (!CTL(CF_USER_STOP)) && (!b_lift_active));
 
         if (AUTO_RESET == action)
         {
@@ -830,7 +832,7 @@ static void controller_task (INT stacd, void * exinf)
                 full_nav_init(&nav, &motor);
                 nav.settled = 3;
                 line_scan_reset();   /* the stall latch is never cleared here */
-                if (restarting)
+                if (b_restarting)
                 {
                     lost_since = 0;
                     last_guard_clear = 0;
@@ -845,7 +847,7 @@ static void controller_task (INT stacd, void * exinf)
 
         if (AUTO_START == action)
         {
-            if (restarting)
+            if (b_restarting)
             {
                 line_follow_discard_barcode();
             }
@@ -869,7 +871,7 @@ static void controller_task (INT stacd, void * exinf)
 
                 tm_printf((UB*)"[AUTO] RUNNING %s; front=%dmm (-1=out of "
                                "range).\n",
-                          (UB*)(restarting ? "after START" : "automatically"),
+                          (UB*)(b_restarting ? "after START" : "automatically"),
                           B5_CLEAR_FRONT_MM == scan.front_clearance_mm ? -1
                           : scan.front_clearance_mm);
             }
@@ -888,7 +890,7 @@ static void controller_task (INT stacd, void * exinf)
                 fm |= ROBOT_FAULT_ESTOP;
             }
 
-            if (lift_active)
+            if (b_lift_active)
             {
                 fm |= ROBOT_FAULT_LIFTED;
             }
@@ -990,20 +992,20 @@ static void controller_task (INT stacd, void * exinf)
          * every 200 ms, else every second. */
         if ((CTL(CF_BUDDY4_READY)) && (mqtt_dashboard_ready())
             && ((uint32_t)(now - last_lift_report) >= 200u) &&
-            ((lift_active != last_lift_reported)
+            ((b_lift_active != b_last_lift_reported)
              || (lift_count != last_lift_count_reported) ||
              ((uint32_t)(now - last_lift_report) >= 1000u)))
         {
             if (report_measurement(4, TELEMETRY_TYPE_LIFT,
-                                   (uint16_t)((lift_fresh ? 1u : 0u)
-                                              | (lift_active ? 2u : 0u)),
-                                   lift_active ? lift_reason : 0,
+                                   (uint16_t)((b_lift_fresh ? 1u : 0u)
+                                              | (b_lift_active ? 2u : 0u)),
+                                   b_lift_active ? lift_reason : 0,
                                    (int32_t)((lift_count & 0xFFFFu)
                                              | ((uint32_t)lift_tilt_dec << 16)),
                                    report_sequence) == E_OK)
             {
                 last_lift_report = now;
-                last_lift_reported = lift_active;
+                b_last_lift_reported = b_lift_active;
                 last_lift_count_reported = lift_count;
             }
         }
@@ -1027,7 +1029,7 @@ static void controller_task (INT stacd, void * exinf)
             b5_last_sent = now;
             b5_last_state = (int32_t)scan.state;
             b5_last_fault = (int32_t)scan.fault;
-            const b5_profile_t * pr = &scan.profile;
+            const b5_profile_t * p_pr = &scan.profile;
 #if !B5_SCAN_ONLY
             report_measurement(5, 50, 0, (int32_t)scan.state,
                                (int32_t)scan.fault,
@@ -1041,13 +1043,14 @@ static void controller_task (INT stacd, void * exinf)
                                (int32_t)now,
                                b5_seq);
 #endif
-            if (pr->valid)
+            if (p_pr->valid)
             {
                 int32_t mask =
-                        (pr->width_valid ? 1 : 0) | (pr->depth_valid ? 2 : 0)
-                        | (((pr->left_seen) && (pr->right_seen)) ? 4 : 0);
+                        (p_pr->width_valid ? 1 : 0)
+                                | (p_pr->depth_valid ? 2 : 0)
+                        | (((p_pr->left_seen) && (p_pr->right_seen)) ? 4 : 0);
 #if B5_SCAN_ONLY
-                if ((!pr->width_valid) && (pr->width_mm > 0))
+                if ((!p_pr->width_valid) && (p_pr->width_mm > 0))
                 {
                     /* width is a lower bound: an edge is beyond the scan window
                      */
@@ -1057,25 +1060,27 @@ static void controller_task (INT stacd, void * exinf)
                 /* B5_WHY_* -> dashboard reason code */
                 static const uint8_t why_code[6] = {0, 6, 3, 4, 4, 0};
                 uint32_t reason =
-                        (uint32_t)pr->side_reason < 6u
-                                ? why_code[pr->side_reason] : 0u;
+                        (uint32_t)p_pr->side_reason < 6u
+                                ? why_code[p_pr->side_reason] : 0u;
                 uint32_t info =
-                        reason | (pr->left_seen ? 16u : 0u)
-                                | (pr->right_seen ? 32u : 0u)
+                        reason | (p_pr->left_seen ? 16u : 0u)
+                                | (p_pr->right_seen ? 32u : 0u)
                         | (scan.rescans > 0u ? 64u : 0u) |
                         ((uint32_t)f.turn_fixes << 8)
                         | ((uint32_t)f.block_fixes << 16)
                         | ((uint32_t)(scan.rescans & 15u) << 24);
                 uint32_t edges =
-                        ((uint32_t)(int32_t)pr->left_edge_mm & 0xFFFFu)
-                        | (((uint32_t)(-(int32_t)pr->right_edge_mm)
+                        ((uint32_t)(int32_t)p_pr->left_edge_mm & 0xFFFFu)
+                        | (((uint32_t)(-(int32_t)p_pr->right_edge_mm)
                             & 0xFFFFu) << 16);
-                report_measurement(5, 51, 0, pr->width_mm, pr->depth_high_mm,
+                report_measurement(5, 51, 0, p_pr->width_mm,
+                                   p_pr->depth_high_mm,
                                    b5_seq);
 #if !B5_SCAN_ONLY
-                report_measurement(5, 53, 0, pr->depth_low_mm,
-                                   pr->depth_high_mm, b5_seq);
-                report_measurement(5, 52, 0, pr->side, pr->side * pr->offset_mm,
+                report_measurement(5, 53, 0, p_pr->depth_low_mm,
+                                   p_pr->depth_high_mm, b5_seq);
+                report_measurement(5, 52, 0, p_pr->side,
+                                   p_pr->side * p_pr->offset_mm,
                                    b5_seq);
 #endif
                 report_measurement(5, 56, 0, mask, f.extends, b5_seq);
@@ -1137,8 +1142,8 @@ static void controller_task (INT stacd, void * exinf)
 #if B5_DISABLED
             report_measurement(5, 60, 0, state, start.reason, report_sequence);
 #endif
-            bool tilt_valid = false;
-            bool imu_sent = false;
+            bool b_tilt_valid = false;
+            bool b_imu_sent = false;
             int32_t pitch = 0;
             int32_t roll = 0;
 #endif
@@ -1155,19 +1160,19 @@ static void controller_task (INT stacd, void * exinf)
                      * older than 3 s, and the last packets of a
                      * burst are the ones lost when the telemetry queue is full.
                      */
-                    tilt_valid = (imu.valid) && (imu.tilt_valid);
+                    b_tilt_valid = (imu.valid) && (imu.tilt_valid);
 
-                    if (tilt_valid)
+                    if (b_tilt_valid)
                     {
                         pitch = (int32_t)(imu.pitch_deg * 100);
                         roll = (int32_t)(imu.roll_deg * 100);
                     }
 
                     report_measurement(4, TELEMETRY_TYPE_IMU,
-                                       tilt_valid ? TELEMETRY_IMU_TILT_VALID
+                                       b_tilt_valid ? TELEMETRY_IMU_TILT_VALID
                                                : 0, pitch, roll,
                                        report_sequence);
-                    imu_sent = true;
+                    b_imu_sent = true;
                     report_measurement(4, 11, imu.valid ? 1 : 0,
                                        UINT32_MAX == imu.sample_age_ms ? -1
                                                : (int32_t)imu.sample_age_ms,
@@ -1278,10 +1283,10 @@ static void controller_task (INT stacd, void * exinf)
                                (int32_t)(motor.distance_cm * 10), motor.fault,
                                        report_sequence);
 
-            if (!imu_sent)
+            if (!b_imu_sent)
             {   /* no IMU snapshot this time: still report "tilt unavailable" */
                 report_measurement(TELEMETRY_SOURCE_BUDDY4, TELEMETRY_TYPE_IMU,
-                                   tilt_valid ? TELEMETRY_IMU_TILT_VALID : 0,
+                                   b_tilt_valid ? TELEMETRY_IMU_TILT_VALID : 0,
                                            pitch, roll,
                                    report_sequence);
             }
@@ -1301,7 +1306,7 @@ static void controller_task (INT stacd, void * exinf)
                       (UB*)b5_state_name(scan.state), scan.fault, scan.angle,
                       B5_CLEAR_FRONT_MM == scan.front_clearance_mm ? -1
                       : scan.front_clearance_mm,
-                      guard, guard_fresh,
+                      b_guard, b_guard_fresh,
                       (int32_t)nav.x, (int32_t)nav.y, (int32_t)nav.heading,
                       scan.profile.width_valid ? scan.profile.width_mm : -1,
                       scan.profile.depth_valid ? scan.profile.depth_low_mm : -1,
@@ -1314,9 +1319,9 @@ static void controller_task (INT stacd, void * exinf)
     }
 }
 
-int32_t vehicle_controller_start (bool imu_ready)
+int32_t vehicle_controller_start (bool b_imu_ready)
 {
-    robot_flags_assign(&ctl_flags, CF_BUDDY4_READY, imu_ready);
+    robot_flags_assign(&ctl_flags, CF_BUDDY4_READY, b_imu_ready);
     /* Motor timing must outrank the 2 ms Wi-Fi poll task (priority 4). */
     T_CTSK cfg = {0};
     cfg.tskatr = TA_HLNG | TA_RNG3;

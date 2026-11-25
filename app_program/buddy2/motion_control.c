@@ -244,7 +244,7 @@ static float32_t heading_deg_from (float32_t left_cm, float32_t right_cm)
 static void update_terrain (uint64_t now, float32_t dt_s)
 {
     motion_terrain_input_t input;
-    bool fresh;
+    bool b_fresh;
     uint32_t saved;
     uint32_t idx;
     float32_t pitch;
@@ -256,7 +256,7 @@ static void update_terrain (uint64_t now, float32_t dt_s)
     input = s_terrain_input;
     /* A report stamped after 'now' (written by another task meanwhile) is
      * fresh. */
-    fresh = (MF(MF_TERRAIN_HAVE)) && (input.valid) &&
+    b_fresh = (MF(MF_TERRAIN_HAVE)) && (input.valid) &&
             ((s_terrain_time_us >= now) ||
              ((now - s_terrain_time_us) <= ((uint64_t)MOTION_TERRAIN_STALE_MS
                                             * US_PER_MS)));
@@ -267,7 +267,7 @@ static void update_terrain (uint64_t now, float32_t dt_s)
     s_terrain_hump_duty[MOTION_SIDE_LEFT] = 0.0f;
     s_terrain_hump_duty[MOTION_SIDE_RIGHT] = 0.0f;
 
-    if (fresh)
+    if (b_fresh)
     {
         pitch = clamp_f(input.pitch_deg, -MOTION_TERRAIN_MAX_ANGLE_DEG,
                         MOTION_TERRAIN_MAX_ANGLE_DEG);
@@ -404,11 +404,11 @@ static float32_t wheel_control (motion_side_t side, float32_t setpoint,
 
     /* Continuous drive must be able to back off below the duty floor
        when a wheel has reached its requested speed. */
-    bool needs_min_duty = (COMMAND_DRIVE != s_active.type) ||
+    bool b_needs_min_duty = (COMMAND_DRIVE != s_active.type) ||
             (sign_f(setpoint)
              * s_speed_cm_s[side] < abs_f(setpoint));
 
-    if (needs_min_duty && (abs_f(duty) < MOTION_MIN_DUTY))
+    if (b_needs_min_duty && (abs_f(duty) < MOTION_MIN_DUTY))
     {
         duty = sign_f(setpoint) * MOTION_MIN_DUTY;
     }
@@ -645,7 +645,7 @@ static void profile_drive (float32_t target[MOTION_SIDE_COUNT])
 static void run_executing (float32_t dt_s)
 {
     float32_t target[MOTION_SIDE_COUNT] = { 0.0f, 0.0f };
-    bool done = false;
+    bool b_done = false;
     uint32_t idx;
     motion_side_t side;
     float32_t rate;
@@ -654,20 +654,20 @@ static void run_executing (float32_t dt_s)
     switch (s_active.type)
     {
         case COMMAND_MOVE:
-        done = profile_move(target);
+        b_done = profile_move(target);
         break;
         case COMMAND_TURN:
-        done = profile_turn(target);
+        b_done = profile_turn(target);
         break;
         case COMMAND_DRIVE:
         profile_drive(target);
         break;
         default:
-        done = true;
+        b_done = true;
         break;
     }
 
-    if (done)
+    if (b_done)
     {
         begin_stop();
         return;
@@ -793,7 +793,7 @@ void motion_update (void)
     uint64_t now;
     float32_t dt_s;
     command_t command;
-    bool have_command;
+    bool b_have_command;
     uint32_t saved;
 
     if (!MF(MF_INITIALISED))
@@ -816,12 +816,12 @@ void motion_update (void)
     }
 
     saved = critical_enter();
-    have_command = MF(MF_PENDING_VALID);
+    b_have_command = MF(MF_PENDING_VALID);
     command = s_pending;
     robot_flags_clear_nl(&s_flags, MF_PENDING_VALID);
     critical_exit(saved);
 
-    if (have_command && (MOTION_STATE_ERROR != s_state))
+    if (b_have_command && (MOTION_STATE_ERROR != s_state))
     {
         start_command(&command);
     }
@@ -955,7 +955,7 @@ motion_result_t motion_set_speed (float32_t speed_cm_s)
 bool motion_get_tilt (float32_t * p_pitch_deg, float32_t * p_roll_deg)
 {
     motion_terrain_input_t input;
-    bool have;
+    bool b_have;
     uint64_t stamp;
     uint64_t now;
     uint32_t saved;
@@ -969,11 +969,11 @@ bool motion_get_tilt (float32_t * p_pitch_deg, float32_t * p_roll_deg)
     now = now_us();
     saved = critical_enter();
     input = s_terrain_input;
-    have = MF(MF_TERRAIN_HAVE);
+    b_have = MF(MF_TERRAIN_HAVE);
     stamp = s_terrain_time_us;
     critical_exit(saved);
 
-    if ((!have) || (!input.valid) ||
+    if ((!b_have) || (!input.valid) ||
         ((now > stamp) && ((now - stamp) > ((uint64_t)MOTION_TERRAIN_STALE_MS
                                             * US_PER_MS))))
     {

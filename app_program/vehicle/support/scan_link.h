@@ -28,7 +28,7 @@ int32_t line_scan_start (void);
 void line_scan_reset (void);
 void line_scan_abort (void);
 void line_scan_get_status (line_scan_status_t * status);
-bool line_controller_feedback (b5_feedback_t * feedback);
+bool line_controller_feedback (b5_feedback_t * p_feedback);
 bool line_controller_request (const b5_request_t * request);
 #endif
 

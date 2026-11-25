@@ -46,8 +46,8 @@ static uint32_t s_fail_count;
 /* Classify 9 widths: the 3 widest are 'wide', the rest 'narrow'. Needs no fixed
  * timing; fails if wide is not clearly wider than narrow. Returns the character
  * or 0 if the pattern is invalid. *thr = narrow/wide decision threshold. */
-static char classify_block (const uint32_t * b, uint8_t ratio_x10,
-                            uint32_t * thr)
+static char classify_block (const uint32_t * p_b, uint8_t ratio_x10,
+                            uint32_t * p_thr)
 {
     bool     wide[9] = {false};
     uint32_t min_wide = UINT32_MAX;
@@ -59,7 +59,7 @@ static char classify_block (const uint32_t * b, uint8_t ratio_x10,
 
         for (int32_t idx = 0; idx < 9; idx++)
         {
-            if ((!wide[idx]) && ((best < 0) || (b[idx] > b[best])))
+            if ((!wide[idx]) && ((best < 0) || (p_b[idx] > p_b[best])))
             {
                 best = idx;
             }
@@ -72,16 +72,16 @@ static char classify_block (const uint32_t * b, uint8_t ratio_x10,
     {
         if (wide[idx])
         {
-            if (b[idx] < min_wide)
+            if (p_b[idx] < min_wide)
             {
-                min_wide = b[idx];
+                min_wide = p_b[idx];
             }
         }
         else
         {
-            if (b[idx] > max_narrow)
+            if (p_b[idx] > max_narrow)
             {
-                max_narrow = b[idx];
+                max_narrow = p_b[idx];
             }
         }
     }
@@ -101,9 +101,9 @@ static char classify_block (const uint32_t * b, uint8_t ratio_x10,
 
     pat[9] = '\0';
 
-    if (thr)
+    if (p_thr)
     {
-        *thr = (min_wide + max_narrow) / 2u;
+        *p_thr = (min_wide + max_narrow) / 2u;
     }
 
     for (size_t t = 0; t < TABLE_LEN; t++)
@@ -117,8 +117,8 @@ static char classify_block (const uint32_t * b, uint8_t ratio_x10,
     return '?';   /* 3 wide, but not a Code 39 pattern */
 }
 
-static bool decode_dir (const uint32_t * w, uint8_t n, uint8_t ratio_x10,
-                        char * text, uint8_t * len)
+static bool decode_dir (const uint32_t * p_w, uint8_t n, uint8_t ratio_x10,
+                        char * text, uint8_t * p_len)
 {
     if (9 != n % 10)
     {
@@ -139,7 +139,7 @@ static bool decode_dir (const uint32_t * w, uint8_t n, uint8_t ratio_x10,
 
     for (uint8_t k = 0; k < blocks; k++)
     {
-        ch[k] = classify_block(&w[10 * k], ratio_x10, &thr[k]);
+        ch[k] = classify_block(&p_w[10 * k], ratio_x10, &thr[k]);
 
         if (0 == ch[k])
         {
@@ -172,7 +172,7 @@ static bool decode_dir (const uint32_t * w, uint8_t n, uint8_t ratio_x10,
     /* inter-character gaps must be narrow */
     for (uint8_t k = 0; k + 1 < blocks; k++)
     {
-        uint32_t g = w[10 * k + 9];
+        uint32_t g = p_w[10 * k + 9];
 
         if ((g >= thr[k]) || (g >= thr[k + 1]))
         {
@@ -186,8 +186,8 @@ static bool decode_dir (const uint32_t * w, uint8_t n, uint8_t ratio_x10,
         text[k - 1] = ch[k];
     }
 
-    *len = (uint8_t)(blocks - 2);
-    text[*len] = '\0';
+    *p_len = (uint8_t)(blocks - 2);
+    text[*p_len] = '\0';
     return true;
 }
 
@@ -204,26 +204,26 @@ static bool all_letters (const char * t, uint8_t len)
     return len > 0;
 }
 
-bool barcode39_decode_elements (const uint32_t * w, uint8_t count,
-                                const barcode39_cfg_t * cfg,
+bool barcode39_decode_elements (const uint32_t * p_w, uint8_t count,
+                                const barcode39_cfg_t * p_cfg,
                                 barcode39_result_t * out)
 {
     char    text[B39_MAX_CHARS + 1];
     uint8_t len = 0;
     uint8_t fwd_fail;
-    bool    fwd_ok;
-    bool    rev_ok;
+    bool    b_fwd_ok;
+    bool    b_rev_ok;
 
-    fwd_ok = decode_dir(w, count, cfg->min_wide_ratio_x10, text, &len);
+    b_fwd_ok = decode_dir(p_w, count, p_cfg->min_wide_ratio_x10, text, &len);
     fwd_fail = s_last_fail;
 
-    if (fwd_ok && (cfg->letters_only) && (!all_letters(text, len)))
+    if (b_fwd_ok && (p_cfg->letters_only) && (!all_letters(text, len)))
     {
-        fwd_ok = false;
+        b_fwd_ok = false;
         fwd_fail = B39_FAIL_NONLETTER;
     }
 
-    if (fwd_ok)
+    if (b_fwd_ok)
     {
         if (out)
         {
@@ -239,18 +239,18 @@ bool barcode39_decode_elements (const uint32_t * w, uint8_t count,
 
     for (uint8_t idx = 0; idx < count; idx++)
     {
-        rev[idx] = w[count - 1 - idx];
+        rev[idx] = p_w[count - 1 - idx];
     }
 
-    rev_ok = decode_dir(rev, count, cfg->min_wide_ratio_x10, text, &len);
+    b_rev_ok = decode_dir(rev, count, p_cfg->min_wide_ratio_x10, text, &len);
 
-    if (rev_ok && (cfg->letters_only) && (!all_letters(text, len)))
+    if (b_rev_ok && (p_cfg->letters_only) && (!all_letters(text, len)))
     {
-        rev_ok = false;
+        b_rev_ok = false;
         s_last_fail = B39_FAIL_NONLETTER;
     }
 
-    if (rev_ok)
+    if (b_rev_ok)
     {
         if (out)
         {
@@ -275,10 +275,10 @@ bool barcode39_decode_elements (const uint32_t * w, uint8_t count,
     return false;
 }
 
-__attribute__((weak)) void barcode39_on_fail(const uint32_t * w, uint8_t n,
+__attribute__((weak)) void barcode39_on_fail(const uint32_t * p_w, uint8_t n,
                                              uint8_t reason)
 {
-    (void)w;
+    (void)p_w;
     (void)n;
     (void)reason;
 }
@@ -298,10 +298,10 @@ void barcode39_reset (barcode39_t * d)
     d->n = 0;
 }
 
-void barcode39_init (barcode39_t * d, bool letters_only)
+void barcode39_init (barcode39_t * d, bool b_letters_only)
 {
     d->cfg.min_wide_ratio_x10 = 14;
-    d->cfg.letters_only = letters_only;
+    d->cfg.letters_only = b_letters_only;
     d->n = 0;
 }
 
@@ -317,13 +317,13 @@ static void drop2 (barcode39_t * d)
  * (forward) or 'P' (backwards) marks a possible barcode, and also tells us
  * which
  * way the car crossed it. */
-static bool block_is_end (const barcode39_t * d, const uint32_t * b)
+static bool block_is_end (const barcode39_t * d, const uint32_t * p_b)
 {
-    char c = classify_block(b, d->cfg.min_wide_ratio_x10, NULL);
+    char c = classify_block(p_b, d->cfg.min_wide_ratio_x10, NULL);
     return ('*' == c) || ('P' == c);
 }
 
-bool barcode39_feed (barcode39_t * d, bool is_black, uint32_t width,
+bool barcode39_feed (barcode39_t * d, bool b_is_black, uint32_t width,
                      barcode39_result_t * out)
 {
     if (0 == width)
@@ -331,14 +331,14 @@ bool barcode39_feed (barcode39_t * d, bool is_black, uint32_t width,
         return false;
     }
 
-    if ((0 == d->n) && (!is_black))
+    if ((0 == d->n) && (!b_is_black))
     {
         return false; /* window always starts on a black bar */
     }
 
-    bool expect_black = 0 == (d->n % 2);
+    bool b_expect_black = 0 == (d->n % 2);
 
-    if ((d->n > 0) && (is_black != expect_black))
+    if ((d->n > 0) && (b_is_black != b_expect_black))
     {
         d->w[d->n - 1] += width; /* same colour twice: merge */
         return false;

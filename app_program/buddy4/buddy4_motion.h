@@ -47,7 +47,7 @@ bool buddy4_motion_init (buddy4_motion_t * c, buddy4_motion_config_t config);
  * immediately. Recovery requires a new full confirmation period. */
 void buddy4_motion_update (buddy4_motion_t * c, float32_t left_cm_s,
                            float32_t right_cm_s,
-                           bool input_valid, uint64_t sample_us,
+                           bool b_input_valid, uint64_t sample_us,
                            uint64_t now_us);
 /* Poll even without new observations to expire stale state. During a pending
  * transition the previous confirmed label persists while inputs remain fresh.

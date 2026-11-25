@@ -83,13 +83,13 @@ typedef struct
     full_action_t actions[FULL_NAV_MAX_ACTIONS];
 } full_nav_t;
 void full_nav_init (full_nav_t * n, const motion_status_t * m);
-bool full_nav_accept (full_nav_t * n, const b5_request_t * r, uint32_t now);
+bool full_nav_accept (full_nav_t * n, const b5_request_t * p_r, uint32_t now);
 bool full_nav_barcode_turn_active (const full_nav_t * n);
 bool full_nav_rejoining (const full_nav_t * n);
-void full_nav_set_front (full_nav_t * n, bool fresh, int32_t clearance_mm,
+void full_nav_set_front (full_nav_t * n, bool b_fresh, int32_t clearance_mm,
                          int32_t angle_deg);
 void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
-                      uint8_t mask, bool guard);
+                      uint8_t mask, bool b_guard);
 /* Forward range lost while a bypass leg is moving: stop and let the extra-turn
  * correction run instead of halting.
  * Returns false when the correction does not apply (or is used up) and the

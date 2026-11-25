@@ -53,15 +53,15 @@ static const uint32_t DECK_Y[29] = {16, 46, 16, 15, 47, 15, 47, 15, 16, 15, 47,
 
 /* Feed a run list as the sensor would: optional white quiet zone and stray
  * noise first, scale in percent, optional linear speed drift. */
-static bool feed_runs (barcode39_t * d, const uint32_t * w, int32_t n,
+static bool feed_runs (barcode39_t * d, const uint32_t * p_w, int32_t n,
                        int32_t scale_pct,
                        int32_t drift_pct,
-                       bool noise_prefix, bool backwards,
+                       bool b_noise_prefix, bool b_backwards,
                        barcode39_result_t * out)
 {
-    bool got = false;
+    bool b_got = false;
 
-    if (noise_prefix)
+    if (b_noise_prefix)
     {
         barcode39_feed(d, false, 400, out);
         barcode39_feed(d, true, 30, out); /* line edge / dirt */
@@ -72,8 +72,8 @@ static bool feed_runs (barcode39_t * d, const uint32_t * w, int32_t n,
 
     for (int32_t idx = 0; idx < n; idx++)
     {
-        uint32_t src = backwards ? w[n - 1 - idx] : w[idx];
-        int32_t      pos = backwards ? (n - 1 - idx) : idx;
+        uint32_t src = b_backwards ? p_w[n - 1 - idx] : p_w[idx];
+        int32_t      pos = b_backwards ? (n - 1 - idx) : idx;
         /* drift: scale goes from (100 - drift/2)% to (100 + drift/2)% over the
          * code */
         int32_t      s =
@@ -84,33 +84,33 @@ static bool feed_runs (barcode39_t * d, const uint32_t * w, int32_t n,
          * 10k+9 element code they are still even, so colour is just i parity */
         if (barcode39_feed(d, 0 == (idx % 2), width ? width : 1, out))
         {
-            got = true;
+            b_got = true;
         }
     }
 
     barcode39_feed(d, false, 500, out); /* trailing quiet zone */
-    return got;
+    return b_got;
 }
 
-static void expect (const char * name, const uint32_t * w, char letter,
-                    bool letters_only,
-                    bool backwards, int32_t scale, int32_t drift, bool noise,
-                    bool want_reversed)
+static void expect (const char * name, const uint32_t * p_w, char letter,
+                    bool b_letters_only,
+                    bool b_backwards, int32_t scale, int32_t drift, bool noise,
+                    bool b_want_reversed)
 {
     barcode39_t        d;
     barcode39_result_t r;
     memset(&r, 0, sizeof r);
-    barcode39_init(&d, letters_only);
-    bool got = feed_runs(&d, w, 29, scale, drift, noise, backwards, &r);
-    CHECK(got, "%s: nothing decoded", name);
+    barcode39_init(&d, b_letters_only);
+    bool b_got = feed_runs(&d, p_w, 29, scale, drift, noise, b_backwards, &r);
+    CHECK(b_got, "%s: nothing decoded", name);
 
-    if (got)
+    if (b_got)
     {
         CHECK((1 == r.length) && (r.text[0] == letter),
               "%s: got '%s', want '%c'",
               name, r.text, letter);
-        CHECK(r.reversed == want_reversed, "%s: reversed=%d want %d", name,
-              r.reversed, want_reversed);
+        CHECK(r.reversed == b_want_reversed, "%s: reversed=%d want %d", name,
+              r.reversed, b_want_reversed);
     }
 }
 
@@ -126,7 +126,7 @@ static const char * LETTER_PAT[26] = {
     "nwwnnnnnw", "wwwnnnnnn", "nwnnwnnnw", "wwnnwnnnn", "nwwnwnnnn"};
 static const char * STAR = "nwnnwnwnn";
 
-static void build (uint32_t * w, char letter, uint32_t narrow, uint32_t wide)
+static void build (uint32_t * p_w, char letter, uint32_t narrow, uint32_t wide)
 {
     const char * p[3] = {STAR, LETTER_PAT[letter - 'A'], STAR};
     int32_t         k = 0;
@@ -135,12 +135,12 @@ static void build (uint32_t * w, char letter, uint32_t narrow, uint32_t wide)
     {
         for (int32_t idx = 0; idx < 9; idx++)
         {
-            w[k++] = ('w' == p[b][idx]) ? wide : narrow;
+            p_w[k++] = ('w' == p[b][idx]) ? wide : narrow;
         }
 
         if (b < 2)
         {
-            w[k++] = narrow;
+            p_w[k++] = narrow;
         }
     }
 }

@@ -129,7 +129,7 @@ const char * buddy4_side_name (int32_t state)
 
 static void finish_side_event (side_event_t * event,
                                uint64_t timestamp,
-                               const char * reason)
+                               const char * p_reason)
 {
     if (0 == event->side)
     {
@@ -137,7 +137,7 @@ static void finish_side_event (side_event_t * event,
     }
 
     (void)timestamp;
-    (void)reason;
+    (void)p_reason;
     *event = (side_event_t){0};
 }
 
@@ -333,12 +333,13 @@ buddy4_config_t buddy4_default_config (void)
     };
 }
 
-void buddy4_init (buddy4_imu_t * imu, buddy4_bus_t bus, buddy4_config_t config)
+void buddy4_init (buddy4_imu_t * p_imu, buddy4_bus_t bus,
+                  buddy4_config_t config)
 {
-    memset(imu, 0, sizeof(*imu));
-    imu->bus = bus;
-    imu->config = config;
-    imu->bump_armed = true;
+    memset(p_imu, 0, sizeof(*p_imu));
+    p_imu->bus = bus;
+    p_imu->config = config;
+    p_imu->bump_armed = true;
 }
 
 int16_t buddy4_decode_signed16 (uint8_t low, uint8_t high)
@@ -347,7 +348,7 @@ int16_t buddy4_decode_signed16 (uint8_t low, uint8_t high)
     return (int16_t)((word & 0x8000u) ? (int32_t)word - 65536 : (int32_t)word);
 }
 
-static bool read_registers (buddy4_imu_t * imu, uint8_t reg,
+static bool read_registers (buddy4_imu_t * p_imu, uint8_t reg,
                             uint8_t * data, size_t count)
 {
     if (count > 1)
@@ -355,74 +356,74 @@ static bool read_registers (buddy4_imu_t * imu, uint8_t reg,
         reg |= LSM303D_AUTO_INCREMENT;
     }
 
-    return (imu->bus.write) && (imu->bus.read) &&
-            (imu->bus.write(imu->bus.context, LSM303D_ADDRESS,
+    return (p_imu->bus.write) && (p_imu->bus.read) &&
+            (p_imu->bus.write(p_imu->bus.context, LSM303D_ADDRESS,
                             &reg, 1, true) == 1) &&
-            (imu->bus.read(imu->bus.context, LSM303D_ADDRESS,
+            (p_imu->bus.read(p_imu->bus.context, LSM303D_ADDRESS,
                            data, count, false) == (int32_t)count);
 }
 
 /* Clear per-call flags while retaining the last fresh measurements. */
-static void invalidate_output (buddy4_imu_t * imu)
+static void invalidate_output (buddy4_imu_t * p_imu)
 {
-    imu->output.valid = false;
-    imu->output.acceleration_valid = false;
-    imu->output.tilt_valid = false;
-    imu->output.quality = BUDDY4_QUALITY_UNAVAILABLE;
-    imu->output.transient_event = false;
-    imu->output.event_ended = false;
+    p_imu->output.valid = false;
+    p_imu->output.acceleration_valid = false;
+    p_imu->output.tilt_valid = false;
+    p_imu->output.quality = BUDDY4_QUALITY_UNAVAILABLE;
+    p_imu->output.transient_event = false;
+    p_imu->output.event_ended = false;
 }
 
 /* Abort interrupted detection without producing a completed-event pulse.
  * Keep the last measurements/timestamp and cumulative error count for
  * diagnostics. */
-static void reset_detection (buddy4_imu_t * imu)
+static void reset_detection (buddy4_imu_t * p_imu)
 {
-    invalidate_output(imu);
-    imu->filter_valid = false;
-    imu->tilt_filter_valid = false;
-    imu->has_sample = false;
-    imu->baseline = 0.0f;
-    imu->bump_armed = true;
-    imu->had_bump = false;
-    imu->last_bump_us = 0;
-    imu->output.transient_g = 0.0f;
-    imu->output.event = (side_event_t){0};
+    invalidate_output(p_imu);
+    p_imu->filter_valid = false;
+    p_imu->tilt_filter_valid = false;
+    p_imu->has_sample = false;
+    p_imu->baseline = 0.0f;
+    p_imu->bump_armed = true;
+    p_imu->had_bump = false;
+    p_imu->last_bump_us = 0;
+    p_imu->output.transient_g = 0.0f;
+    p_imu->output.event = (side_event_t){0};
     /* Retain the last completed event across errors/reconfiguration. */
-    imu->output.terrain = 0;
-    imu->output.side = 0;
+    p_imu->output.terrain = 0;
+    p_imu->output.side = 0;
 }
 
-bool buddy4_configure (buddy4_imu_t * imu)
+bool buddy4_configure (buddy4_imu_t * p_imu)
 {
-    imu->ready = false;
-    imu->sensor_config.valid = false;
-    reset_detection(imu);
+    p_imu->ready = false;
+    p_imu->sensor_config.valid = false;
+    reset_detection(p_imu);
 
-    if ((!isfinite(imu->config.centre_spacing_cm)) ||
-        (imu->config.centre_spacing_cm <= 0) ||
-        (!isfinite(imu->config.pitch_offset_deg)) ||
-        (!isfinite(imu->config.roll_offset_deg)) ||
-        (1 != fabsf(imu->config.pitch_sign)) ||
-        (1 != fabsf(imu->config.roll_sign)))
+    if ((!isfinite(p_imu->config.centre_spacing_cm)) ||
+        (p_imu->config.centre_spacing_cm <= 0) ||
+        (!isfinite(p_imu->config.pitch_offset_deg)) ||
+        (!isfinite(p_imu->config.roll_offset_deg)) ||
+        (1 != fabsf(p_imu->config.pitch_sign)) ||
+        (1 != fabsf(p_imu->config.roll_sign)))
     {
         goto fail;
     }
 
     for (int32_t axis = 0; axis < 3; ++axis)
     {
-        if ((!isfinite(imu->config.accel_bias_g[axis])) ||
-            (!isfinite(imu->config.accel_scale[axis])) ||
-            (imu->config.accel_scale[axis] <= 0.0f))
+        if ((!isfinite(p_imu->config.accel_bias_g[axis])) ||
+            (!isfinite(p_imu->config.accel_scale[axis])) ||
+            (p_imu->config.accel_scale[axis] <= 0.0f))
         {
             goto fail;
         }
     }
 
-    if ((!read_registers(imu, LSM303D_REG_WHO_AM_I,
-                         &imu->sensor_config.who_am_i,
+    if ((!read_registers(p_imu, LSM303D_REG_WHO_AM_I,
+                         &p_imu->sensor_config.who_am_i,
                          1)) ||
-        (LSM303D_WHO_AM_I_VALUE != imu->sensor_config.who_am_i))
+        (LSM303D_WHO_AM_I_VALUE != p_imu->sensor_config.who_am_i))
     {
         goto fail;
     }
@@ -441,68 +442,69 @@ bool buddy4_configure (buddy4_imu_t * imu)
     for (size_t index = 0; index < sizeof(settings)
          / sizeof(settings[0]); ++index)
     {
-        if (imu->bus.write(imu->bus.context, LSM303D_ADDRESS,
+        if (p_imu->bus.write(p_imu->bus.context, LSM303D_ADDRESS,
                            settings[index], 2, false) != 2)
         {
             goto fail;
         }
     }
 
-    return buddy4_verify_config(imu);
+    return buddy4_verify_config(p_imu);
 
     fail:
-            ++imu->output.error_count;
+            ++p_imu->output.error_count;
     return false;
 }
 
-bool buddy4_verify_config (buddy4_imu_t * imu)
+bool buddy4_verify_config (buddy4_imu_t * p_imu)
 {
-    buddy4_sensor_config_t * d = &imu->sensor_config;
+    buddy4_sensor_config_t * d = &p_imu->sensor_config;
     d->valid = false;
     const uint8_t registers[] = {0x1f, 0x20, 0x21, 0x22, 0x23, 0x26};
     const uint8_t expected[] = {0, 0x6f, 0xc0, 0, 0, 2};
-    bool matches = read_registers(imu, LSM303D_REG_WHO_AM_I, &d->who_am_i, 1);
+    bool b_matches =
+            read_registers(p_imu, LSM303D_REG_WHO_AM_I, &d->who_am_i, 1);
 
-    if (!matches)
+    if (!b_matches)
     {
         goto fail;
     }
 
-    matches = LSM303D_WHO_AM_I_VALUE == d->who_am_i;
+    b_matches = LSM303D_WHO_AM_I_VALUE == d->who_am_i;
 
     for (uint32_t idx = 0; idx < sizeof(registers); ++idx)
     {
-        if (!read_registers(imu, registers[idx], &d->ctrl[idx], 1))
+        if (!read_registers(p_imu, registers[idx], &d->ctrl[idx], 1))
         {
             goto fail;
         }
 
         if (d->ctrl[idx] != expected[idx])
         {
-            matches = false;
+            b_matches = false;
         }
     }
 
-    if (!matches)
+    if (!b_matches)
     {
         goto fail;
     }
 
-    d->valid = imu->ready = true;
+    d->valid = p_imu->ready = true;
     return true;
     fail:
-            ++imu->output.error_count;
-    imu->ready = false;
-    reset_detection(imu);
+            ++p_imu->output.error_count;
+    p_imu->ready = false;
+    reset_detection(p_imu);
     return false;
 }
 
-buddy4_result_t buddy4_poll (buddy4_imu_t * imu, uint64_t timestamp_us)
+buddy4_result_t buddy4_poll (buddy4_imu_t * p_imu, uint64_t timestamp_us)
 {
-    buddy4_output_t * output = &imu->output;
-    invalidate_output(imu);
+    buddy4_output_t * output = &p_imu->output;
+    invalidate_output(p_imu);
 
-    if (!imu->ready)
+    if (!p_imu->ready)
     {
         return BUDDY4_NOT_READY;
     }
@@ -510,7 +512,7 @@ buddy4_result_t buddy4_poll (buddy4_imu_t * imu, uint64_t timestamp_us)
     uint8_t status;
     uint8_t bytes[6];
 
-    if (!read_registers(imu, LSM303D_REG_STATUS_A, &status, 1))
+    if (!read_registers(p_imu, LSM303D_REG_STATUS_A, &status, 1))
     {
         goto fail;
     }
@@ -524,26 +526,26 @@ buddy4_result_t buddy4_poll (buddy4_imu_t * imu, uint64_t timestamp_us)
         return BUDDY4_STALE;
     }
 
-    if (!read_registers(imu, LSM303D_REG_OUT_X_L_A, bytes, sizeof(bytes)))
+    if (!read_registers(p_imu, LSM303D_REG_OUT_X_L_A, bytes, sizeof(bytes)))
     {
         goto fail;
     }
 
     /* Repeated/backwards timestamps cannot count toward peak stability. */
-    if ((imu->has_sample) && (timestamp_us <= output->timestamp_us))
+    if ((p_imu->has_sample) && (timestamp_us <= output->timestamp_us))
     {
         output->event.window_active = false;
         output->event.median_count = 0;
         return BUDDY4_STALE;
     }
 
-    bool sample_gap = (imu->filter_valid) &&
+    bool b_sample_gap = (p_imu->filter_valid) &&
             (timestamp_us - output->timestamp_us > MAX_SAMPLE_GAP_US);
 
-    if (sample_gap)
+    if (b_sample_gap)
     {
-        imu->filter_valid = false;
-        imu->tilt_filter_valid = false;
+        p_imu->filter_valid = false;
+        p_imu->tilt_filter_valid = false;
     }
 
     output->clipped_axes = 0;
@@ -563,8 +565,8 @@ buddy4_result_t buddy4_poll (buddy4_imu_t * imu, uint64_t timestamp_us)
         output->uncorrected_accel_g[axis] = output->raw[axis] * G_PER_COUNT;
         output->accel_g[axis] =
                 (output->uncorrected_accel_g[axis]
-                 - imu->config.accel_bias_g[axis]) *
-                imu->config.accel_scale[axis];
+                 - p_imu->config.accel_bias_g[axis]) *
+                p_imu->config.accel_scale[axis];
     }
 
     float32_t accel_x = output->accel_g[0];
@@ -593,18 +595,18 @@ buddy4_result_t buddy4_poll (buddy4_imu_t * imu, uint64_t timestamp_us)
     }
 
     /* Gravity-based tilt; vehicle acceleration can disturb these estimates. */
-    output->pitch_deg = imu->config.pitch_sign *
+    output->pitch_deg = p_imu->config.pitch_sign *
             atan2f(accel_x, sqrtf(accel_y * accel_y + accel_z * accel_z)) *
-            RAD_TO_DEG - imu->config.pitch_offset_deg;
-    output->roll_deg = imu->config.roll_sign *
+            RAD_TO_DEG - p_imu->config.pitch_offset_deg;
+    output->roll_deg = p_imu->config.roll_sign *
             atan2f(accel_y, sqrtf(accel_x * accel_x + accel_z * accel_z)) *
-            RAD_TO_DEG - imu->config.roll_offset_deg;
+            RAD_TO_DEG - p_imu->config.roll_offset_deg;
 
     /* Clipped acceleration has unknown amplitude: break transient evidence too.
      * Non-clipped dynamic inputs keep the previous transient behaviour. */
     if (!output->acceleration_valid)
     {
-        imu->filter_valid = false;
+        p_imu->filter_valid = false;
     }
 
     output->transient_g = 0;
@@ -613,32 +615,32 @@ buddy4_result_t buddy4_poll (buddy4_imu_t * imu, uint64_t timestamp_us)
     {
         output->transient_event = false;
     }
-    else if (!imu->filter_valid)
+    else if (!p_imu->filter_valid)
     {
-        imu->baseline = output->magnitude_g;
-        imu->filter_valid = true;
-        imu->bump_armed = true;
+        p_imu->baseline = output->magnitude_g;
+        p_imu->filter_valid = true;
+        p_imu->bump_armed = true;
     }
     else
     {
-        output->transient_g = output->magnitude_g - imu->baseline;
-        imu->baseline += BASELINE_ALPHA * output->transient_g;
+        output->transient_g = output->magnitude_g - p_imu->baseline;
+        p_imu->baseline += BASELINE_ALPHA * output->transient_g;
 
         float32_t transient_amplitude = fabsf(output->transient_g);
 
         if (transient_amplitude < BUMP_REARM_G)
         {
-            imu->bump_armed = true;
+            p_imu->bump_armed = true;
         }
 
-        if ((imu->bump_armed) && (transient_amplitude >= BUMP_THRESHOLD_G) &&
-            ((!imu->had_bump) ||
-             (timestamp_us - imu->last_bump_us >= BUMP_COOLDOWN_US)))
+        if ((p_imu->bump_armed) && (transient_amplitude >= BUMP_THRESHOLD_G) &&
+            ((!p_imu->had_bump) ||
+             (timestamp_us - p_imu->last_bump_us >= BUMP_COOLDOWN_US)))
         {
             output->transient_event = true;
-            imu->bump_armed = false;
-            imu->had_bump = true;
-            imu->last_bump_us = timestamp_us;
+            p_imu->bump_armed = false;
+            p_imu->had_bump = true;
+            p_imu->last_bump_us = timestamp_us;
         }
     }
 
@@ -648,7 +650,7 @@ buddy4_result_t buddy4_poll (buddy4_imu_t * imu, uint64_t timestamp_us)
          * Completed history is separate and survives. Never blend bad tilt
          * into the recovery filter or bridge pending stability/median evidence.
          */
-        imu->tilt_filter_valid = false;
+        p_imu->tilt_filter_valid = false;
         output->event = (side_event_t){0};
         /* State invalid, not measured flat. */
         output->terrain = output->side = 0;
@@ -657,11 +659,11 @@ buddy4_result_t buddy4_poll (buddy4_imu_t * imu, uint64_t timestamp_us)
     }
     else
     {
-        if (!imu->tilt_filter_valid)
+        if (!p_imu->tilt_filter_valid)
         {
             output->filtered_pitch_deg = output->pitch_deg;
             output->filtered_roll_deg = output->roll_deg;
-            imu->tilt_filter_valid = true;
+            p_imu->tilt_filter_valid = true;
         }
         else
         {
@@ -678,10 +680,10 @@ buddy4_result_t buddy4_poll (buddy4_imu_t * imu, uint64_t timestamp_us)
                                       ROLL_ENTER_DEG, ROLL_EXIT_DEG);
         /* Preliminary wheel-height difference; centre spacing remains
          * configurable. */
-        output->wheel_height_cm = imu->config.centre_spacing_cm *
+        output->wheel_height_cm = p_imu->config.centre_spacing_cm *
                 sinf(fabsf(output->filtered_roll_deg) * DEG_TO_RAD);
         output->height_geometry_confirmed =
-                imu->config.centre_spacing_confirmed;
+                p_imu->config.centre_spacing_confirmed;
 
         if ((output->event.side) && (output->event.side != output->side))
         {
@@ -696,20 +698,20 @@ buddy4_result_t buddy4_poll (buddy4_imu_t * imu, uint64_t timestamp_us)
         {
             update_median(&output->event, timestamp_us,
                           fabsf(output->filtered_roll_deg),
-                          imu->config.centre_spacing_cm);
+                          p_imu->config.centre_spacing_cm);
         }
 
     } /* tilt_valid */
 
     output->timestamp_us = timestamp_us;
-    imu->has_sample = true;
+    p_imu->has_sample = true;
     output->valid = true;
     return BUDDY4_FRESH;
 
     fail:
             ++output->error_count;
-    imu->ready = false;
-    reset_detection(imu);
+    p_imu->ready = false;
+    reset_detection(p_imu);
     return BUDDY4_IO_ERROR;
 }
 

@@ -21,7 +21,7 @@ static void capture_timeout (buddy4_device_t * d)
 }
 
 static int32_t write_bus (void * context, uint8_t address, const uint8_t * data,
-                      size_t count, bool no_stop)
+                      size_t count, bool b_no_stop)
 {
     buddy4_device_t * d = context;
     d->pending = false;
@@ -31,7 +31,7 @@ static int32_t write_bus (void * context, uint8_t address, const uint8_t * data,
         return -1;
     }
 
-    if (no_stop)
+    if (b_no_stop)
     {
         if (1 != count)
         {
@@ -55,13 +55,13 @@ static int32_t write_bus (void * context, uint8_t address, const uint8_t * data,
 }
 
 static int32_t read_bus (void * context, uint8_t address, uint8_t * data,
-                     size_t count, bool no_stop)
+                     size_t count, bool b_no_stop)
 {
     buddy4_device_t * d = context;
     bool pending = d->pending;
     d->pending = false;
 
-    if ((!pending) || no_stop || (address != d->slave_address) || (!data) ||
+    if ((!pending) || b_no_stop || (address != d->slave_address) || (!data) ||
         (0 == count) || (count > 6) || (d->descriptor <= 0))
     {
         return -1;

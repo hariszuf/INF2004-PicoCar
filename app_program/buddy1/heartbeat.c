@@ -7,14 +7,14 @@
 #include "telemetry.h"
 
 
-LOCAL void heartbeat_task (INT stacd, void * exinf)
+LOCAL void heartbeat_task (INT stacd, void * p_exinf)
 {
     telemetry_message_t message;
     uint32_t sequence = 0U;
     ER error_code;
 
     (void)stacd;
-    (void)exinf;
+    (void)p_exinf;
 
 
     for (;;)

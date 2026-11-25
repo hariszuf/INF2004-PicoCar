@@ -123,11 +123,11 @@ void motion_motor_set (motion_side_t side, float32_t duty)
     }
 }
 
-void motion_motor_set_latch (bool latched)
+void motion_motor_set_latch (bool b_latched)
 {
-    s_latched = latched;
+    s_latched = b_latched;
 
-    if (latched)
+    if (b_latched)
     {
         motion_motor_brake_all();
     }

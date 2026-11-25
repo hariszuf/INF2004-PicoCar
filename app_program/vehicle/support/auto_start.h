@@ -75,14 +75,14 @@ static inline void auto_start_stop (auto_start_t * s)
 /* The controller stopped itself. persistent=true: stays stopped until power
  * cycle. */
 static inline void auto_start_halt (auto_start_t * s, int32_t reason,
-                                    bool persistent)
+                                    bool b_persistent)
 {
     if (AUTO_FAULTED == s->phase)
     {
         return;
     }
 
-    s->phase = persistent ? AUTO_FAULTED : AUTO_LATCHED;
+    s->phase = b_persistent ? AUTO_FAULTED : AUTO_LATCHED;
     s->restarting = false;
     s->reason = reason;
 }
@@ -129,7 +129,7 @@ static inline auto_exec_t auto_start_exec_state (const auto_start_t * s)
 }
 
 static inline auto_action_t auto_start_update (auto_start_t * s, uint32_t now,
-                                               bool stopped, bool ready)
+                                               bool b_stopped, bool ready)
 {
     if ((AUTO_LATCHED == s->phase) || (AUTO_FAULTED == s->phase))
     {
@@ -137,7 +137,7 @@ static inline auto_action_t auto_start_update (auto_start_t * s, uint32_t now,
     }
 
     if ((AUTO_BOOT_DELAY == s->phase)
-        && ((uint32_t)(now - s->since) >= B5_BOOT_DELAY_MS) && stopped)
+        && ((uint32_t)(now - s->since) >= B5_BOOT_DELAY_MS) && b_stopped)
     {
         s->phase = AUTO_WAIT_READY;
         s->since = now;
@@ -145,7 +145,7 @@ static inline auto_action_t auto_start_update (auto_start_t * s, uint32_t now,
     }
 
     if ((AUTO_WAIT_READY == s->phase)
-        && ((uint32_t)(now - s->since) >= B5_READY_DELAY_MS) && stopped
+        && ((uint32_t)(now - s->since) >= B5_READY_DELAY_MS) && b_stopped
                 && ready)
     {
         s->phase = AUTO_RUNNING;

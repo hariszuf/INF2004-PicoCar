@@ -149,7 +149,7 @@ static void test_flat_unchanged (void)
 }
 
 /* Climb with and without the IMU report: the assist must keep speed better. */
-static float64_t uphill_run (bool with_imu, motion_status_t * p_st,
+static float64_t uphill_run (bool b_with_imu, motion_status_t * p_st,
                              float64_t * p_dip)
 {
     float64_t v;
@@ -162,7 +162,7 @@ static float64_t uphill_run (bool with_imu, motion_status_t * p_st,
     sim_set_load(MOTION_SIDE_LEFT, 0.15);
     sim_set_load(MOTION_SIDE_RIGHT, 0.15);
 
-    if (with_imu)
+    if (b_with_imu)
     {
         set_imu(1, 11.0f, 0, 0.0f);
     }

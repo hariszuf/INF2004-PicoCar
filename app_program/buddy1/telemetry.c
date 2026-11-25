@@ -77,7 +77,7 @@ LOCAL T_CMBF mqtt_outbox_config = {
  * prints them, and forwards a copy to
  * the MQTT outbox when MQTT is enabled.
  */
-LOCAL void telemetry_task (INT stacd, void * exinf)
+LOCAL void telemetry_task (INT stacd, void * p_exinf)
 {
     telemetry_message_t message;
     INT received_size;
@@ -87,7 +87,7 @@ LOCAL void telemetry_task (INT stacd, void * exinf)
 #endif
 
     (void)stacd;
-    (void)exinf;
+    (void)p_exinf;
 
     for (;;)
     {

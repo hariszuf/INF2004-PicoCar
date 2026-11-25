@@ -19,14 +19,15 @@ static inline void terrain_link_feed (const buddy4_imu_t * p_imu,
                                       buddy4_result_t result)
 {
     motion_terrain_input_t input;
-    const buddy4_output_t * o = &p_imu->output;
+    const buddy4_output_t * p_o = &p_imu->output;
 
-    input.valid = (BUDDY4_FRESH == result) && (o->valid) && (p_imu->ready);
+    input.valid = (BUDDY4_FRESH == result) && (p_o->valid) && (p_imu->ready);
     input.pitch_state =
-            (int8_t)((o->terrain > 0) ? 1 : ((o->terrain < 0) ? -1 : 0));
-    input.roll_state = (int8_t)((o->side > 0) ? 1 : ((o->side < 0) ? -1 : 0));
-    input.pitch_deg = o->filtered_pitch_deg;
-    input.roll_deg = o->filtered_roll_deg;
+            (int8_t)((p_o->terrain > 0) ? 1 : ((p_o->terrain < 0) ? -1 : 0));
+    input.roll_state =
+            (int8_t)((p_o->side > 0) ? 1 : ((p_o->side < 0) ? -1 : 0));
+    input.pitch_deg = p_o->filtered_pitch_deg;
+    input.roll_deg = p_o->filtered_roll_deg;
 
     if (BUDDY4_STALE == result)
     {

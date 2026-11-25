@@ -160,8 +160,8 @@ static inline bool tf_decode_telemetry (const uint8_t * in, uint32_t len,
     }
 
     uint32_t c1 = (in[0] >> 2) & 3u, c2 = in[0] & 3u;
-    bool has_flags = 0u != (in[1] & 0x40u);
-    uint32_t n = 5u + (has_flags ? 2u : 0u);
+    bool b_has_flags = 0u != (in[1] & 0x40u);
+    uint32_t n = 5u + (b_has_flags ? 2u : 0u);
 
     if (len != n + tf_class_bytes(c1) + tf_class_bytes(c2))
     {
@@ -172,7 +172,7 @@ static inline bool tf_decode_telemetry (const uint8_t * in, uint32_t len,
     out->type = (uint8_t)(in[1] & 63u);
     out->sequence =
             (uint32_t)in[2] | ((uint32_t)in[3] << 8) | ((uint32_t)in[4] << 16);
-    out->flags = has_flags ? (uint16_t)(in[5] | (in[6] << 8)) : 0u;
+    out->flags = b_has_flags ? (uint16_t)(in[5] | (in[6] << 8)) : 0u;
     out->value_1 = tf_get_value(in + n, c1);
     out->value_2 = tf_get_value(in + n + tf_class_bytes(c1), c2);
     return true;
@@ -188,7 +188,7 @@ static inline uint32_t tf_encode_command (uint8_t * out, uint32_t opcode)
 /* Command: set the barcode map. codes = 26 characters L, S, R, U or N (upper
  * case) for A..Z. Returns TF_CMD_MAP_LENGTH,
  * or 0 if a character is not one of them. */
-static inline uint32_t tf_encode_map (uint8_t * out, const char * codes)
+static inline uint32_t tf_encode_map (uint8_t * out, const char * p_codes)
 {
     out[0] = (uint8_t)(TF_BINARY_MARK | TF_CMD_MAP);
 
@@ -201,7 +201,7 @@ static inline uint32_t tf_encode_map (uint8_t * out, const char * codes)
     {
         uint32_t a;
 
-        switch (codes[idx])
+        switch (p_codes[idx])
         {
             case 'N':
             a = 0u;
@@ -231,14 +231,14 @@ static inline uint32_t tf_encode_map (uint8_t * out, const char * codes)
 /* Decode the 10 bytes after the TF_CMD_MAP opcode into 26 characters plus a
  * terminating NUL (out has 27 bytes).
  * Returns false if an action value is above 4. */
-static inline bool tf_decode_map (const uint8_t * map_bytes, char * out)
+static inline bool tf_decode_map (const uint8_t * p_map_bytes, char * out)
 {
     static const char letters[5] = { 'N', 'L', 'S', 'R', 'U' };
 
     for (uint32_t idx = 0u; idx < TF_MAP_LETTERS; idx++)
     {
         uint32_t a =
-                bitpack_get(map_bytes, idx * TF_MAP_ACTION_BITS,
+                bitpack_get(p_map_bytes, idx * TF_MAP_ACTION_BITS,
                             TF_MAP_ACTION_BITS);
 
         if (a > 4u)

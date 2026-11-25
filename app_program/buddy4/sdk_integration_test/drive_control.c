@@ -3,12 +3,12 @@
 #include "line_follow.h"
 #include "motion_config.h"
 #include <math.h>
-void drive_stop (drive_control_t * c, const char * why, motion_fault_t fault)
+void drive_stop (drive_control_t * c, const char * p_why, motion_fault_t fault)
 {
     line_follow_stop();
     motion_emergency_stop();
     c->running = c->armed = false;
-    c->reason = why;
+    c->reason = p_why;
     c->stop_fault = fault;
     c->event_pending = true;
 }
@@ -20,44 +20,45 @@ void drive_init (drive_control_t * c)
     drive_stop(c, "BOOT", MOTION_FAULT_NONE);
 }
 
-bool drive_imu_usable (const buddy4_imu_t * imu)
+bool drive_imu_usable (const buddy4_imu_t * p_imu)
 {
-    const buddy4_output_t * o = &imu->output;
-    return (imu->ready) && (o->valid) && (o->acceleration_valid)
-            && (o->tilt_valid) &&
-            (BUDDY4_QUALITY_GRAVITY_LIKE == o->quality) && (!o->clipped_axes) &&
-            (isfinite(o->magnitude_g)) && (isfinite(o->accel_g[0])) &&
-            (isfinite(o->accel_g[1])) && (isfinite(o->accel_g[2])) &&
-            (isfinite(o->pitch_deg)) && (isfinite(o->roll_deg)) &&
-            (isfinite(o->filtered_pitch_deg))
-                    && (isfinite(o->filtered_roll_deg));
+    const buddy4_output_t * p_o = &p_imu->output;
+    return (p_imu->ready) && (p_o->valid) && (p_o->acceleration_valid)
+            && (p_o->tilt_valid) &&
+            (BUDDY4_QUALITY_GRAVITY_LIKE == p_o->quality)
+                    && (!p_o->clipped_axes) &&
+            (isfinite(p_o->magnitude_g)) && (isfinite(p_o->accel_g[0])) &&
+            (isfinite(p_o->accel_g[1])) && (isfinite(p_o->accel_g[2])) &&
+            (isfinite(p_o->pitch_deg)) && (isfinite(p_o->roll_deg)) &&
+            (isfinite(p_o->filtered_pitch_deg))
+                    && (isfinite(p_o->filtered_roll_deg));
 }
 
-bool drive_imu_poll (drive_control_t * c, const buddy4_imu_t * imu,
+bool drive_imu_poll (drive_control_t * c, const buddy4_imu_t * p_imu,
                      buddy4_result_t result)
 {
-    bool usable = (BUDDY4_FRESH == result) && (drive_imu_usable(imu));
+    bool b_usable = (BUDDY4_FRESH == result) && (drive_imu_usable(p_imu));
 
-    if ((BUDDY4_FRESH == result) && (!usable) && ((c->running) || (c->armed)))
+    if ((BUDDY4_FRESH == result) && (!b_usable) && ((c->running) || (c->armed)))
     {
         drive_stop(c, "IMU_QUALITY", MOTION_FAULT_NONE);
     }
 
-    return usable;
+    return b_usable;
 }
 
-void drive_safety (drive_control_t * c, bool usb, bool has_fresh,
+void drive_safety (drive_control_t * c, bool b_usb, bool b_has_fresh,
                    uint64_t now, uint64_t last_fresh)
 {
     motion_status_t s;
     motion_get_status(&s);
 
-    if ((!usb) && ((c->running) || (c->armed)))
+    if ((!b_usb) && ((c->running) || (c->armed)))
     {
         drive_stop(c, "USB_DISCONNECTED", MOTION_FAULT_NONE);
     }
     else if (((c->running) || (c->armed)) &&
-             ((!has_fresh) || (now - last_fresh >= INVALID_LIMIT_US)))
+             ((!b_has_fresh) || (now - last_fresh >= INVALID_LIMIT_US)))
     {
         drive_stop(c, "IMU_INVALID_TIMEOUT", MOTION_FAULT_NONE);
     }
@@ -81,7 +82,8 @@ void drive_safety (drive_control_t * c, bool usb, bool has_fresh,
     }
 }
 
-void drive_command (drive_control_t * c, int32_t key, bool usb, bool healthy,
+void drive_command (drive_control_t * c, int32_t key, bool b_usb,
+                    bool b_healthy,
                     uint64_t now)
 {
     if (('S' == key) || (' ' == key))
@@ -90,7 +92,7 @@ void drive_command (drive_control_t * c, int32_t key, bool usb, bool healthy,
         return;
     }
 
-    if (!usb)
+    if (!b_usb)
     {
         return;
     }
@@ -113,7 +115,7 @@ void drive_command (drive_control_t * c, int32_t key, bool usb, bool healthy,
     motion_status_t s;
     motion_get_status(&s);
 
-    if (('R' == key) && (!c->running) && healthy
+    if (('R' == key) && (!c->running) && b_healthy
         && (MOTION_STATE_ERROR == s.state))
     {
         if (MOTION_OK == motion_reset())
@@ -124,7 +126,7 @@ void drive_command (drive_control_t * c, int32_t key, bool usb, bool healthy,
             c->event_pending = true;
         }
     }
-    else if (('G' == key) && (!c->running) && (c->armed) && healthy &&
+    else if (('G' == key) && (!c->running) && (c->armed) && b_healthy &&
              (MOTION_STATE_IDLE == s.state))
     {
         if ((DRIVE_MANUAL != c->mode) && (DRIVE_LINE != c->mode) &&
@@ -135,11 +137,11 @@ void drive_command (drive_control_t * c, int32_t key, bool usb, bool healthy,
             return;
         }
 
-        bool ok = DRIVE_LINE == c->mode ? line_follow_start() :
+        bool b_ok = DRIVE_LINE == c->mode ? line_follow_start() :
         MOTION_OK == motion_drive(c->selected_left_cm_s,
                                   c->selected_right_cm_s);
 
-        if (ok)
+        if (b_ok)
         {
             c->started_us = now;
             c->running = true;

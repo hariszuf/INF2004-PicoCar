@@ -183,7 +183,7 @@ static void imu_quality_reproduction (void)
     drive_control_t c;
     drive_init(&c);
     settle_stop();
-    bool has_fresh = false;
+    bool b_has_fresh = false;
     uint64_t last_fresh = 0;
     uint64_t t = 0;
     raw_vector(&sensor, -32760, -32760, -32760);
@@ -199,26 +199,26 @@ static void imu_quality_reproduction (void)
         assert((!imu.output.clipped_axes) && (0 == imu.output.error_count));
         /* The old gate incorrectly accepted this. */
         assert((imu.ready) && (imu.output.valid));
-        bool usable = drive_imu_poll(&c, &imu, result);
-        assert((!usable) && (!drive_imu_usable(&imu)));
+        bool b_usable = drive_imu_poll(&c, &imu, result);
+        assert((!b_usable) && (!drive_imu_usable(&imu)));
 
-        if (usable)
+        if (b_usable)
         {
-            has_fresh = true;
+            b_has_fresh = true;
             last_fresh = imu.output.timestamp_us;
         }
 
         if (10 == idx)
         {
-            drive_command(&c, 'R', true, usable, t);
+            drive_command(&c, 'R', true, b_usable, t);
         }
 
         if (20 == idx)
         {
-            drive_command(&c, 'G', true, usable, t);
+            drive_command(&c, 'G', true, b_usable, t);
         }
 
-        drive_safety(&c, true, has_fresh, t, last_fresh);
+        drive_safety(&c, true, b_has_fresh, t, last_fresh);
         assert((!c.running) && (!c.armed)); /* Bad tilt must never arm/start. */
     }
 

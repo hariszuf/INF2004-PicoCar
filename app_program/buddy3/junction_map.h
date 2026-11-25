@@ -45,7 +45,7 @@ void junction_map_reset (void);
  * Returns 0 on success; -1 if anything is wrong, in which case the table is
  * left unchanged.
  */
-int32_t junction_map_apply (const char * codes, uint32_t length);
+int32_t junction_map_apply (const char * p_codes, uint32_t length);
 
 /* Packed table for telemetry: 3 bits per letter (the junction_action_t value),
  * letters A-J in out[0], K-T in out[1], U-Z in out[2]. */

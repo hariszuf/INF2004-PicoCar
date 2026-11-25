@@ -9,7 +9,8 @@ void buddy4_obstruction_sdk_init (buddy4_obstruction_sdk_t * a)
 
 void buddy4_obstruction_sdk_note_update (buddy4_obstruction_sdk_t * a,
                                          const motion_status_t * status,
-                                                 const drive_control_t * demand,
+                                                 const drive_control_t
+                                                         * p_demand,
                                          uint64_t begin, uint64_t end,
                                                  uint32_t skipped)
 {
@@ -18,7 +19,7 @@ void buddy4_obstruction_sdk_note_update (buddy4_obstruction_sdk_t * a,
                     && (begin - a->begin_us <= 30000u) &&
             (end >= begin) && (end - begin <= 5000u) && (skipped == a->skipped);
     a->status = *status;
-    a->demand = *demand;
+    a->demand = *p_demand;
     a->begin_us = begin;
     a->end_us = end;
     a->skipped = skipped;
@@ -27,12 +28,12 @@ void buddy4_obstruction_sdk_note_update (buddy4_obstruction_sdk_t * a,
 
 buddy4_obstruction_output_t buddy4_obstruction_sdk_poll (
         buddy4_obstruction_sdk_t * a,
-        const drive_control_t * c, const buddy4_imu_t * imu, bool usb,
+        const drive_control_t * c, const buddy4_imu_t * p_imu, bool b_usb,
                 uint64_t now)
 {
-    const buddy4_output_t * o = &imu->output;
+    const buddy4_output_t * p_o = &p_imu->output;
     const motion_status_t * m = &a->status;
-    bool usable = (a->have_update) && usb && (c->running)
+    bool b_usable = (a->have_update) && b_usb && (c->running)
             && (DRIVE_MANUAL == c->mode) &&
             (MOTION_FAULT_NONE == c->stop_fault) && (a->demand.running) &&
             (a->demand.mode == c->mode)
@@ -49,12 +50,12 @@ buddy4_obstruction_output_t buddy4_obstruction_sdk_poll (
                     && (isfinite(m->right_terrain_duty)) &&
             (fabsf(m->left_terrain_duty) < 0.001f)
             && (fabsf(m->right_terrain_duty) < 0.001f) &&
-            (imu->ready) && (o->valid) && (o->acceleration_valid)
-                    && (o->tilt_valid) &&
-            (!o->clipped_axes) && (0 == o->terrain) && (0 == o->side) &&
-            (isfinite(o->pitch_deg)) && (isfinite(o->roll_deg)) &&
-            (isfinite(o->filtered_pitch_deg))
-                    && (isfinite(o->filtered_roll_deg)) &&
+            (p_imu->ready) && (p_o->valid) && (p_o->acceleration_valid)
+                    && (p_o->tilt_valid) &&
+            (!p_o->clipped_axes) && (0 == p_o->terrain) && (0 == p_o->side) &&
+            (isfinite(p_o->pitch_deg)) && (isfinite(p_o->roll_deg)) &&
+            (isfinite(p_o->filtered_pitch_deg))
+                    && (isfinite(p_o->filtered_roll_deg)) &&
             /* Roll/terrain/quality guards cancel immediately. A brief
              * pitch-only
              * excursion is passed as an explicit pause, never as level
@@ -62,38 +63,38 @@ buddy4_obstruction_output_t buddy4_obstruction_sdk_poll (
              * Invalid tilt is never treated as flat, even if state flags are
              * zero.
              */
-            (fabsf(o->filtered_roll_deg) <= 2) &&
-            (o->timestamp_us <= now) && (now - o->timestamp_us <= 40000u) &&
+            (fabsf(p_o->filtered_roll_deg) <= 2) &&
+            (p_o->timestamp_us <= now) && (now - p_o->timestamp_us <= 40000u) &&
             (a->end_us <= now) && (now - a->end_us <= 40000u);
 
-    if (usable)
+    if (b_usable)
     {
         uint64_t skew =
-                o->timestamp_us > a->end_us ? o->timestamp_us - a->end_us :
-        a->end_us - o->timestamp_us;
-        usable = skew <= 30000u;
+                p_o->timestamp_us > a->end_us ? p_o->timestamp_us - a->end_us :
+        a->end_us - p_o->timestamp_us;
+        b_usable = skew <= 30000u;
     }
 
-    if (!usable)
+    if (!b_usable)
     {
         buddy4_obstruction_cancel(&a->observer, now);
         a->pending = false;
     }
     else if (a->pending)
     {
-        bool imu_new = (!a->has_imu) || (o->timestamp_us > a->last_imu_us);
+        bool b_imu_new = (!a->has_imu) || (p_o->timestamp_us > a->last_imu_us);
 
         if ((!a->timing_ok)
-            || ((a->has_imu) && (o->timestamp_us < a->last_imu_us)))
+            || ((a->has_imu) && (p_o->timestamp_us < a->last_imu_us)))
         {
             buddy4_obstruction_cancel(&a->observer, now);
             a->pending = false;
         }
-        else if (imu_new)
+        else if (b_imu_new)
         {
             buddy4_obstruction_input_t in = {
                 .valid = true, .eligible = true, .observation_us = a->end_us,
-                .pause_motion = fabsf(o->filtered_pitch_deg) > 3,
+                .pause_motion = fabsf(p_o->filtered_pitch_deg) > 3,
                 .demand_id = c->started_us,
                 .command_left_cm_s = c->selected_left_cm_s,
                 .command_right_cm_s = c->selected_right_cm_s,
@@ -102,7 +103,7 @@ buddy4_obstruction_output_t buddy4_obstruction_sdk_poll (
             buddy4_obstruction_update(&a->observer, &in, now);
             a->pending = false;
             a->has_imu = true;
-            a->last_imu_us = o->timestamp_us;
+            a->last_imu_us = p_o->timestamp_us;
         }
         else
         {

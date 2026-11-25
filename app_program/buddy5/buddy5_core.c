@@ -16,20 +16,20 @@ typedef enum
 } chk_t;
 
 /* ------------------------------------------------------------------ sampler */
-static void sort3 (int32_t * v, int32_t n)
+static void sort3 (int32_t * p_v, int32_t n)
 {
     for (int32_t idx = 1; idx < n; idx++)
     {
-        int32_t t = v[idx];
+        int32_t t = p_v[idx];
         int32_t jdx = idx - 1;
 
-        while ((jdx >= 0) && (v[jdx] > t))
+        while ((jdx >= 0) && (p_v[jdx] > t))
         {
-            v[jdx + 1] = v[jdx];
+            p_v[jdx + 1] = p_v[jdx];
             jdx--;
         }
 
-        v[jdx + 1] = t;
+        p_v[jdx + 1] = t;
     }
 }
 
@@ -99,18 +99,18 @@ void b5_sampler_reset (b5_sampler_t * s)
     s->fresh = 0;
 }
 
-bool b5_sampler_push (b5_sampler_t * s, const b5_range_t * sample,
+bool b5_sampler_push (b5_sampler_t * s, const b5_range_t * p_sample,
                       b5_range_t * out)
 {
     if (s->n < B5_SAMPLER_N)
     {
-        s->s[s->n++] = *sample;
+        s->s[s->n++] = *p_sample;
     }
     else
     {
         s->s[0] = s->s[1];
         s->s[1] = s->s[2];
-        s->s[2] = *sample;
+        s->s[2] = *p_sample;
     }
 
     if (s->fresh < 255)
@@ -184,14 +184,14 @@ void b5_core_reset (b5_core_t * c, uint32_t now_ms)
     c->next_request_id = id;
 }
 
-bool b5_core_peek_request (const b5_core_t * c, b5_request_t * r)
+bool b5_core_peek_request (const b5_core_t * c, b5_request_t * p_r)
 {
     if (!c->request_pending)
     {
         return false;
     }
 
-    *r = c->request;
+    *p_r = c->request;
     return true;
 }
 
@@ -239,7 +239,8 @@ static int32_t need_clearance (int32_t travel_mm)
     return travel_mm + (extra > 0 ? extra : 0) + B5_ROUTE_MARGIN_MM;
 }
 
-static chk_t route_check (b5_core_t * c, uint32_t now, bool fresh, int32_t need,
+static chk_t route_check (b5_core_t * c, uint32_t now, bool b_fresh,
+                          int32_t need,
                           int32_t ignore_lo, int32_t ignore_hi)
 {
     if ((uint32_t)(now - c->check_since_ms) < B5_ROUTE_CHECK_MS)
@@ -247,14 +248,14 @@ static chk_t route_check (b5_core_t * c, uint32_t now, bool fresh, int32_t need,
         return CHK_WAIT;
     }
 
-    if (fresh)
+    if (b_fresh)
     {
         int32_t cl = c->front_clearance_mm;
         /* the box seen by the wide cone, not an obstacle */
-        bool box_echo = (ignore_hi > 0) && (cl >= ignore_lo)
+        bool b_box_echo = (ignore_hi > 0) && (cl >= ignore_lo)
                 && (cl <= ignore_hi);
 
-        if ((!box_echo) && (cl < c->chk_min))
+        if ((!b_box_echo) && (cl < c->chk_min))
         {
             c->chk_min = cl;
         }
@@ -313,7 +314,7 @@ static void do_processing (b5_core_t * c, uint32_t now)
 {
     b5_plan_t p;
     b5_plan_make(&c->scan, c->stop_front_mm, c->blocked_mask, &p);
-    b5_profile_t * pr = &c->profile;
+    b5_profile_t * p_pr = &c->profile;
 #if B5_SCAN_ONLY
     if (!p.face_valid)
     {
@@ -328,8 +329,8 @@ static void do_processing (b5_core_t * c, uint32_t now)
 
     ++c->scan_count;
 #endif
-    *pr = (b5_profile_t){0};
-    pr->front_mm = c->stop_front_mm;
+    *p_pr = (b5_profile_t){0};
+    p_pr->front_mm = c->stop_front_mm;
 
     if (!p.face_valid)
     {
@@ -347,20 +348,20 @@ static void do_processing (b5_core_t * c, uint32_t now)
         return;
     }
 
-    pr->left_seen = p.seen[0];
-    pr->right_seen = p.seen[1];
-    pr->left_edge_mm = p.edge_mm[0];
-    pr->right_edge_mm = p.edge_mm[1];
-    pr->left_room_mm = p.room_mm[0];
-    pr->right_room_mm = p.room_mm[1];
-    pr->left_cost_mm = p.cost_mm[0];
-    pr->right_cost_mm = p.cost_mm[1];
-    pr->width_valid = true;
-    pr->width_mm = p.edge_mm[0] + p.edge_mm[1];
-    pr->depth_valid = true;
-    pr->depth_low_mm = B5_BOX_LENGTH_MM;
-    pr->depth_high_mm = B5_BOX_LENGTH_MM + B5_BOX_DEPTH_TOL_MM;
-    pr->side_reason = p.reason;
+    p_pr->left_seen = p.seen[0];
+    p_pr->right_seen = p.seen[1];
+    p_pr->left_edge_mm = p.edge_mm[0];
+    p_pr->right_edge_mm = p.edge_mm[1];
+    p_pr->left_room_mm = p.room_mm[0];
+    p_pr->right_room_mm = p.room_mm[1];
+    p_pr->left_cost_mm = p.cost_mm[0];
+    p_pr->right_cost_mm = p.cost_mm[1];
+    p_pr->width_valid = true;
+    p_pr->width_mm = p.edge_mm[0] + p.edge_mm[1];
+    p_pr->depth_valid = true;
+    p_pr->depth_low_mm = B5_BOX_LENGTH_MM;
+    p_pr->depth_high_mm = B5_BOX_LENGTH_MM + B5_BOX_DEPTH_TOL_MM;
+    p_pr->side_reason = p.reason;
 
     for (int32_t idx = 0; idx < 2; idx++)
     {
@@ -375,17 +376,17 @@ static void do_processing (b5_core_t * c, uint32_t now)
     /* Measurement only: report what the scan saw (no minimum box size), never
      * ask
      * the car to move. */
-    pr->left_edge_mm = p.meas_edge_mm[0];
-    pr->right_edge_mm = p.meas_edge_mm[1];
-    pr->width_mm = p.meas_edge_mm[0] + p.meas_edge_mm[1];
-    pr->width_valid = (p.seen[0]) && (p.seen[1]);
+    p_pr->left_edge_mm = p.meas_edge_mm[0];
+    p_pr->right_edge_mm = p.meas_edge_mm[1];
+    p_pr->width_mm = p.meas_edge_mm[0] + p.meas_edge_mm[1];
+    p_pr->width_valid = (p.seen[0]) && (p.seen[1]);
     /* the sonar only sees the front face: depth cannot be measured */
-    pr->depth_valid = false;
-    pr->depth_low_mm = pr->depth_high_mm = 0;
-    pr->valid = true;
-    pr->side = 0;
-    pr->offset_mm = 0;
-    pr->pass_x_mm = 0;
+    p_pr->depth_valid = false;
+    p_pr->depth_low_mm = p_pr->depth_high_mm = 0;
+    p_pr->valid = true;
+    p_pr->side = 0;
+    p_pr->offset_mm = 0;
+    p_pr->pass_x_mm = 0;
     c->cooldown_until_ms = now + B5_SCANONLY_HOLD_MS;
     c->hit_count = 0;
     set_state(c, B5_MONITORING, now);
@@ -398,10 +399,10 @@ static void do_processing (b5_core_t * c, uint32_t now)
     }   /* the car is on the line, stopped: safe */
 
     use_side(c, p.side);
-    pr->valid = true;
-    pr->side = (int8_t)p.side;
-    pr->offset_mm = c->offset_mm;
-    pr->pass_x_mm = c->pass_x_mm;
+    p_pr->valid = true;
+    p_pr->side = (int8_t)p.side;
+    p_pr->offset_mm = c->offset_mm;
+    p_pr->pass_x_mm = c->pass_x_mm;
     set_state(c, B5_AVOIDING, now);
     c->avoid_since_ms = now;
     c->phase = PH_LOOK;
@@ -432,14 +433,14 @@ void b5_core_update (b5_core_t * c, uint32_t now, const b5_feedback_t * f,
     }
 
     int32_t angle = b5_core_angle(c);
-    bool fresh_front = false;
+    bool b_fresh_front = false;
 
     if (range && (0 == angle))
     {
         c->front_clearance_mm = b5_front_clearance(range);
         c->front_ms = now;
         ++c->front_seq;
-        fresh_front = range->valid;
+        b_fresh_front = range->valid;
     }
 
     if (f && (f->valid))
@@ -454,7 +455,7 @@ void b5_core_update (b5_core_t * c, uint32_t now, const b5_feedback_t * f,
         }
     }
 
-    bool done = request_done(c, f);
+    bool b_done = request_done(c, f);
 
     switch (c->state)
     {
@@ -470,7 +471,7 @@ void b5_core_update (b5_core_t * c, uint32_t now, const b5_feedback_t * f,
             break;
         }
 #endif
-        if (fresh_front)
+        if (b_fresh_front)
         {
             if (c->front_clearance_mm <= (int32_t)B5_STOP_FRONT_MM)
             {
@@ -496,7 +497,7 @@ void b5_core_update (b5_core_t * c, uint32_t now, const b5_feedback_t * f,
         }
         break;
         case B5_WAIT_STOP:
-        if (done && (f->stopped))
+        if (b_done && (f->stopped))
         {
             memset(&c->scan, 0, sizeof(c->scan));
             c->slot = 0;
@@ -561,7 +562,7 @@ void b5_core_update (b5_core_t * c, uint32_t now, const b5_feedback_t * f,
         switch (c->phase)
         {
             case PH_LOOK:
-            if (done)
+            if (b_done)
             {
                 c->phase = PH_CHECK1;
                 begin_check(c, now);
@@ -569,7 +570,7 @@ void b5_core_update (b5_core_t * c, uint32_t now, const b5_feedback_t * f,
             break;
             case PH_CHECK1:
             {
-                chk_t r = route_check(c, now, fresh_front,
+                chk_t r = route_check(c, now, b_fresh_front,
                                       need_clearance(c->offset_mm), 0,
                                       0);
 
@@ -599,13 +600,13 @@ void b5_core_update (b5_core_t * c, uint32_t now, const b5_feedback_t * f,
                 break;
             }
             case PH_UNWIND:
-            if (done)
+            if (b_done)
             {
                 b5_core_fail(c, B5_FAULT_NO_ROUTE, now);
             }
             break;
             case PH_BYPASS:
-            if (done)
+            if (b_done)
             {
                 c->phase = PH_CHECK2;
                 begin_check(c, now);
@@ -634,7 +635,7 @@ void b5_core_update (b5_core_t * c, uint32_t now, const b5_feedback_t * f,
                             - B5_FRONT_OVERHANG_MM;
                 }
 
-                chk_t r = route_check(c, now, fresh_front,
+                chk_t r = route_check(c, now, b_fresh_front,
                                       need_clearance(c->pass_x_mm - fx),
                                       lo, hi);
 
@@ -664,7 +665,7 @@ void b5_core_update (b5_core_t * c, uint32_t now, const b5_feedback_t * f,
              * the box and cannot recover from a standstill here: a close echo
              * ahead
              * halts the vehicle (error state). */
-            if (fresh_front)
+            if (b_fresh_front)
             {
                 if (c->front_clearance_mm <= (int32_t)B5_ADVANCE_STOP_MM)
                 {
@@ -683,7 +684,7 @@ void b5_core_update (b5_core_t * c, uint32_t now, const b5_feedback_t * f,
                 }
             }
 
-            if (done)
+            if (b_done)
             {
                 start_recover(c, now, PH_RECOVER);
             }
@@ -703,21 +704,21 @@ void b5_core_update (b5_core_t * c, uint32_t now, const b5_feedback_t * f,
         switch (c->phase)
         {
             case PH_RECOVER:
-            if (done)
+            if (b_done)
             {
                 c->phase = PH_RESUME;
                 issue(c, B5_REQ_RESUME_LINE, now, 0, 0);
             }
             break;
             case PH_RETURN:
-            if (done)
+            if (b_done)
             {
                 c->phase = PH_RESCAN_STOP;
                 issue(c, B5_REQ_STOP, now, 0, 0);
             }   /* STOP re-zeroes the origin on the line */
             break;
             case PH_RESCAN_STOP:
-            if (done && (f->stopped))
+            if (b_done && (f->stopped))
             {
                 memset(&c->scan, 0, sizeof(c->scan));
                 c->slot = 0;
@@ -726,7 +727,7 @@ void b5_core_update (b5_core_t * c, uint32_t now, const b5_feedback_t * f,
             }
             break;
             case PH_RESUME:
-            if (done)
+            if (b_done)
             {
                 c->false_alarms = (c->profile.valid) ? 0u : c->false_alarms;
                 c->blocked_mask = 0;

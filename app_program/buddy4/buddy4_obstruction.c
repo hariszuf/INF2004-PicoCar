@@ -147,10 +147,10 @@ void buddy4_obstruction_update (buddy4_obstruction_t * d,
         d->output.established = true;
     }
 
-    bool moving = (in->left_cm_s >= 0.7f*cl) && (in->left_cm_s <= 1.3f*cl) &&
+    bool b_moving = (in->left_cm_s >= 0.7f*cl) && (in->left_cm_s <= 1.3f*cl) &&
             (in->right_cm_s >= 0.7f*cr) && (in->right_cm_s <= 1.3f*cr) &&
             (fabsf(in->left_cm_s - in->right_cm_s) <= 0.75f);
-    bool slow = (in->left_cm_s <= fminf(0.5f, 0.2f*cl)) &&
+    bool b_slow = (in->left_cm_s <= fminf(0.5f, 0.2f*cl)) &&
             (in->right_cm_s <= fminf(0.5f, 0.2f*cr));
 
     if (fabsf(in->left_cm_s - in->right_cm_s) > 0.75f)
@@ -186,7 +186,7 @@ void buddy4_obstruction_update (buddy4_obstruction_t * d,
             return;
         }
 
-        if (moving || slow)
+        if (b_moving || b_slow)
         {
             d->asymmetric = false;
         }
@@ -196,7 +196,7 @@ void buddy4_obstruction_update (buddy4_obstruction_t * d,
         }
     }
 
-    if (moving)
+    if (b_moving)
     {
         d->pending = false;
         d->output.slow_ms = 0;
@@ -219,7 +219,7 @@ void buddy4_obstruction_update (buddy4_obstruction_t * d,
     {
         d->establishing = false;
 
-        if (slow && (d->output.established))
+        if (b_slow && (d->output.established))
         {
             if (!d->pending)
             {

@@ -53,14 +53,14 @@ static const demo_step_t s_route[] =
 
 #define ROUTE_STEPS     ((uint32_t)(sizeof(s_route) / sizeof(s_route[0])))
 
-static void print_status (const char * label)
+static void print_status (const char * p_label)
 {
     motion_status_t status;
 
     motion_get_status(&status);
     printf("%s: state=%d fault=%d dist=%.1f cm heading=%.1f deg countL=%ld "
            "countR=%ld\n",
-           label, (int32_t)status.state, (int32_t)status.fault,
+           p_label, (int32_t)status.state, (int32_t)status.fault,
            (float64_t)status.distance_cm, (float64_t)status.heading_deg,
            (int32_t)status.left_count, (int32_t)status.right_count);
 }

@@ -45,9 +45,9 @@ static INT start_application (void)
     }
 
     ER buddy4_init_result = buddy4_task_init();
-    bool buddy4_ready = buddy4_init_result >= E_OK;
+    bool b_buddy4_ready = buddy4_init_result >= E_OK;
 
-    if (!buddy4_ready)
+    if (!b_buddy4_ready)
     {
         tm_printf((UB *)"[B4] IMU task unavailable (%d); driving continues.\n",
                   buddy4_init_result);
@@ -61,7 +61,7 @@ static INT start_application (void)
         return 1;
     }
 #endif
-    if (vehicle_controller_start(buddy4_ready) < E_OK)
+    if (vehicle_controller_start(b_buddy4_ready) < E_OK)
     {
         return 1;
     }
@@ -78,7 +78,7 @@ static INT start_application (void)
         }
     }
 
-    if (buddy4_ready)
+    if (b_buddy4_ready)
     {
         ER error = buddy4_task_start();
 

@@ -64,9 +64,9 @@ static float64_t rnd (void)
 
 static int32_t run (float64_t face_x, float64_t cy, float64_t width,
                     float64_t noise,
-                int32_t * requests, int32_t * wout, int32_t * valid_out,
-                        int32_t * le,
-                int32_t * re)
+                int32_t * requests, int32_t * p_wout, int32_t * p_valid_out,
+                        int32_t * p_le,
+                int32_t * p_re)
 {
     b5_core_t c;
     b5_core_init(&c, 0);
@@ -77,7 +77,7 @@ static int32_t run (float64_t face_x, float64_t cy, float64_t width,
     uint32_t next = 0;
     *requests = 0;
     int32_t done = 0;
-    *valid_out = 0;
+    *p_valid_out = 0;
     for (uint32_t now = 0; now < 40000; now++)
     {
         int32_t ang = b5_core_angle(&c);
@@ -90,7 +90,7 @@ static int32_t run (float64_t face_x, float64_t cy, float64_t width,
         }
 
         b5_range_t out;
-        bool have = false;
+        bool b_have = false;
 
         if (now >= next)
         {
@@ -124,7 +124,7 @@ static int32_t run (float64_t face_x, float64_t cy, float64_t width,
 
                 if (b5_sampler_push(&sm, &s, &out))
                 {
-                    have = true;
+                    b_have = true;
                 }
             }
         }
@@ -133,7 +133,7 @@ static int32_t run (float64_t face_x, float64_t cy, float64_t width,
         f.valid = true;
         f.timestamp_ms = now;
         f.stopped = true;
-        b5_core_update(&c, now, &f, have ? &out : NULL);
+        b5_core_update(&c, now, &f, b_have ? &out : NULL);
         b5_request_t rq;
 
         if (b5_core_peek_request(&c, &rq))
@@ -148,10 +148,10 @@ static int32_t run (float64_t face_x, float64_t cy, float64_t width,
 
         if ((c.profile.valid) && (B5_MONITORING == c.state))
         {
-            *wout = c.profile.width_mm;
-            *valid_out = c.profile.width_valid;
-            *le = c.profile.left_edge_mm;
-            *re = c.profile.right_edge_mm;
+            *p_wout = c.profile.width_mm;
+            *p_valid_out = c.profile.width_valid;
+            *p_le = c.profile.left_edge_mm;
+            *p_re = c.profile.right_edge_mm;
             done = 1;
             break;
         }

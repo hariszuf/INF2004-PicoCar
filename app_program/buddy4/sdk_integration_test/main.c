@@ -21,17 +21,18 @@ static drive_control_t control;
 /* Persistent observer storage avoids increasing the main task's stack frame. */
 static buddy4_obstruction_sdk_t obstruction;
 static buddy4_obstruction_output_t po;
-static int32_t bus_write (void * ctx, uint8_t a, const uint8_t * p, size_t n,
-                      bool ns)
+static int32_t bus_write (void * p_ctx, uint8_t a, const uint8_t * p, size_t n,
+                      bool b_ns)
 {
-    (void)ctx;
-    return i2c_write_timeout_us(i2c0, a, p, n, ns, BUDDY4_I2C_TIMEOUT_US);
+    (void)p_ctx;
+    return i2c_write_timeout_us(i2c0, a, p, n, b_ns, BUDDY4_I2C_TIMEOUT_US);
 }
 
-static int32_t bus_read (void * ctx, uint8_t a, uint8_t * p, size_t n, bool ns)
+static int32_t bus_read (void * p_ctx, uint8_t a, uint8_t * p, size_t n,
+                         bool b_ns)
 {
-    (void)ctx;
-    return i2c_read_timeout_us(i2c0, a, p, n, ns, BUDDY4_I2C_TIMEOUT_US);
+    (void)p_ctx;
+    return i2c_read_timeout_us(i2c0, a, p, n, b_ns, BUDDY4_I2C_TIMEOUT_US);
 }
 
 static void runtime (task_t * t, uint64_t start)

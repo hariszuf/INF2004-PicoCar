@@ -149,16 +149,17 @@ buddy4_config_t buddy4_default_config (void);
 
 /* Reset caller-owned state and store callbacks/configuration; no I/O occurs.
  * imu must be non-NULL and remain available for subsequent calls. */
-void buddy4_init (buddy4_imu_t * imu, buddy4_bus_t bus, buddy4_config_t config);
+void buddy4_init (buddy4_imu_t * p_imu, buddy4_bus_t bus,
+                  buddy4_config_t config);
 
 /* Validate configuration, identify the LSM303D and write/read back settings.
  * Resets detection state; returns false and increments error_count on failure.
  * Call after init, using bounded bus callbacks. */
-bool buddy4_configure (buddy4_imu_t * imu);
+bool buddy4_configure (buddy4_imu_t * p_imu);
 
 /* Bounded readback, no register writes. Failure aborts detection, clears ready,
  * increments configuration/transfer errors. Caller may retry configuration. */
-bool buddy4_verify_config (buddy4_imu_t * imu);
+bool buddy4_verify_config (buddy4_imu_t * p_imu);
 const char * buddy4_quality_name (int32_t quality);
 
 /* Check data-ready once and process at most one sample; never wait for
@@ -175,7 +176,7 @@ const char * buddy4_quality_name (int32_t quality);
  * ends.
  * Transfer errors abort the event,
  * clear ready and increment errors; reconfigure before polling resumes. */
-buddy4_result_t buddy4_poll (buddy4_imu_t * imu, uint64_t timestamp_us);
+buddy4_result_t buddy4_poll (buddy4_imu_t * p_imu, uint64_t timestamp_us);
 
 /* Decode one full signed 16-bit, little-endian acceleration value without
  * shift. */

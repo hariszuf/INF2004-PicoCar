@@ -75,15 +75,15 @@ typedef struct
     bool valid;
     uint32_t distance_mm;
 } b5_range_t;
-static inline bool b5_range_no_echo (const b5_range_t * r)
+static inline bool b5_range_no_echo (const b5_range_t * p_r)
 {
-    return r && (r->valid) && (B5_NO_ECHO_MM == r->distance_mm);
+    return p_r && (p_r->valid) && (B5_NO_ECHO_MM == p_r->distance_mm);
 }
 
-static inline int32_t b5_front_clearance (const b5_range_t * r)
+static inline int32_t b5_front_clearance (const b5_range_t * p_r)
 {
-    return b5_range_no_echo(r) ? B5_CLEAR_FRONT_MM :
-    r && (r->valid) ? (int32_t)r->distance_mm - B5_FRONT_OVERHANG_MM : -1;
+    return b5_range_no_echo(p_r) ? B5_CLEAR_FRONT_MM :
+    p_r && (p_r->valid) ? (int32_t)p_r->distance_mm - B5_FRONT_OVERHANG_MM : -1;
 }
 #define B5_SCAN_POINTS 13 /* -35..+25, slots every 5 degrees */
 /* Packed scan: per slot a 13-bit distance (0..8191 mm, the sonar tops out near
@@ -171,7 +171,7 @@ void b5_sampler_reset (b5_sampler_t * s);
  * valid=false for a bad ping).
  * Returns true when a filtered range is ready in *out (sliding window, only
  * after a full set since reset). */
-bool b5_sampler_push (b5_sampler_t * s, const b5_range_t * sample,
+bool b5_sampler_push (b5_sampler_t * s, const b5_range_t * p_sample,
                       b5_range_t * out);
 b5_range_t b5_filter (const b5_range_t samples[B5_SAMPLER_N]);
 
@@ -245,7 +245,7 @@ void b5_core_update (b5_core_t * c, uint32_t now_ms, const b5_feedback_t * f,
 int32_t b5_core_angle (const b5_core_t * c);
 /* The controller request waiting to be sent: returns true and fills *r; call
  * b5_core_request_sent() once accepted. */
-bool b5_core_peek_request (const b5_core_t * c, b5_request_t * r);
+bool b5_core_peek_request (const b5_core_t * c, b5_request_t * p_r);
 void b5_core_request_sent (b5_core_t * c, uint32_t now_ms);
 const char * b5_state_name (b5_state_t s);
 #endif

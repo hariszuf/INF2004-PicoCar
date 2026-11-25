@@ -13,12 +13,12 @@
 static char latest_letter;
 static uint32_t latest_read_ms;
 
-bool buddy3_barcode_latest (char * letter, uint32_t * read_ms)
+bool buddy3_barcode_latest (char * letter, uint32_t * p_read_ms)
 {
     UW irq;
     DI(irq);
     *letter = latest_letter;
-    *read_ms = latest_read_ms;
+    *p_read_ms = latest_read_ms;
     EI(irq);
     return 0 != *letter;
 }
@@ -36,7 +36,7 @@ void barcode_scan_on_run (bool black, uint32_t width_us)
 /* Print the element widths (us) of a window that looked like a barcode but
  * failed.
  * Black bars are even positions (0,2,4..), white gaps odd. */
-void barcode39_on_fail (const uint32_t * w, uint8_t n, uint8_t reason)
+void barcode39_on_fail (const uint32_t * p_w, uint8_t n, uint8_t reason)
 {
     tm_printf((UB *)"[B3 BARCODE] FAIL reason=%u elements=%u\n",
               (uint32_t)reason, (uint32_t)n);
@@ -47,7 +47,7 @@ void barcode39_on_fail (const uint32_t * w, uint8_t n, uint8_t reason)
 
         for (uint8_t k = 0; k < 10; k++)
         {
-            v[k] = ((uint8_t)(idx + k) < n) ? (uint32_t)w[idx + k] : 0u;
+            v[k] = ((uint8_t)(idx + k) < n) ? (uint32_t)p_w[idx + k] : 0u;
         }
 
         tm_printf((UB *)"[B3 BARCODE] w[%u..]: %u %u %u %u %u %u %u %u %u %u\n",
@@ -57,29 +57,29 @@ void barcode39_on_fail (const uint32_t * w, uint8_t n, uint8_t reason)
 }
 #endif
 
-void barcode_scan_on_decoded (const barcode39_result_t * result)
+void barcode_scan_on_decoded (const barcode39_result_t * p_result)
 {
-    if ((1 == result->length) && (result->text[0] >= 'A')
-        && (result->text[0] <= 'Z'))
+    if ((1 == p_result->length) && (p_result->text[0] >= 'A')
+        && (p_result->text[0] <= 'Z'))
     {
         uint32_t now = (uint32_t)(b5p_time_us_64() / 1000u);
         UW irq;
         DI(irq);
-        latest_letter = result->text[0];
+        latest_letter = p_result->text[0];
         latest_read_ms = now;
         EI(irq);
     }
 #if TM_CONSOLE_USB_CDC
     tm_printf((UB *)"[B3 BARCODE] *** BARCODE: %s (crossed %s) ***\n",
-              (const UB *)result->text,
-              (UB *)(result->reversed ? "backwards" : "forwards"));
+              (const UB *)p_result->text,
+              (UB *)(p_result->reversed ? "backwards" : "forwards"));
 #endif
 }
 
-static void barcode_task (INT start_code, void * exinf)
+static void barcode_task (INT start_code, void * p_exinf)
 {
     (void)start_code;
-    (void)exinf;
+    (void)p_exinf;
     barcode_scan_init();
 #if TM_CONSOLE_USB_CDC
     uint32_t last_report = (uint32_t)b5p_time_us_64();

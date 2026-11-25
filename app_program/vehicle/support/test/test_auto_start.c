@@ -10,8 +10,8 @@ static uint32_t now;
 /* Run the controller policy for ms milliseconds; returns the last non-trivial
  * action seen. */
 static auto_action_t run (auto_start_t * s, uint32_t ms, bool ready,
-                          int32_t * resets,
-                          int32_t * starts)
+                          int32_t * p_resets,
+                          int32_t * p_starts)
 {
     auto_action_t last = AUTO_NOTHING;
 
@@ -22,12 +22,12 @@ static auto_action_t run (auto_start_t * s, uint32_t ms, bool ready,
 
         if (AUTO_RESET == a)
         {
-            ++*resets;
+            ++*p_resets;
         }
 
         if (AUTO_START == a)
         {
-            ++*starts;
+            ++*p_starts;
         }
 
         if (a)

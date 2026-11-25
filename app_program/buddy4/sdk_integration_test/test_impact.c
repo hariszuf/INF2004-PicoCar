@@ -132,29 +132,31 @@ static void horizontal_contact (void)
 
     for (uint32_t c = 0; c < sizeof(cases) / sizeof(cases[0]); c++)
     {
-        const float32_t * b = cases[c];
-        const float32_t * h = b + 3;
+        const float32_t * p_b = cases[c];
+        const float32_t * h = p_b + 3;
         assert(buddy4_impact_init(&d, buddy4_impact_default_config()));
         t = 0;
-        xyz(b[0], b[1], b[2]);
-        buddy4_impact_output_t o = xyz(b[0] + h[0], b[1] + h[1], b[2] + h[2]);
+        xyz(p_b[0], p_b[1], p_b[2]);
+        buddy4_impact_output_t o =
+                xyz(p_b[0] + h[0], p_b[1] + h[1], p_b[2] + h[2]);
         assert((o.valid) && (!o.possible_impact));
         assert(fabsf(o.magnitude_g - o.baseline_g) < 0.10f);
-        o = xyz(b[0] + h[0], b[1] + h[1], b[2] + h[2]);
+        o = xyz(p_b[0] + h[0], p_b[1] + h[1], p_b[2] + h[2]);
         assert((o.possible_impact) && (1 == o.event_count));
         assert(fabsf(o.deviation_g - 0.45f) < 1e-5f);
 
         for (int32_t idx = 0; idx < 40; idx++)
         {
-            o = xyz(b[0] + h[0], b[1] + h[1], b[2] + h[2]);
+            o = xyz(p_b[0] + h[0], p_b[1] + h[1], p_b[2] + h[2]);
             /* Frozen reference. */
             assert((!o.possible_impact) && (1 == o.event_count));
         }
 
-        xyz(b[0], b[1], b[2]);
-        xyz(b[0], b[1], b[2]);
-        xyz(b[0] + h[0], b[1] + h[1], b[2] + h[2]);
-        assert(xyz(b[0] + h[0], b[1] + h[1], b[2] + h[2]).possible_impact);
+        xyz(p_b[0], p_b[1], p_b[2]);
+        xyz(p_b[0], p_b[1], p_b[2]);
+        xyz(p_b[0] + h[0], p_b[1] + h[1], p_b[2] + h[2]);
+        assert(xyz(p_b[0] + h[0], p_b[1] + h[1],
+                   p_b[2] + h[2]).possible_impact);
         assert(2 == d.output.event_count);
     }
 
@@ -512,39 +514,39 @@ static void boundaries_and_history (void)
     }
 }
 
-static buddy4_result_t acquire (buddy4_imu_t * imu, uint64_t sample,
+static buddy4_result_t acquire (buddy4_imu_t * p_imu, uint64_t sample,
                                 uint64_t now)
 {
-    buddy4_result_t result = buddy4_poll(imu, sample);
+    buddy4_result_t result = buddy4_poll(p_imu, sample);
     /* Same freshness gate and corrected axes used by SDK and isolated MTK. */
-    buddy4_impact_update(&d, imu->output.accel_g[0], imu->output.accel_g[1],
-                         imu->output.accel_g[2], (BUDDY4_FRESH == result)
-                                 && (imu->output.valid)
-                         && (imu->output.acceleration_valid),
-                         imu->output.timestamp_us, now);
+    buddy4_impact_update(&d, p_imu->output.accel_g[0], p_imu->output.accel_g[1],
+                         p_imu->output.accel_g[2], (BUDDY4_FRESH == result)
+                                 && (p_imu->output.valid)
+                         && (p_imu->output.acceleration_valid),
+                         p_imu->output.timestamp_us, now);
     return result;
 }
 
-static void corrected_vector (fake_t * sensor, const buddy4_imu_t * imu,
+static void corrected_vector (fake_t * sensor, const buddy4_imu_t * p_imu,
                               float32_t mag)
 {
-    vector(sensor, imu->config.accel_bias_g[0], imu->config.accel_bias_g[1],
-           -mag / imu->config.accel_scale[2] + imu->config.accel_bias_g[2]);
+    vector(sensor, p_imu->config.accel_bias_g[0], p_imu->config.accel_bias_g[1],
+           -mag / p_imu->config.accel_scale[2] + p_imu->config.accel_bias_g[2]);
 }
 
-static void corrected_disturbance (fake_t * sensor, const buddy4_imu_t * imu,
+static void corrected_disturbance (fake_t * sensor, const buddy4_imu_t * p_imu,
                                    int32_t horizontal)
 {
     if (!horizontal)
     {
-        corrected_vector(sensor, imu, 1.6f);
+        corrected_vector(sensor, p_imu, 1.6f);
         return;
     }
 
-    vector(sensor, 0.45f/imu->config.accel_scale[0]
-           + imu->config.accel_bias_g[0],
-           imu->config.accel_bias_g[1],
-           -1 / imu->config.accel_scale[2] + imu->config.accel_bias_g[2]);
+    vector(sensor, 0.45f/p_imu->config.accel_scale[0]
+           + p_imu->config.accel_bias_g[0],
+           p_imu->config.accel_bias_g[1],
+           -1 / p_imu->config.accel_scale[2] + p_imu->config.accel_bias_g[2]);
 }
 
 static void clipped_acquisition (void)
@@ -789,8 +791,8 @@ static void recorded_short_impulses (const char * name, uint32_t expected_rows,
     snprintf(path, sizeof(path), "%.*s../evidence/2026-11-02/%s",
              (int32_t)prefix,
              __FILE__, name);
-    FILE *file = fopen(path, "r");
-    assert(file);
+    FILE *p_file = fopen(path, "r");
+    assert(p_file);
     reset();
     char line[8192];
     uint32_t rows = 0;
@@ -799,7 +801,7 @@ static void recorded_short_impulses (const char * name, uint32_t expected_rows,
     float32_t peak = 0;
     float32_t recorded_peak = 0;
 
-    while (fgets(line, sizeof(line), file))
+    while (fgets(line, sizeof(line), p_file))
     {
         char * data = strstr(line, " -> ");
         data = data ? data + 4 : line;
@@ -812,9 +814,10 @@ static void recorded_short_impulses (const char * name, uint32_t expected_rows,
         char * field[87];
         uint32_t n = 0;
 
-        for (char * v = strtok(data, ","); v && (n < 87); v = strtok(NULL, ","))
+        for (char * p_v = strtok(data, ","); p_v
+             && (n < 87); p_v = strtok(NULL, ","))
         {
-            field[n++] = v;
+            field[n++] = p_v;
         }
 
         if (86 != n)
@@ -855,7 +858,7 @@ static void recorded_short_impulses (const char * name, uint32_t expected_rows,
         rows++;
     }
 
-    fclose(file);
+    fclose(p_file);
     assert((rows == expected_rows) && (1 == recorded_above));
     assert((1 == replayed_above)
            && (fabsf(recorded_peak - expected_peak) < 1e-6f));

@@ -40,7 +40,7 @@ static inline int32_t b5_side_index (int32_t side)
 /* blocked_mask: bit0 left, bit1 right (sides already found blocked).
  * front_hint_mm: forward clearance when the stop
  * was triggered (used only when the scan has no usable straight-ahead echo). */
-void b5_plan_make (const b5_scan_t * scan, int32_t front_hint_mm,
+void b5_plan_make (const b5_scan_t * p_scan, int32_t front_hint_mm,
                    uint8_t blocked_mask, b5_plan_t * out);
 /* Smallest wheel-axle x (stop-point frame) at which the car, at sideways offset
  * offset_mm, can pivot 90 degrees toward

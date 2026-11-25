@@ -158,7 +158,7 @@ static void run_step_test (void)
     uint32_t next_update_ms = start_ms;
     uint32_t next_log_ms = start_ms;
     uint32_t now_ms;
-    bool stopped = false;
+    bool b_stopped = false;
 
     printf("\ntime_ms,state,countL,countR,vL,vR,dist,heading\n");
     (void)motion_drive(20.0f, 20.0f);
@@ -179,13 +179,13 @@ static void run_step_test (void)
             next_log_ms += 20u;
         }
 
-        if ((!stopped) && ((now_ms - start_ms) >= 3000u))
+        if ((!b_stopped) && ((now_ms - start_ms) >= 3000u))
         {
             motion_stop();
-            stopped = true;
+            b_stopped = true;
         }
 
-        if (stopped && (motion_is_idle()) && ((now_ms - start_ms) >= 3500u))
+        if (b_stopped && (motion_is_idle()) && ((now_ms - start_ms) >= 3500u))
         {
             break;
         }

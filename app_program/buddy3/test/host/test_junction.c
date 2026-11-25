@@ -38,10 +38,10 @@ uint8_t line_sensors_read (void)
     return s_mask;
 }
 
-bool motion_get_tilt (float32_t * p, float32_t * r)
+bool motion_get_tilt (float32_t * p, float32_t * p_r)
 {
     (void)p;
-    (void)r;
+    (void)p_r;
     return false;
 }
 
@@ -103,10 +103,10 @@ motion_result_t motion_turn_right (float32_t a)
 #if TEST_BARCODE
 static char s_letter;
 static uint32_t s_letter_ms;
-bool buddy3_barcode_latest (char * letter, uint32_t * read_ms)
+bool buddy3_barcode_latest (char * letter, uint32_t * p_read_ms)
 {
     *letter = s_letter;
-    *read_ms = s_letter_ms;
+    *p_read_ms = s_letter_ms;
     return 0 != s_letter;
 }
 #endif

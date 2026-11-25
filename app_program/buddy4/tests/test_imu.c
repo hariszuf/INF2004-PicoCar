@@ -14,10 +14,10 @@ typedef struct
     int32_t short_at;
     bool mismatch;
 } fake_t;
-static int32_t wr (void * ctx, uint8_t addr, const uint8_t * p, size_t n,
-               bool restart)
+static int32_t wr (void * p_ctx, uint8_t addr, const uint8_t * p, size_t n,
+               bool b_restart)
 {
-    fake_t * f = ctx;
+    fake_t * f = p_ctx;
     assert(0x1D == addr);
     ++f->calls;
 
@@ -33,23 +33,23 @@ static int32_t wr (void * ctx, uint8_t addr, const uint8_t * p, size_t n,
 
     if (1 == n)
     {
-        assert(restart);
+        assert(b_restart);
         f->ptr = p[0];
     }
     else
     {
-        assert((2 == n) && (!restart));
+        assert((2 == n) && (!b_restart));
         f->regs[p[0]] = p[1];
     }
 
     return (int32_t)n;
 }
 
-static int32_t rd (void * ctx, uint8_t addr, uint8_t * p, size_t n,
-                   bool restart)
+static int32_t rd (void * p_ctx, uint8_t addr, uint8_t * p, size_t n,
+                   bool b_restart)
 {
-    fake_t * f = ctx;
-    assert((0x1D == addr) && (!restart));
+    fake_t * f = p_ctx;
+    assert((0x1D == addr) && (!b_restart));
     ++f->calls;
 
     if (f->calls == f->fail_at)
