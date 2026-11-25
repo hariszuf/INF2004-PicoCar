@@ -26,9 +26,10 @@
 #include "pico/time.h"
 #endif
 
-/* Packed yes/no flags shared between tasks. Writes use the same critical section as the command queue below. */
-static uint32_t critical_enter(void);
-static void critical_exit(uint32_t saved);
+/* Packed yes/no flags shared between tasks. Writes use the same critical
+ * section as the command queue below. */
+static uint32_t critical_enter (void);
+static void critical_exit (uint32_t saved);
 #define ROBOT_FLAGS_IRQ_T uint32_t
 #define ROBOT_FLAGS_LOCK(s) ((s) = critical_enter())
 #define ROBOT_FLAGS_UNLOCK(s) critical_exit(s)
@@ -41,7 +42,8 @@ static void critical_exit(uint32_t saved);
 #define DEG_TO_RAD          (MOTION_PI / 180.0f)
 #define RAD_TO_DEG          (180.0f / MOTION_PI)
 #define MAX_TURN_DEG        (720.0f)
-#define ZERO_SPEED_CM_S     (0.5f)   /* below this a set-point means "stopped" */
+/* below this a set-point means "stopped" */
+#define ZERO_SPEED_CM_S     (0.5f)
 #define DUTY_ZERO           (0.001f)
 #define US_PER_SECOND       (1000000.0f)
 #define US_PER_MS           (1000u)
@@ -58,7 +60,8 @@ typedef enum
 typedef struct
 {
     command_type_t type;
-    float value;        /* MOVE: signed cm (+ forward). TURN: signed deg (+ left) */
+    /* MOVE: signed cm (+ forward). TURN: signed deg (+ left) */
+    float value;
     float left_cm_s;    /* DRIVE only */
     float right_cm_s;
 } command_t;
@@ -72,8 +75,10 @@ typedef struct
 #define MF_TERRAIN_HAVE (1u << 3)    /* written by the IMU task */
 static robot_flags_t s_flags = 0u;
 #define MF(mask) robot_flags_test(&s_flags, (mask))
-static volatile uint8_t s_state = MOTION_STATE_IDLE;    /* motion_state_t, 2 bits needed */
-static volatile uint8_t s_fault = MOTION_FAULT_NONE;    /* motion_fault_t, 2 bits needed */
+/* motion_state_t, 2 bits needed */
+static volatile uint8_t s_state = MOTION_STATE_IDLE;
+/* motion_fault_t, 2 bits needed */
+static volatile uint8_t s_fault = MOTION_FAULT_NONE;
 static command_t s_pending;
 static command_t s_active;
 static float s_cruise_cm_s = MOTION_DEFAULT_SPEED_CM_S;
@@ -92,14 +97,19 @@ static uint32_t s_settle_cycles = 0u;
 static uint32_t s_settle_ms = 0u;
 static uint64_t s_last_update_us = 0u;
 
-/* Terrain compensation (input written by the IMU task, rest by motion_update). */
+/* Terrain compensation (input written by the IMU task, rest by motion_update).
+ */
 static motion_terrain_input_t s_terrain_input;
 static volatile uint64_t s_terrain_time_us = 0u;
-static uint8_t s_terrain = MOTION_TERRAIN_FLAT;   /* motion_terrain_t, 3 bits needed */
+/* motion_terrain_t, 3 bits needed */
+static uint8_t s_terrain = MOTION_TERRAIN_FLAT;
 static float s_terrain_scale = 1.0f;
-static float s_terrain_duty[MOTION_SIDE_COUNT];        /* slewed assist, applied */
-static float s_terrain_grade_duty = 0.0f;               /* wanted gravity term */
-static float s_terrain_hump_duty[MOTION_SIDE_COUNT];    /* wanted hump term (magnitude) */
+/* slewed assist, applied */
+static float s_terrain_duty[MOTION_SIDE_COUNT];
+/* wanted gravity term */
+static float s_terrain_grade_duty = 0.0f;
+/* wanted hump term (magnitude) */
+static float s_terrain_hump_duty[MOTION_SIDE_COUNT];
 
 /* Latest values for motion_get_status(). */
 static int32_t s_status_count[MOTION_SIDE_COUNT];
@@ -107,7 +117,7 @@ static int32_t s_status_count[MOTION_SIDE_COUNT];
 /* ------------------------------------------------------------------ */
 /* Platform helpers                                                    */
 /* ------------------------------------------------------------------ */
-static uint64_t now_us(void)
+static uint64_t now_us (void)
 {
 #if defined(MOTION_HOST_TEST)
     return host_time_us();
@@ -118,7 +128,7 @@ static uint64_t now_us(void)
 #endif
 }
 
-static uint32_t critical_enter(void)
+static uint32_t critical_enter (void)
 {
 #if defined(MOTION_HOST_TEST)
     return 0u;
@@ -129,7 +139,7 @@ static uint32_t critical_enter(void)
 #endif
 }
 
-static void critical_exit(uint32_t saved)
+static void critical_exit (uint32_t saved)
 {
 #if defined(MOTION_HOST_TEST)
     (void)saved;
@@ -143,17 +153,17 @@ static void critical_exit(uint32_t saved)
 /* ------------------------------------------------------------------ */
 /* Small maths helpers                                                 */
 /* ------------------------------------------------------------------ */
-static float abs_f(float value)
+static float abs_f (float value)
 {
     return (value < 0.0f) ? -value : value;
 }
 
-static float sign_f(float value)
+static float sign_f (float value)
 {
     return (value < 0.0f) ? -1.0f : 1.0f;
 }
 
-static float clamp_f(float value, float low, float high)
+static float clamp_f (float value, float low, float high)
 {
     float result = value;
 
@@ -161,14 +171,16 @@ static float clamp_f(float value, float low, float high)
     {
         result = low;
     }
+
     if (result > high)
     {
         result = high;
     }
+
     return result;
 }
 
-static float approach(float current, float target, float max_step)
+static float approach (float current, float target, float max_step)
 {
     float delta = target - current;
 
@@ -176,38 +188,41 @@ static float approach(float current, float target, float max_step)
     {
         delta = max_step;
     }
+
     if (delta < -max_step)
     {
         delta = -max_step;
     }
+
     return current + delta;
 }
 
 /* ------------------------------------------------------------------ */
 /* Sensing                                                             */
 /* ------------------------------------------------------------------ */
-static void read_sensors(float dt_s)
+static void read_sensors (float dt_s)
 {
-    uint32_t i;
+    uint32_t idx;
     motion_side_t side;
     int32_t counts;
     float position;
     float raw_speed;
 
-    for (i = 0u; i < (uint32_t)MOTION_SIDE_COUNT; i++)
+    for (idx = 0u; idx < (uint32_t)MOTION_SIDE_COUNT; idx++)
     {
-        side = (motion_side_t)i;
-        counts = motion_encoder_get_count(side) - s_base_count[i];
-        s_status_count[i] = counts;
-        position = (float)counts * s_cm_per_count[i];
-        raw_speed = (position - s_previous_position_cm[i]) / dt_s;
-        s_speed_cm_s[i] += MOTION_SPEED_FILTER_ALPHA * (raw_speed - s_speed_cm_s[i]);
-        s_previous_position_cm[i] = position;
-        s_position_cm[i] = position;
+        side = (motion_side_t)idx;
+        counts = motion_encoder_get_count(side) - s_base_count[idx];
+        s_status_count[idx] = counts;
+        position = (float)counts * s_cm_per_count[idx];
+        raw_speed = (position - s_previous_position_cm[idx]) / dt_s;
+        s_speed_cm_s[idx] += MOTION_SPEED_FILTER_ALPHA
+                * (raw_speed - s_speed_cm_s[idx]);
+        s_previous_position_cm[idx] = position;
+        s_position_cm[idx] = position;
     }
 }
 
-static float heading_deg_from(float left_cm, float right_cm)
+static float heading_deg_from (float left_cm, float right_cm)
 {
     return ((right_cm - left_cm) / MOTION_WHEEL_BASE_CM) * RAD_TO_DEG;
 }
@@ -223,12 +238,12 @@ static float heading_deg_from(float left_cm, float right_cm)
  *    on the raised wheel on a one-side hump. The assist is rate limited.
  * A missing, invalid or stale report means flat ground: normal behaviour.
  */
-static void update_terrain(uint64_t now, float dt_s)
+static void update_terrain (uint64_t now, float dt_s)
 {
     motion_terrain_input_t input;
     bool fresh;
     uint32_t saved;
-    uint32_t i;
+    uint32_t idx;
     float pitch;
     float roll;
     float scale = 1.0f;
@@ -236,10 +251,12 @@ static void update_terrain(uint64_t now, float dt_s)
 
     saved = critical_enter();
     input = s_terrain_input;
-    /* A report stamped after 'now' (written by another task meanwhile) is fresh. */
-    fresh = MF(MF_TERRAIN_HAVE) && input.valid &&
+    /* A report stamped after 'now' (written by another task meanwhile) is
+     * fresh. */
+    fresh = (MF(MF_TERRAIN_HAVE)) && (input.valid) &&
             ((s_terrain_time_us >= now) ||
-             ((now - s_terrain_time_us) <= ((uint64_t)MOTION_TERRAIN_STALE_MS * US_PER_MS)));
+             ((now - s_terrain_time_us) <= ((uint64_t)MOTION_TERRAIN_STALE_MS
+                                            * US_PER_MS)));
     critical_exit(saved);
 
     s_terrain = MOTION_TERRAIN_FLAT;
@@ -249,21 +266,25 @@ static void update_terrain(uint64_t now, float dt_s)
 
     if (fresh)
     {
-        pitch = clamp_f(input.pitch_deg, -MOTION_TERRAIN_MAX_ANGLE_DEG, MOTION_TERRAIN_MAX_ANGLE_DEG);
-        roll = clamp_f(input.roll_deg, -MOTION_TERRAIN_MAX_ANGLE_DEG, MOTION_TERRAIN_MAX_ANGLE_DEG);
+        pitch = clamp_f(input.pitch_deg, -MOTION_TERRAIN_MAX_ANGLE_DEG,
+                        MOTION_TERRAIN_MAX_ANGLE_DEG);
+        roll = clamp_f(input.roll_deg, -MOTION_TERRAIN_MAX_ANGLE_DEG,
+                       MOTION_TERRAIN_MAX_ANGLE_DEG);
 
         /* Slope: only act once Buddy 4's hysteresis says the car is tilted. */
         if (input.pitch_state > 0)
         {
             s_terrain = MOTION_TERRAIN_UPHILL;
             scale = MOTION_UPHILL_SPEED_SCALE;
-            s_terrain_grade_duty = MOTION_GRADE_DUTY_PER_G * sinf(abs_f(pitch) * DEG_TO_RAD);
+            s_terrain_grade_duty =
+                    MOTION_GRADE_DUTY_PER_G * sinf(abs_f(pitch) * DEG_TO_RAD);
         }
         else if (input.pitch_state < 0)
         {
             s_terrain = MOTION_TERRAIN_DOWNHILL;
             scale = MOTION_DOWNHILL_SPEED_SCALE;
-            s_terrain_grade_duty = -MOTION_GRADE_DUTY_PER_G * sinf(abs_f(pitch) * DEG_TO_RAD);
+            s_terrain_grade_duty =
+                    -MOTION_GRADE_DUTY_PER_G * sinf(abs_f(pitch) * DEG_TO_RAD);
         }
         else
         {
@@ -273,31 +294,40 @@ static void update_terrain(uint64_t now, float dt_s)
         /* Hump / one-side ramp: slow down and help the raised wheel. */
         if (input.roll_state != 0)
         {
-            motion_side_t raised = (input.roll_state < 0) ? MOTION_SIDE_LEFT : MOTION_SIDE_RIGHT;
+            motion_side_t raised =
+                    (input.roll_state < 0) ? MOTION_SIDE_LEFT
+                    : MOTION_SIDE_RIGHT;
 
-            s_terrain = (raised == MOTION_SIDE_LEFT) ? MOTION_TERRAIN_HUMP_LEFT
-                                                     : MOTION_TERRAIN_HUMP_RIGHT;
+            s_terrain = (MOTION_SIDE_LEFT == raised) ? MOTION_TERRAIN_HUMP_LEFT
+                    : MOTION_TERRAIN_HUMP_RIGHT;
+
             if (MOTION_HUMP_SPEED_SCALE < scale)
             {
                 scale = MOTION_HUMP_SPEED_SCALE;
             }
-            s_terrain_hump_duty[raised] = MOTION_HUMP_DUTY_PER_G * sinf(abs_f(roll) * DEG_TO_RAD);
+
+            s_terrain_hump_duty[raised] =
+                    MOTION_HUMP_DUTY_PER_G * sinf(abs_f(roll) * DEG_TO_RAD);
         }
     }
+
     s_terrain_scale = clamp_f(scale, 0.0f, 1.0f);
 
     /* Slew the applied assist so power changes are gradual. The hump part
        follows the direction the wheel is asked to turn. */
-    for (i = 0u; i < (uint32_t)MOTION_SIDE_COUNT; i++)
+    for (idx = 0u; idx < (uint32_t)MOTION_SIDE_COUNT; idx++)
     {
         wanted = s_terrain_grade_duty;
-        if (abs_f(s_setpoint_cm_s[i]) > ZERO_SPEED_CM_S)
+
+        if (abs_f(s_setpoint_cm_s[idx]) > ZERO_SPEED_CM_S)
         {
-            wanted += sign_f(s_setpoint_cm_s[i]) * s_terrain_hump_duty[i];
+            wanted += sign_f(s_setpoint_cm_s[idx]) * s_terrain_hump_duty[idx];
         }
-        wanted = clamp_f(wanted, -MOTION_TERRAIN_DUTY_MAX, MOTION_TERRAIN_DUTY_MAX);
-        s_terrain_duty[i] = approach(s_terrain_duty[i], wanted,
-                                     MOTION_TERRAIN_DUTY_RATE_PER_S * dt_s);
+
+        wanted = clamp_f(wanted, -MOTION_TERRAIN_DUTY_MAX,
+                         MOTION_TERRAIN_DUTY_MAX);
+        s_terrain_duty[idx] = approach(s_terrain_duty[idx], wanted,
+                                       MOTION_TERRAIN_DUTY_RATE_PER_S * dt_s);
     }
 }
 
@@ -309,7 +339,7 @@ static void update_terrain(uint64_t now, float dt_s)
  * driven direction. Never flip that direction while the wheel is still
  * turning: brake instead and wait.
  */
-static float drive_wheel(motion_side_t side, float duty)
+static float drive_wheel (motion_side_t side, float duty)
 {
     int32_t wanted_direction = (duty < 0.0f) ? -1 : 1;
     float applied = duty;
@@ -331,52 +361,60 @@ static float drive_wheel(motion_side_t side, float duty)
         motion_encoder_set_direction(side, wanted_direction);
         motion_motor_set(side, duty);
     }
+
     return applied;
 }
 
-static void reset_controllers(void)
+static void reset_controllers (void)
 {
-    uint32_t i;
+    uint32_t idx;
 
-    for (i = 0u; i < (uint32_t)MOTION_SIDE_COUNT; i++)
+    for (idx = 0u; idx < (uint32_t)MOTION_SIDE_COUNT; idx++)
     {
-        motion_pid_reset(&s_pid[i]);
-        s_setpoint_cm_s[i] = 0.0f;
-        s_stall_ms[i] = 0u;
+        motion_pid_reset(&s_pid[idx]);
+        s_setpoint_cm_s[idx] = 0.0f;
+        s_stall_ms[idx] = 0u;
     }
 }
 
 /* Speed loop for one wheel. Returns the duty actually applied. */
-static float wheel_control(motion_side_t side, float setpoint, float dt_s)
+static float wheel_control (motion_side_t side, float setpoint, float dt_s)
 {
     float duty;
 
     if (abs_f(setpoint) <= ZERO_SPEED_CM_S)
     {
-        if ((MOTION_PID_HOLD_INTEGRAL_ON_ZERO == 0u) || (s_active.type != COMMAND_DRIVE))
+        if ((MOTION_PID_HOLD_INTEGRAL_ON_ZERO == 0u)
+            || (s_active.type != COMMAND_DRIVE))
         {
             motion_pid_reset(&s_pid[side]);
         }
-        /* else: keep the integral (frozen, not accumulating) for the next push */
+
+        /* else: keep the integral (frozen, not accumulating) for the next push
+         */
         return drive_wheel(side, 0.0f);
     }
 
     duty = (MOTION_FEEDFORWARD_DUTY_PER_CM_S * setpoint) +
-           motion_pid_update(&s_pid[side], setpoint, s_speed_cm_s[side], dt_s);
+            motion_pid_update(&s_pid[side], setpoint, s_speed_cm_s[side], dt_s);
 
     /* Continuous drive must be able to back off below the duty floor
        when a wheel has reached its requested speed. */
-    bool needs_min_duty = s_active.type != COMMAND_DRIVE ||
-                          sign_f(setpoint) * s_speed_cm_s[side] < abs_f(setpoint);
-    if (needs_min_duty && abs_f(duty) < MOTION_MIN_DUTY)
+    bool needs_min_duty = (s_active.type != COMMAND_DRIVE) ||
+            (sign_f(setpoint)
+             * s_speed_cm_s[side] < abs_f(setpoint));
+
+    if (needs_min_duty && (abs_f(duty) < MOTION_MIN_DUTY))
     {
         duty = sign_f(setpoint) * MOTION_MIN_DUTY;
     }
+
     if ((MOTION_BREAKAWAY_DUTY > 0.0f) &&
         (abs_f(s_speed_cm_s[side]) < MOTION_BREAKAWAY_SPEED_CM_S) &&
         (abs_f(duty) < MOTION_BREAKAWAY_DUTY))
     {
-        duty = sign_f(setpoint) * MOTION_BREAKAWAY_DUTY;   /* wheel is stuck: give it a push */
+        /* wheel is stuck: give it a push */
+        duty = sign_f(setpoint) * MOTION_BREAKAWAY_DUTY;
     }
 
     /* Terrain assist from the IMU (zero on flat ground). */
@@ -388,6 +426,7 @@ static float wheel_control(motion_side_t side, float setpoint, float dt_s)
     {
         duty = 0.0f;
     }
+
     duty = clamp_f(duty, -1.0f, 1.0f);
     return drive_wheel(side, duty);
 }
@@ -398,23 +437,25 @@ static float wheel_control(motion_side_t side, float setpoint, float dt_s)
  * driving direction. The second case matters at slow line-following speeds,
  * where feed-forward + PID can never reach MOTION_STALL_DUTY.
  */
-static bool pushing_hard(uint32_t i, float applied)
+static bool pushing_hard (uint32_t idx, float applied)
 {
-    float drive_sign = sign_f(s_setpoint_cm_s[i]);
+    float drive_sign = sign_f(s_setpoint_cm_s[idx]);
 
     if (abs_f(applied) >= MOTION_STALL_DUTY)
     {
         return true;
     }
+
     return (abs_f(applied) > DUTY_ZERO) &&
-           (abs_f(s_setpoint_cm_s[i]) > ZERO_SPEED_CM_S) &&
-           ((drive_sign * s_pid[i].integral) >= (0.99f * MOTION_PID_INTEGRAL_LIMIT));
+            (abs_f(s_setpoint_cm_s[idx]) > ZERO_SPEED_CM_S) &&
+            ((drive_sign * s_pid[idx].integral) >= (0.99f
+            * MOTION_PID_INTEGRAL_LIMIT));
 }
 
 /* ------------------------------------------------------------------ */
 /* State transitions                                                   */
 /* ------------------------------------------------------------------ */
-static void begin_stop(void)
+static void begin_stop (void)
 {
     motion_motor_brake_all();
     reset_controllers();
@@ -423,7 +464,7 @@ static void begin_stop(void)
     s_state = MOTION_STATE_STOPPING;
 }
 
-static void enter_error(motion_fault_t fault)
+static void enter_error (motion_fault_t fault)
 {
     motion_motor_set_latch(true);   /* also brakes both motors */
     reset_controllers();
@@ -433,33 +474,39 @@ static void enter_error(motion_fault_t fault)
     s_state = MOTION_STATE_ERROR;
 }
 
-static void start_command(const command_t *p_command)
+static void start_command (const command_t * p_command)
 {
-    uint32_t i;
+    uint32_t idx;
 
-    if (p_command->type == COMMAND_STOP)
+    if (COMMAND_STOP == p_command->type)
     {
-        if ((s_state == MOTION_STATE_EXECUTING))
+        if ((MOTION_STATE_EXECUTING == s_state))
         {
             begin_stop();
         }
+
         return;
     }
 
     /* Line following re-sends motion_drive() every few ms. A new DRIVE while
        already driving only changes the wheel speeds: keep the stall timers
        running, otherwise a stuck wheel is never detected. */
-    if ((p_command->type == COMMAND_DRIVE) && (s_state == MOTION_STATE_EXECUTING) &&
-        (s_active.type == COMMAND_DRIVE))
+    if ((COMMAND_DRIVE == p_command->type)
+        && (MOTION_STATE_EXECUTING == s_state) &&
+        (COMMAND_DRIVE == s_active.type))
     {
-        /* Start measuring straight travel from the end of a steering correction. */
+        /* Start measuring straight travel from the end of a steering
+         * correction. */
         if ((p_command->left_cm_s == p_command->right_cm_s) &&
             ((s_active.left_cm_s != s_active.right_cm_s) ||
              (p_command->left_cm_s * s_active.left_cm_s < 0.0f)))
         {
-            s_start_position_cm[MOTION_SIDE_LEFT] = s_position_cm[MOTION_SIDE_LEFT];
-            s_start_position_cm[MOTION_SIDE_RIGHT] = s_position_cm[MOTION_SIDE_RIGHT];
+            s_start_position_cm[MOTION_SIDE_LEFT] =
+                    s_position_cm[MOTION_SIDE_LEFT];
+            s_start_position_cm[MOTION_SIDE_RIGHT] =
+                    s_position_cm[MOTION_SIDE_RIGHT];
         }
+
         s_active = *p_command;
         return;
     }
@@ -468,11 +515,13 @@ static void start_command(const command_t *p_command)
     {
         reset_controllers();
     }
-    for (i = 0u; i < (uint32_t)MOTION_SIDE_COUNT; i++)
+
+    for (idx = 0u; idx < (uint32_t)MOTION_SIDE_COUNT; idx++)
     {
-        s_start_position_cm[i] = s_position_cm[i];
-        s_stall_ms[i] = 0u;
+        s_start_position_cm[idx] = s_position_cm[idx];
+        s_stall_ms[idx] = 0u;
     }
+
     s_active = *p_command;
     s_state = MOTION_STATE_EXECUTING;
 }
@@ -482,7 +531,7 @@ static void start_command(const command_t *p_command)
 /* ------------------------------------------------------------------ */
 
 /* Distance the robot still travels after the brake is applied. */
-static float stop_lead_cm(void)
+static float stop_lead_cm (void)
 {
     float mean_speed = 0.5f * (abs_f(s_speed_cm_s[MOTION_SIDE_LEFT]) +
                                abs_f(s_speed_cm_s[MOTION_SIDE_RIGHT]));
@@ -490,21 +539,26 @@ static float stop_lead_cm(void)
     return mean_speed * MOTION_STOP_LEAD_S;
 }
 
-static float straight_trim(float distance_difference, float limit)
+static float straight_trim (float distance_difference, float limit)
 {
     return clamp_f(MOTION_STRAIGHT_KP * distance_difference, -limit, limit);
 }
 
-static bool profile_move(float target[MOTION_SIDE_COUNT])
+static bool profile_move (float target[MOTION_SIDE_COUNT])
 {
     float direction = sign_f(s_active.value);
     float goal = abs_f(s_active.value);
-    float left = s_position_cm[MOTION_SIDE_LEFT] - s_start_position_cm[MOTION_SIDE_LEFT];
-    float right = s_position_cm[MOTION_SIDE_RIGHT] - s_start_position_cm[MOTION_SIDE_RIGHT];
+    float left =
+            s_position_cm[MOTION_SIDE_LEFT]
+            - s_start_position_cm[MOTION_SIDE_LEFT];
+    float right =
+            s_position_cm[MOTION_SIDE_RIGHT]
+            - s_start_position_cm[MOTION_SIDE_RIGHT];
     float travelled = (left + right) * 0.5f;
     float remaining = goal - (direction * travelled);
-    float minimum = (MOTION_MIN_SPEED_CM_S < s_cruise_cm_s) ? MOTION_MIN_SPEED_CM_S
-                                                            : s_cruise_cm_s;
+    float minimum =
+            (MOTION_MIN_SPEED_CM_S < s_cruise_cm_s) ? MOTION_MIN_SPEED_CM_S
+            : s_cruise_cm_s;
     float speed;
     float trim;
     float lead = stop_lead_cm();
@@ -525,17 +579,22 @@ static bool profile_move(float target[MOTION_SIDE_COUNT])
     return false;
 }
 
-static bool profile_turn(float target[MOTION_SIDE_COUNT])
+static bool profile_turn (float target[MOTION_SIDE_COUNT])
 {
     float direction = sign_f(s_active.value);
     float goal_deg = abs_f(s_active.value) * MOTION_TURN_SCALE;
-    float left = s_position_cm[MOTION_SIDE_LEFT] - s_start_position_cm[MOTION_SIDE_LEFT];
-    float right = s_position_cm[MOTION_SIDE_RIGHT] - s_start_position_cm[MOTION_SIDE_RIGHT];
+    float left =
+            s_position_cm[MOTION_SIDE_LEFT]
+            - s_start_position_cm[MOTION_SIDE_LEFT];
+    float right =
+            s_position_cm[MOTION_SIDE_RIGHT]
+            - s_start_position_cm[MOTION_SIDE_RIGHT];
     float turned_deg = heading_deg_from(left, right);
     float remaining_deg = goal_deg - (direction * turned_deg);
     float arc_cm;
     float speed;
-    float lead_deg = (stop_lead_cm() / (MOTION_WHEEL_BASE_CM * 0.5f)) * RAD_TO_DEG;
+    float lead_deg =
+            (stop_lead_cm() / (MOTION_WHEEL_BASE_CM * 0.5f)) * RAD_TO_DEG;
 
     if (remaining_deg <= (MOTION_ANGLE_TOL_DEG + lead_deg))
     {
@@ -552,17 +611,22 @@ static bool profile_turn(float target[MOTION_SIDE_COUNT])
     return false;
 }
 
-static void profile_drive(float target[MOTION_SIDE_COUNT])
+static void profile_drive (float target[MOTION_SIDE_COUNT])
 {
     target[MOTION_SIDE_LEFT] = s_active.left_cm_s;
     target[MOTION_SIDE_RIGHT] = s_active.right_cm_s;
 
     if (s_active.left_cm_s == s_active.right_cm_s)
     {
-        float left = s_position_cm[MOTION_SIDE_LEFT] - s_start_position_cm[MOTION_SIDE_LEFT];
-        float right = s_position_cm[MOTION_SIDE_RIGHT] - s_start_position_cm[MOTION_SIDE_RIGHT];
+        float left =
+                s_position_cm[MOTION_SIDE_LEFT]
+                - s_start_position_cm[MOTION_SIDE_LEFT];
+        float right =
+                s_position_cm[MOTION_SIDE_RIGHT]
+                - s_start_position_cm[MOTION_SIDE_RIGHT];
         float speed = abs_f(s_active.left_cm_s);
-        /* At crawl speed, keep the correction small enough for both wheels to drive. */
+        /* At crawl speed, keep the correction small enough for both wheels to
+         * drive. */
         float limit = clamp_f((speed - ZERO_SPEED_CM_S) * 0.5f,
                               0.0f, MOTION_STRAIGHT_TRIM_MAX_CM_S);
         float trim = straight_trim(left - right, limit);
@@ -574,11 +638,11 @@ static void profile_drive(float target[MOTION_SIDE_COUNT])
 /* ------------------------------------------------------------------ */
 /* State handlers                                                      */
 /* ------------------------------------------------------------------ */
-static void run_executing(float dt_s)
+static void run_executing (float dt_s)
 {
     float target[MOTION_SIDE_COUNT] = { 0.0f, 0.0f };
     bool done = false;
-    uint32_t i;
+    uint32_t idx;
     motion_side_t side;
     float rate;
     float applied;
@@ -586,17 +650,17 @@ static void run_executing(float dt_s)
     switch (s_active.type)
     {
         case COMMAND_MOVE:
-            done = profile_move(target);
-            break;
+        done = profile_move(target);
+        break;
         case COMMAND_TURN:
-            done = profile_turn(target);
-            break;
+        done = profile_turn(target);
+        break;
         case COMMAND_DRIVE:
-            profile_drive(target);
-            break;
+        profile_drive(target);
+        break;
         default:
-            done = true;
-            break;
+        done = true;
+        break;
     }
 
     if (done)
@@ -608,30 +672,33 @@ static void run_executing(float dt_s)
     /* Terrain speed scale for straight moves and continuous drive (line
        following). Spins in place keep their speed. The accel / decel ramp
        below makes the change smooth. */
-    if ((s_active.type == COMMAND_MOVE) || (s_active.type == COMMAND_DRIVE))
+    if ((COMMAND_MOVE == s_active.type) || (COMMAND_DRIVE == s_active.type))
     {
         target[MOTION_SIDE_LEFT] *= s_terrain_scale;
         target[MOTION_SIDE_RIGHT] *= s_terrain_scale;
     }
 
-    for (i = 0u; i < (uint32_t)MOTION_SIDE_COUNT; i++)
+    for (idx = 0u; idx < (uint32_t)MOTION_SIDE_COUNT; idx++)
     {
-        side = (motion_side_t)i;
-        rate = (abs_f(target[i]) < abs_f(s_setpoint_cm_s[i])) ? MOTION_DECEL_CM_S2
-                                                              : MOTION_ACCEL_CM_S2;
-        s_setpoint_cm_s[i] = approach(s_setpoint_cm_s[i], target[i], rate * dt_s);
-        applied = wheel_control(side, s_setpoint_cm_s[i], dt_s);
+        side = (motion_side_t)idx;
+        rate = (abs_f(target[idx]) < abs_f(s_setpoint_cm_s[idx]))
+                ? MOTION_DECEL_CM_S2
+                : MOTION_ACCEL_CM_S2;
+        s_setpoint_cm_s[idx] =
+                approach(s_setpoint_cm_s[idx], target[idx], rate * dt_s);
+        applied = wheel_control(side, s_setpoint_cm_s[idx], dt_s);
 
-        if (pushing_hard(i, applied) &&
-            (abs_f(s_speed_cm_s[i]) < MOTION_STALL_SPEED_CM_S))
+        if ((pushing_hard(idx, applied)) &&
+            (abs_f(s_speed_cm_s[idx]) < MOTION_STALL_SPEED_CM_S))
         {
-            s_stall_ms[i] += MOTION_UPDATE_PERIOD_MS;
+            s_stall_ms[idx] += MOTION_UPDATE_PERIOD_MS;
         }
         else
         {
-            s_stall_ms[i] = 0u;
+            s_stall_ms[idx] = 0u;
         }
-        if (s_stall_ms[i] >= MOTION_STALL_TIME_MS)
+
+        if (s_stall_ms[idx] >= MOTION_STALL_TIME_MS)
         {
             enter_error(MOTION_FAULT_STALL);
             return;
@@ -639,7 +706,7 @@ static void run_executing(float dt_s)
     }
 }
 
-static void run_stopping(void)
+static void run_stopping (void)
 {
     motion_motor_brake_all();
 
@@ -652,6 +719,7 @@ static void run_stopping(void)
     {
         s_settle_cycles = 0u;
     }
+
     s_settle_ms += MOTION_UPDATE_PERIOD_MS;
 
     if ((s_settle_cycles >= MOTION_SETTLE_CYCLES) ||
@@ -665,9 +733,9 @@ static void run_stopping(void)
 /* ------------------------------------------------------------------ */
 /* Public API                                                          */
 /* ------------------------------------------------------------------ */
-motion_result_t motion_init(void)
+motion_result_t motion_init (void)
 {
-    uint32_t i;
+    uint32_t idx;
     float circumference_cm = MOTION_PI * MOTION_WHEEL_DIAMETER_CM;
 
     if (MF(MF_INITIALISED))
@@ -675,27 +743,30 @@ motion_result_t motion_init(void)
         return MOTION_OK;
     }
 
-    s_cm_per_count[MOTION_SIDE_LEFT] = circumference_cm / MOTION_COUNTS_PER_REV_LEFT;
-    s_cm_per_count[MOTION_SIDE_RIGHT] = circumference_cm / MOTION_COUNTS_PER_REV_RIGHT;
+    s_cm_per_count[MOTION_SIDE_LEFT] =
+            circumference_cm / MOTION_COUNTS_PER_REV_LEFT;
+    s_cm_per_count[MOTION_SIDE_RIGHT] =
+            circumference_cm / MOTION_COUNTS_PER_REV_RIGHT;
 
     motion_motor_init();
     motion_encoder_init();
 
-    for (i = 0u; i < (uint32_t)MOTION_SIDE_COUNT; i++)
+    for (idx = 0u; idx < (uint32_t)MOTION_SIDE_COUNT; idx++)
     {
-        motion_pid_init(&s_pid[i], MOTION_PID_KP, MOTION_PID_KI, MOTION_PID_KD,
+        motion_pid_init(&s_pid[idx], MOTION_PID_KP, MOTION_PID_KI,
+                        MOTION_PID_KD,
                         MOTION_PID_INTEGRAL_LIMIT, -1.0f, 1.0f);
-        s_base_count[i] = motion_encoder_get_count((motion_side_t)i);
-        s_position_cm[i] = 0.0f;
-        s_previous_position_cm[i] = 0.0f;
-        s_start_position_cm[i] = 0.0f;
-        s_speed_cm_s[i] = 0.0f;
-        s_setpoint_cm_s[i] = 0.0f;
-        s_direction[i] = 1;
-        s_status_count[i] = 0;
-        s_stall_ms[i] = 0u;
-        s_terrain_duty[i] = 0.0f;
-        s_terrain_hump_duty[i] = 0.0f;
+        s_base_count[idx] = motion_encoder_get_count((motion_side_t)idx);
+        s_position_cm[idx] = 0.0f;
+        s_previous_position_cm[idx] = 0.0f;
+        s_start_position_cm[idx] = 0.0f;
+        s_speed_cm_s[idx] = 0.0f;
+        s_setpoint_cm_s[idx] = 0.0f;
+        s_direction[idx] = 1;
+        s_status_count[idx] = 0;
+        s_stall_ms[idx] = 0u;
+        s_terrain_duty[idx] = 0.0f;
+        s_terrain_hump_duty[idx] = 0.0f;
     }
 
     robot_flags_clear(&s_flags, MF_TERRAIN_HAVE);
@@ -713,7 +784,7 @@ motion_result_t motion_init(void)
     return MOTION_OK;
 }
 
-void motion_update(void)
+void motion_update (void)
 {
     uint64_t now;
     float dt_s;
@@ -734,8 +805,8 @@ void motion_update(void)
     read_sensors(dt_s);
     update_terrain(now, dt_s);
 
-    if (MF(MF_ESTOP_REQUEST) && ((s_state != MOTION_STATE_ERROR) ||
-                            (s_fault != MOTION_FAULT_ESTOP)))
+    if ((MF(MF_ESTOP_REQUEST)) && ((s_state != MOTION_STATE_ERROR) ||
+                                   (s_fault != MOTION_FAULT_ESTOP)))
     {
         enter_error(MOTION_FAULT_ESTOP);
     }
@@ -754,20 +825,20 @@ void motion_update(void)
     switch (s_state)
     {
         case MOTION_STATE_EXECUTING:
-            run_executing(dt_s);
-            break;
+        run_executing(dt_s);
+        break;
         case MOTION_STATE_STOPPING:
-            run_stopping();
-            break;
+        run_stopping();
+        break;
         case MOTION_STATE_IDLE:
         case MOTION_STATE_ERROR:
         default:
-            motion_motor_brake_all();
-            break;
+        motion_motor_brake_all();
+        break;
     }
 }
 
-static motion_result_t queue_command(const command_t *p_command)
+static motion_result_t queue_command (const command_t * p_command)
 {
     uint32_t saved;
 
@@ -775,7 +846,8 @@ static motion_result_t queue_command(const command_t *p_command)
     {
         return MOTION_ERR_NOT_INIT;
     }
-    if ((s_state == MOTION_STATE_ERROR) || MF(MF_ESTOP_REQUEST))
+
+    if ((MOTION_STATE_ERROR == s_state) || (MF(MF_ESTOP_REQUEST)))
     {
         return MOTION_ERR_FAULT;
     }
@@ -787,7 +859,7 @@ static motion_result_t queue_command(const command_t *p_command)
     return MOTION_OK;
 }
 
-static motion_result_t queue_move(float signed_distance_cm)
+static motion_result_t queue_move (float signed_distance_cm)
 {
     command_t command;
 
@@ -795,6 +867,7 @@ static motion_result_t queue_move(float signed_distance_cm)
     {
         return MOTION_ERR_INVALID_ARG;
     }
+
     command.type = COMMAND_MOVE;
     command.value = signed_distance_cm;
     command.left_cm_s = 0.0f;
@@ -802,7 +875,7 @@ static motion_result_t queue_move(float signed_distance_cm)
     return queue_command(&command);
 }
 
-static motion_result_t queue_turn(float signed_angle_deg)
+static motion_result_t queue_turn (float signed_angle_deg)
 {
     command_t command;
 
@@ -811,6 +884,7 @@ static motion_result_t queue_turn(float signed_angle_deg)
     {
         return MOTION_ERR_INVALID_ARG;
     }
+
     command.type = COMMAND_TURN;
     command.value = signed_angle_deg;
     command.left_cm_s = 0.0f;
@@ -818,33 +892,37 @@ static motion_result_t queue_turn(float signed_angle_deg)
     return queue_command(&command);
 }
 
-motion_result_t motion_move_forward(float distance_cm)
+motion_result_t motion_move_forward (float distance_cm)
 {
-    return (distance_cm > 0.0f) ? queue_move(distance_cm) : MOTION_ERR_INVALID_ARG;
+    return (distance_cm > 0.0f) ? queue_move(distance_cm)
+            : MOTION_ERR_INVALID_ARG;
 }
 
-motion_result_t motion_move_backward(float distance_cm)
+motion_result_t motion_move_backward (float distance_cm)
 {
-    return (distance_cm > 0.0f) ? queue_move(-distance_cm) : MOTION_ERR_INVALID_ARG;
+    return (distance_cm > 0.0f) ? queue_move(-distance_cm)
+            : MOTION_ERR_INVALID_ARG;
 }
 
-motion_result_t motion_turn_left(float angle_deg)
+motion_result_t motion_turn_left (float angle_deg)
 {
     return (angle_deg > 0.0f) ? queue_turn(angle_deg) : MOTION_ERR_INVALID_ARG;
 }
 
-motion_result_t motion_turn_right(float angle_deg)
+motion_result_t motion_turn_right (float angle_deg)
 {
     return (angle_deg > 0.0f) ? queue_turn(-angle_deg) : MOTION_ERR_INVALID_ARG;
 }
 
-motion_result_t motion_drive(float left_cm_s, float right_cm_s)
+motion_result_t motion_drive (float left_cm_s, float right_cm_s)
 {
     command_t command;
 
     command.value = 0.0f;
-    command.left_cm_s = clamp_f(left_cm_s, -MOTION_MAX_SPEED_CM_S, MOTION_MAX_SPEED_CM_S);
-    command.right_cm_s = clamp_f(right_cm_s, -MOTION_MAX_SPEED_CM_S, MOTION_MAX_SPEED_CM_S);
+    command.left_cm_s =
+            clamp_f(left_cm_s, -MOTION_MAX_SPEED_CM_S, MOTION_MAX_SPEED_CM_S);
+    command.right_cm_s =
+            clamp_f(right_cm_s, -MOTION_MAX_SPEED_CM_S, MOTION_MAX_SPEED_CM_S);
 
     if ((abs_f(command.left_cm_s) < ZERO_SPEED_CM_S) &&
         (abs_f(command.right_cm_s) < ZERO_SPEED_CM_S))
@@ -855,20 +933,22 @@ motion_result_t motion_drive(float left_cm_s, float right_cm_s)
     {
         command.type = COMMAND_DRIVE;
     }
+
     return queue_command(&command);
 }
 
-motion_result_t motion_set_speed(float speed_cm_s)
+motion_result_t motion_set_speed (float speed_cm_s)
 {
     if ((speed_cm_s <= 0.0f) || (speed_cm_s > MOTION_MAX_SPEED_CM_S))
     {
         return MOTION_ERR_INVALID_ARG;
     }
+
     s_cruise_cm_s = speed_cm_s;
     return MOTION_OK;
 }
 
-bool motion_get_tilt(float *p_pitch_deg, float *p_roll_deg)
+bool motion_get_tilt (float * p_pitch_deg, float * p_roll_deg)
 {
     motion_terrain_input_t input;
     bool have;
@@ -876,10 +956,12 @@ bool motion_get_tilt(float *p_pitch_deg, float *p_roll_deg)
     uint64_t now;
     uint32_t saved;
 
-    if ((p_pitch_deg == (float *)0) || (p_roll_deg == (float *)0) || (!MF(MF_INITIALISED)))
+    if ((p_pitch_deg == (float *)0) || (p_roll_deg == (float *)0)
+        || (!MF(MF_INITIALISED)))
     {
         return false;
     }
+
     now = now_us();
     saved = critical_enter();
     input = s_terrain_input;
@@ -888,16 +970,18 @@ bool motion_get_tilt(float *p_pitch_deg, float *p_roll_deg)
     critical_exit(saved);
 
     if ((!have) || (!input.valid) ||
-        ((now > stamp) && ((now - stamp) > ((uint64_t)MOTION_TERRAIN_STALE_MS * US_PER_MS))))
+        ((now > stamp) && ((now - stamp) > ((uint64_t)MOTION_TERRAIN_STALE_MS
+                                            * US_PER_MS))))
     {
         return false;
     }
+
     *p_pitch_deg = input.pitch_deg;
     *p_roll_deg = input.roll_deg;
     return true;
 }
 
-motion_result_t motion_set_terrain(const motion_terrain_input_t *p_input)
+motion_result_t motion_set_terrain (const motion_terrain_input_t * p_input)
 {
     uint32_t saved;
 
@@ -905,11 +989,13 @@ motion_result_t motion_set_terrain(const motion_terrain_input_t *p_input)
     {
         return MOTION_ERR_NOT_INIT;
     }
+
     if (p_input == (const motion_terrain_input_t *)0)
     {
         return MOTION_ERR_INVALID_ARG;
     }
-    if (p_input->valid &&
+
+    if ((p_input->valid) &&
         ((!isfinite(p_input->pitch_deg)) || (!isfinite(p_input->roll_deg)) ||
          (p_input->pitch_state < -1) || (p_input->pitch_state > 1) ||
          (p_input->roll_state < -1) || (p_input->roll_state > 1)))
@@ -925,7 +1011,7 @@ motion_result_t motion_set_terrain(const motion_terrain_input_t *p_input)
     return MOTION_OK;
 }
 
-void motion_stop(void)
+void motion_stop (void)
 {
     command_t command;
 
@@ -936,13 +1022,13 @@ void motion_stop(void)
     (void)queue_command(&command);
 }
 
-void motion_emergency_stop(void)
+void motion_emergency_stop (void)
 {
     robot_flags_set(&s_flags, MF_ESTOP_REQUEST);
     motion_motor_set_latch(true);   /* brakes both motors immediately */
 }
 
-motion_result_t motion_reset(void)
+motion_result_t motion_reset (void)
 {
     uint32_t saved;
 
@@ -950,6 +1036,7 @@ motion_result_t motion_reset(void)
     {
         return MOTION_ERR_NOT_INIT;
     }
+
     if (s_state != MOTION_STATE_ERROR)
     {
         return MOTION_OK;
@@ -965,39 +1052,42 @@ motion_result_t motion_reset(void)
     return MOTION_OK;
 }
 
-motion_result_t motion_reset_odometry(void)
+motion_result_t motion_reset_odometry (void)
 {
-    uint32_t i;
+    uint32_t idx;
     uint32_t saved;
 
     if (!MF(MF_INITIALISED))
     {
         return MOTION_ERR_NOT_INIT;
     }
-    if ((s_state != MOTION_STATE_IDLE) || MF(MF_PENDING_VALID))
+
+    if ((s_state != MOTION_STATE_IDLE) || (MF(MF_PENDING_VALID)))
     {
         return MOTION_ERR_BUSY;
     }
 
     saved = critical_enter();
-    for (i = 0u; i < (uint32_t)MOTION_SIDE_COUNT; i++)
+
+    for (idx = 0u; idx < (uint32_t)MOTION_SIDE_COUNT; idx++)
     {
-        s_base_count[i] = motion_encoder_get_count((motion_side_t)i);
-        s_position_cm[i] = 0.0f;
-        s_previous_position_cm[i] = 0.0f;
-        s_start_position_cm[i] = 0.0f;
-        s_status_count[i] = 0;
+        s_base_count[idx] = motion_encoder_get_count((motion_side_t)idx);
+        s_position_cm[idx] = 0.0f;
+        s_previous_position_cm[idx] = 0.0f;
+        s_start_position_cm[idx] = 0.0f;
+        s_status_count[idx] = 0;
     }
+
     critical_exit(saved);
     return MOTION_OK;
 }
 
-bool motion_is_idle(void)
+bool motion_is_idle (void)
 {
-    return (s_state == MOTION_STATE_IDLE) && !MF(MF_PENDING_VALID);
+    return (MOTION_STATE_IDLE == s_state) && (!MF(MF_PENDING_VALID));
 }
 
-void motion_get_status(motion_status_t *p_status)
+void motion_get_status (motion_status_t * p_status)
 {
     uint32_t saved;
 
@@ -1025,3 +1115,5 @@ void motion_get_status(motion_status_t *p_status)
     p_status->right_terrain_duty = s_terrain_duty[MOTION_SIDE_RIGHT];
     critical_exit(saved);
 }
+
+/*** end of file ***/

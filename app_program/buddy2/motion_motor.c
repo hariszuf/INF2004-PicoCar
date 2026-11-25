@@ -12,41 +12,43 @@
 static uint16_t s_pwm_wrap = 0u;
 static volatile bool s_latched = false;
 
-static uint32_t pin_a(motion_side_t side)
+static uint32_t pin_a (motion_side_t side)
 {
     uint32_t pin;
 
-    if (side == MOTION_SIDE_LEFT)
+    if (MOTION_SIDE_LEFT == side)
     {
         pin = (MOTION_LEFT_MOTOR_INVERT != 0u) ? MOTION_PIN_LEFT_MOTOR_B
-                                               : MOTION_PIN_LEFT_MOTOR_A;
+                : MOTION_PIN_LEFT_MOTOR_A;
     }
     else
     {
         pin = (MOTION_RIGHT_MOTOR_INVERT != 0u) ? MOTION_PIN_RIGHT_MOTOR_B
-                                                : MOTION_PIN_RIGHT_MOTOR_A;
+                : MOTION_PIN_RIGHT_MOTOR_A;
     }
+
     return pin;
 }
 
-static uint32_t pin_b(motion_side_t side)
+static uint32_t pin_b (motion_side_t side)
 {
     uint32_t pin;
 
-    if (side == MOTION_SIDE_LEFT)
+    if (MOTION_SIDE_LEFT == side)
     {
         pin = (MOTION_LEFT_MOTOR_INVERT != 0u) ? MOTION_PIN_LEFT_MOTOR_A
-                                               : MOTION_PIN_LEFT_MOTOR_B;
+                : MOTION_PIN_LEFT_MOTOR_B;
     }
     else
     {
         pin = (MOTION_RIGHT_MOTOR_INVERT != 0u) ? MOTION_PIN_RIGHT_MOTOR_A
-                                                : MOTION_PIN_RIGHT_MOTOR_B;
+                : MOTION_PIN_RIGHT_MOTOR_B;
     }
+
     return pin;
 }
 
-static void init_pin(uint32_t pin)
+static void init_pin (uint32_t pin)
 {
     uint32_t slice;
     pwm_config config;
@@ -60,7 +62,7 @@ static void init_pin(uint32_t pin)
     pwm_set_gpio_level(pin, 0u);
 }
 
-void motion_motor_init(void)
+void motion_motor_init (void)
 {
     uint32_t clock_hz = clock_get_hz(clk_sys);
 
@@ -73,19 +75,19 @@ void motion_motor_init(void)
     s_latched = false;
 }
 
-void motion_motor_brake(motion_side_t side)
+void motion_motor_brake (motion_side_t side)
 {
     pwm_set_gpio_level(pin_a(side), 0u);
     pwm_set_gpio_level(pin_b(side), 0u);
 }
 
-void motion_motor_brake_all(void)
+void motion_motor_brake_all (void)
 {
     motion_motor_brake(MOTION_SIDE_LEFT);
     motion_motor_brake(MOTION_SIDE_RIGHT);
 }
 
-void motion_motor_set(motion_side_t side, float duty)
+void motion_motor_set (motion_side_t side, float duty)
 {
     float magnitude = duty;
     uint16_t level;
@@ -100,10 +102,12 @@ void motion_motor_set(motion_side_t side, float duty)
     {
         magnitude = -magnitude;
     }
+
     if (magnitude > 1.0f)
     {
         magnitude = 1.0f;
     }
+
     level = (uint16_t)(magnitude * (float)s_pwm_wrap);
 
     if (duty >= 0.0f)
@@ -118,11 +122,14 @@ void motion_motor_set(motion_side_t side, float duty)
     }
 }
 
-void motion_motor_set_latch(bool latched)
+void motion_motor_set_latch (bool latched)
 {
     s_latched = latched;
+
     if (latched)
     {
         motion_motor_brake_all();
     }
 }
+
+/*** end of file ***/

@@ -18,7 +18,7 @@
  *
  * Must be called before buddy1_start().
  */
-ER buddy1_init(void);
+ER buddy1_init (void);
 
 /*
  * Phase 2: Start Buddy 1 tasks.
@@ -26,6 +26,8 @@ ER buddy1_init(void);
  * All subsystem initialisation must already
  * be completed before this function is called.
  */
-ER buddy1_start(void);
+ER buddy1_start (void);
 
 #endif /* BUDDY1_H */
+
+/*** end of file ***/

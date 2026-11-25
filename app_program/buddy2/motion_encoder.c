@@ -10,7 +10,7 @@
 static volatile int32_t s_count[MOTION_SIDE_COUNT];
 static volatile int32_t s_direction[MOTION_SIDE_COUNT];
 
-static uint32_t edge_events(void)
+static uint32_t edge_events (void)
 {
     uint32_t events;
 
@@ -26,18 +26,19 @@ static uint32_t edge_events(void)
     {
         events = GPIO_IRQ_EDGE_RISE;
     }
+
     return events;
 }
 
-void motion_encoder_irq_handler(unsigned int gpio, uint32_t events)
+void motion_encoder_irq_handler (uint32_t gpio, uint32_t events)
 {
     (void)events;
 
-    if (gpio == MOTION_PIN_LEFT_ENCODER)
+    if (MOTION_PIN_LEFT_ENCODER == gpio)
     {
         s_count[MOTION_SIDE_LEFT] += s_direction[MOTION_SIDE_LEFT];
     }
-    else if (gpio == MOTION_PIN_RIGHT_ENCODER)
+    else if (MOTION_PIN_RIGHT_ENCODER == gpio)
     {
         s_count[MOTION_SIDE_RIGHT] += s_direction[MOTION_SIDE_RIGHT];
     }
@@ -47,14 +48,14 @@ void motion_encoder_irq_handler(unsigned int gpio, uint32_t events)
     }
 }
 
-static void init_pin(uint32_t pin)
+static void init_pin (uint32_t pin)
 {
     gpio_init(pin);
     gpio_set_dir(pin, GPIO_IN);
     gpio_pull_up(pin);
 }
 
-void motion_encoder_init(void)
+void motion_encoder_init (void)
 {
     s_count[MOTION_SIDE_LEFT] = 0;
     s_count[MOTION_SIDE_RIGHT] = 0;
@@ -74,17 +75,19 @@ void motion_encoder_init(void)
 #endif
 }
 
-int32_t motion_encoder_get_count(motion_side_t side)
+int32_t motion_encoder_get_count (motion_side_t side)
 {
     return s_count[side];
 }
 
-void motion_encoder_set_direction(motion_side_t side, int32_t direction)
+void motion_encoder_set_direction (motion_side_t side, int32_t direction)
 {
     s_direction[side] = (direction < 0) ? -1 : 1;
 }
 
-void motion_encoder_clear(motion_side_t side)
+void motion_encoder_clear (motion_side_t side)
 {
     s_count[side] = 0;
 }
+
+/*** end of file ***/

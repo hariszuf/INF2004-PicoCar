@@ -19,14 +19,19 @@ static double s_px[MAX_POINTS];
 static double s_py[MAX_POINTS];
 static int s_points;
 
-static double s_x, s_y, s_theta;          /* robot centre (mm), heading (rad, left +) */
-static double s_last_left, s_last_right;  /* wheel positions in mm at last step */
+static double s_x;
+static double s_y;
+static double s_theta;          /* robot centre (mm), heading (rad, left +) */
+static double s_last_left;
+static double s_last_right;  /* wheel positions in mm at last step */
 static uint8_t s_mask;
 static int s_progress_idx;
 
-static double s_cx, s_cy, s_ch;           /* track builder cursor */
+static double s_cx;
+static double s_cy;
+static double s_ch;           /* track builder cursor */
 
-static void add_point(void)
+static void add_point (void)
 {
     if (s_points < MAX_POINTS)
     {
@@ -36,7 +41,7 @@ static void add_point(void)
     }
 }
 
-static void add_straight(double length_mm)
+static void add_straight (double length_mm)
 {
     int i;
     int n = (int)length_mm;
@@ -50,7 +55,7 @@ static void add_straight(double length_mm)
 }
 
 /** turn_deg positive = left. */
-static void add_arc(double radius_mm, double turn_deg)
+static void add_arc (double radius_mm, double turn_deg)
 {
     double arc_len = radius_mm * fabs(turn_deg) * PI_D / 180.0;
     double dtheta = ((turn_deg > 0.0) ? 1.0 : -1.0) / radius_mm;
@@ -67,7 +72,7 @@ static void add_arc(double radius_mm, double turn_deg)
     }
 }
 
-static void sensor_pos(double lateral_mm, double *p_x, double *p_y)
+static void sensor_pos (double lateral_mm, double * p_x, double * p_y)
 {
     double fwd = (double)LINE_SENSOR_FORWARD_MM;
 
@@ -75,7 +80,7 @@ static void sensor_pos(double lateral_mm, double *p_x, double *p_y)
     *p_y = s_y + (fwd * sin(s_theta)) + (lateral_mm * cos(s_theta));
 }
 
-static double nearest(double x, double y, int *p_idx)
+static double nearest (double x, double y, int * p_idx)
 {
     double best = 1e18;
     int best_i = 0;
@@ -93,16 +98,18 @@ static double nearest(double x, double y, int *p_idx)
             best_i = i;
         }
     }
+
     if (p_idx != 0)
     {
         *p_idx = best_i;
     }
+
     return sqrt(best);
 }
 
-void track_reset(void)
+void track_reset (void)
 {
-    
+
     s_points = 0;
     /* The line starts 200 mm behind the robot, centred between the two sensors
      * (both sensors start on the line). */
@@ -129,7 +136,7 @@ void track_reset(void)
     s_mask = 0u;
 }
 
-void track_step_1ms(void)
+void track_step_1ms (void)
 {
     double left = sim_true_position_cm(MOTION_SIDE_LEFT) * 10.0;
     double right = sim_true_position_cm(MOTION_SIDE_RIGHT) * 10.0;
@@ -148,26 +155,34 @@ void track_step_1ms(void)
     s_theta += dth;
 
     s_mask = 0u;
-    sensor_pos((double)LINE_SENSOR_SPACING_MM / 2.0, &sx, &sy);   /* car-left sensor */
+    /* car-left sensor */
+    sensor_pos((double)LINE_SENSOR_SPACING_MM / 2.0, &sx, &sy);
+
     if (nearest(sx, sy, &idx) <= ((double)LINE_WIDTH_MM / 2.0))
     {
         s_mask |= LINE_SENSOR_LEFT;
     }
-    sensor_pos(-(double)LINE_SENSOR_SPACING_MM / 2.0, &sx, &sy);  /* car-right sensor */
+
+    /* car-right sensor */
+    sensor_pos(-(double)LINE_SENSOR_SPACING_MM / 2.0, &sx, &sy);
+
     if (nearest(sx, sy, &idx) <= ((double)LINE_WIDTH_MM / 2.0))
     {
         s_mask |= LINE_SENSOR_RIGHT;
     }
-    /* progress along the track = nearest line point to the robot centre line at the sensors */
+
+    /* progress along the track = nearest line point to the robot centre line at
+     * the sensors */
     sensor_pos(0.0, &sx, &sy);
     (void)nearest(sx, sy, &idx);
+
     if ((idx > s_progress_idx) && (idx < (s_progress_idx + 150)))
     {
         s_progress_idx = idx;
     }
 }
 
-double track_error_mm(void)
+double track_error_mm (void)
 {
     double sx;
     double sy;
@@ -176,12 +191,12 @@ double track_error_mm(void)
     return nearest(sx, sy, 0);
 }
 
-double track_progress(void)
+double track_progress (void)
 {
     return (double)s_progress_idx / (double)s_points;
 }
 
-void track_pose(double *p_x_mm, double *p_y_mm, double *p_heading_deg)
+void track_pose (double * p_x_mm, double * p_y_mm, double * p_heading_deg)
 {
     *p_x_mm = s_x;
     *p_y_mm = s_y;
@@ -189,11 +204,13 @@ void track_pose(double *p_x_mm, double *p_y_mm, double *p_heading_deg)
 }
 
 /* line_sensors.h for the host build */
-void line_sensors_init(void)
+void line_sensors_init (void)
 {
 }
 
-uint8_t line_sensors_read(void)
+uint8_t line_sensors_read (void)
 {
     return s_mask;
 }
+
+/*** end of file ***/

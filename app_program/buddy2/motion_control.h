@@ -57,7 +57,8 @@ typedef enum
     MOTION_TERRAIN_FLAT = 0,
     MOTION_TERRAIN_UPHILL,
     MOTION_TERRAIN_DOWNHILL,
-    MOTION_TERRAIN_HUMP_LEFT,   /* left wheel raised (on a hump / one-side ramp) */
+    /* left wheel raised (on a hump / one-side ramp) */
+    MOTION_TERRAIN_HUMP_LEFT,
     MOTION_TERRAIN_HUMP_RIGHT   /* right wheel raised */
 } motion_terrain_t;
 
@@ -87,39 +88,41 @@ typedef struct
     float    speed_cm_s;        /* average of both wheels */
     float    distance_cm;       /* signed distance since odometry reset */
     float    heading_deg;       /* signed, left turn positive */
-    motion_terrain_t terrain;   /* condition being compensated (FLAT if stale) */
+    /* condition being compensated (FLAT if stale) */
+    motion_terrain_t terrain;
     float    terrain_speed_scale;     /* multiplier applied to speed targets */
-    float    left_terrain_duty;       /* duty assist added on top of the speed loop */
+    /* duty assist added on top of the speed loop */
+    float    left_terrain_duty;
     float    right_terrain_duty;
 } motion_status_t;
 
 /** Initialise motors, encoders and controllers. Safe to call twice. */
-motion_result_t motion_init(void);
+motion_result_t motion_init (void);
 
 /** Periodic update. Must be called every MOTION_UPDATE_PERIOD_MS. */
-void motion_update(void);
+void motion_update (void);
 
 /** Drive forward by distance_cm (> 0) in a straight line. */
-motion_result_t motion_move_forward(float distance_cm);
+motion_result_t motion_move_forward (float distance_cm);
 
 /** Drive backward by distance_cm (> 0) in a straight line. */
-motion_result_t motion_move_backward(float distance_cm);
+motion_result_t motion_move_backward (float distance_cm);
 
 /** Spin left in place by angle_deg (> 0, up to 720). */
-motion_result_t motion_turn_left(float angle_deg);
+motion_result_t motion_turn_left (float angle_deg);
 
 /** Spin right in place by angle_deg (> 0, up to 720). */
-motion_result_t motion_turn_right(float angle_deg);
+motion_result_t motion_turn_right (float angle_deg);
 
 /**
  * Continuous drive with independent wheel speeds in cm/s (signed, forward
  * positive). Runs until another command or motion_stop(). Intended for line
  * following steering. Both speeds zero is treated as motion_stop().
  */
-motion_result_t motion_drive(float left_cm_s, float right_cm_s);
+motion_result_t motion_drive (float left_cm_s, float right_cm_s);
 
 /** Cruise speed used by later forward / backward moves (cm/s, > 0). */
-motion_result_t motion_set_speed(float speed_cm_s);
+motion_result_t motion_set_speed (float speed_cm_s);
 
 /**
  * Latest terrain report from the IMU task (Buddy 4). Call after every fresh
@@ -129,32 +132,36 @@ motion_result_t motion_set_speed(float speed_cm_s);
  * for MOTION_TERRAIN_STALE_MS, or valid is false, the car behaves as on flat
  * ground. Safe to call from any task.
  */
-motion_result_t motion_set_terrain(const motion_terrain_input_t *p_input);
+motion_result_t motion_set_terrain (const motion_terrain_input_t * p_input);
 
-/** Latest tilt from Buddy 4 (unfiltered by the terrain hysteresis). Returns true only if the
- *  report is valid and fresh (younger than MOTION_TERRAIN_STALE_MS). Safe from any task. */
-bool motion_get_tilt(float *p_pitch_deg, float *p_roll_deg);
+/** Latest tilt from Buddy 4 (unfiltered by the terrain hysteresis). Returns
+ * true only if the
+ * report is valid and fresh (younger than MOTION_TERRAIN_STALE_MS). Safe from
+ * any task. */
+bool motion_get_tilt (float * p_pitch_deg, float * p_roll_deg);
 
 /** Controlled stop: brake and return to IDLE. */
-void motion_stop(void);
+void motion_stop (void);
 
 /**
  * Emergency stop. Brakes both motors immediately from the caller's context
  * and latches them off, then the subsystem enters ERROR (fault ESTOP).
  * Movement commands cannot override it. Safe to call from any task.
  */
-void motion_emergency_stop(void);
+void motion_emergency_stop (void);
 
 /** Leave ERROR after the cause is cleared. No-op outside ERROR. */
-motion_result_t motion_reset(void);
+motion_result_t motion_reset (void);
 
 /** Zero distance and heading. Only allowed while IDLE. */
-motion_result_t motion_reset_odometry(void);
+motion_result_t motion_reset_odometry (void);
 
 /** True when no move is running or queued. */
-bool motion_is_idle(void);
+bool motion_is_idle (void);
 
 /** Copy the current status. p_status must not be null. */
-void motion_get_status(motion_status_t *p_status);
+void motion_get_status (motion_status_t * p_status);
 
 #endif /* MOTION_CONTROL_H */
+
+/*** end of file ***/

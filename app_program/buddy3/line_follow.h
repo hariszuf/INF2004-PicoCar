@@ -1,6 +1,7 @@
 /**
  * @file line_follow.h
- * @brief Two-sensor line following on top of the Buddy 2 Motion Control library.
+ * @brief Two-sensor line following on top of the Buddy 2 Motion Control
+ * library.
  *
  * Call line_follow_update() every LINE_UPDATE_PERIOD_MS right after
  * motion_update(). All wheel control goes through motion_drive().
@@ -18,10 +19,14 @@ typedef enum
     LINE_STATE_STEER_LEFT,   /* only the left sensor on the line */
     LINE_STATE_STEER_RIGHT,  /* only the right sensor on the line */
     LINE_STATE_RECOVERING,   /* line just lost, turning toward the last side */
-    LINE_STATE_STOPPED,      /* no line, or both sensors on black in straddle mode; motors stopped (resumes) */
+    /* no line, or both sensors on black in straddle mode; motors stopped
+     * (resumes) */
+    LINE_STATE_STOPPED,
     LINE_STATE_FAULT,        /* Motion Control reported an error */
-    LINE_STATE_FROZEN,       /* tilted on a hump/slope: sensors ignored, last commands kept */
-    LINE_STATE_JUNCTION      /* "+" junction: stopped, then turning/crossing (see line_config.h) */
+    /* tilted on a hump/slope: sensors ignored, last commands kept */
+    LINE_STATE_FROZEN,
+    /* "+" junction: stopped, then turning/crossing (see line_config.h) */
+    LINE_STATE_JUNCTION
 } line_state_t;
 
 typedef struct
@@ -33,18 +38,23 @@ typedef struct
 } line_status_t;
 
 /** Motion Control must already be initialised (motion_init()). */
-void line_follow_init(void);
-bool line_follow_start(void);
-void line_follow_stop(void);
-void line_follow_update(void);
-/* Obstacle-bypass hand-back: the car is stopped facing across the line with a sensor on it. Runs the "+"
- * junction turn (advance advance_cm to put the axle on the tape, turn, slow search; direction +1 left / -1 right), then centres the tape between
- * the two sensors and stops. Keep calling line_follow_update(). Status: 0 running, 1 done, -1 failed. */
-bool line_follow_rejoin(int direction, float advance_cm);
-int line_follow_rejoin_status(void);
+void line_follow_init (void);
+bool line_follow_start (void);
+void line_follow_stop (void);
+void line_follow_update (void);
+/* Obstacle-bypass hand-back: the car is stopped facing across the line with a
+ * sensor on it. Runs the "+"
+ * junction turn (advance advance_cm to put the axle on the tape, turn, slow
+ * search; direction +1 left / -1 right), then centres the tape between
+ * the two sensors and stops. Keep calling line_follow_update(). Status: 0
+ * running, 1 done, -1 failed. */
+bool line_follow_rejoin (int direction, float advance_cm);
+int line_follow_rejoin_status (void);
 /* Controller hooks for an operator restart. */
-bool line_follow_restart_required(void);
-void line_follow_discard_barcode(void);
-void line_follow_get_status(line_status_t *p_status);
+bool line_follow_restart_required (void);
+void line_follow_discard_barcode (void);
+void line_follow_get_status (line_status_t * p_status);
 
 #endif /* LINE_FOLLOW_H */
+
+/*** end of file ***/

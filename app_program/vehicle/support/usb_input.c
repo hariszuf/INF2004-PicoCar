@@ -4,11 +4,20 @@
 #include "vehicle_controller.h"
 /* Link wrapper is active only in the full-test build. TinyUSB remains owned by
  * the original USB service task. We replace its input-discard call. */
-void __wrap_tm_tusb_discard_input(void) {
- unsigned budget=64;
- while(budget-- && tud_cdc_available()) {
-  int c=tud_cdc_read_char();
-  if(c>=0) b5_line_command_received((unsigned)c);
- }
+void __wrap_tm_tusb_discard_input (void)
+{
+    uint32_t budget = 64;
+
+    while ((budget--) && (tud_cdc_available()))
+    {
+        int c = tud_cdc_read_char();
+
+        if (c >= 0)
+        {
+            b5_line_command_received((unsigned)c);
+        }
+    }
 }
 #endif
+
+/*** end of file ***/

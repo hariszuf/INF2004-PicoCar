@@ -11,26 +11,34 @@
 #include "buddy2/mtk/motion_task_mtk.h"
 #include "buddy2/mtk/motion_selftest_mtk.h"
 
-EXPORT INT usermain(void)
+EXPORT INT usermain (void)
 {
     ER error_code;
 
     /* Phase 1: motors braked and encoders counting before any task runs. */
     error_code = buddy2_init();
-    if (error_code < E_OK) {
+
+    if (error_code < E_OK)
+    {
         tm_printf((UB *)"[APP] Buddy 2 init failed: %d\n", error_code);
         return 1;
     }
 
     /* Phase 2: Motion task (priority 3), then the self-test (priority 12). */
     error_code = buddy2_start();
-    if (error_code < E_OK) {
+
+    if (error_code < E_OK)
+    {
         tm_printf((UB *)"[APP] Buddy 2 start failed: %d\n", error_code);
         return 1;
     }
+
     error_code = buddy2_selftest_start();
-    if (error_code < E_OK) {
-        tm_printf((UB *)"[APP] Buddy 2 self-test start failed: %d\n", error_code);
+
+    if (error_code < E_OK)
+    {
+        tm_printf((UB *)"[APP] Buddy 2 self-test start failed: %d\n",
+                  error_code);
         return 1;
     }
 
@@ -38,3 +46,5 @@ EXPORT INT usermain(void)
     tk_slp_tsk(TMO_FEVR);
     return 0;
 }
+
+/*** end of file ***/

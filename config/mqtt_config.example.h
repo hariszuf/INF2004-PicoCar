@@ -30,3 +30,5 @@
     "picocar/vehicle1/command"
 
 #endif /* PICOCAR_MQTT_CONFIG_H */
+
+/*** end of file ***/

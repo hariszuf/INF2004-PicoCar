@@ -14,3 +14,5 @@ typedef enum
 } motion_side_t;
 
 #endif /* MOTION_TYPES_H */
+
+/*** end of file ***/

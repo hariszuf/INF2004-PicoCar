@@ -21,7 +21,8 @@
 
 /*
  * ---------------------------------------------------------------------------
- * Copy this file to config/network_config.h, fill in the values below, then change
+ * Copy this file to config/network_config.h, fill in the values below, then
+ * change
  * the 0 on the next line to 1.
  *
  * It is a value to flip rather than a line to delete, so that an unedited
@@ -45,3 +46,5 @@
 #define UTK_IPV4_PING_TARGET   "192.168.1.1"
 
 #endif
+
+/*** end of file ***/

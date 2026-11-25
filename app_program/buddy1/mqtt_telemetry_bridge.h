@@ -16,8 +16,10 @@ typedef struct
 
 } mqtt_telemetry_data_t;
 
-int32_t buddy1_mqtt_telemetry_fetch(
-    mqtt_telemetry_data_t *data
-);
+int32_t buddy1_mqtt_telemetry_fetch (
+                                     mqtt_telemetry_data_t * data
+                                     );
 
 #endif
+
+/*** end of file ***/

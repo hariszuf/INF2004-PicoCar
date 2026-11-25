@@ -22,14 +22,16 @@ typedef struct
 } command_message_t;
 
 /* Phase 1: Create command message buffer. */
-ER buddy1_command_init(void);
+ER buddy1_command_init (void);
 
 /* Phase 2: Create and start command consumer task. */
-ER buddy1_command_start(void);
+ER buddy1_command_start (void);
 
 /* Non-blocking command submission. */
-ER buddy1_command_submit(const command_message_t *message);
+ER buddy1_command_submit (const command_message_t * message);
 
-uint32_t buddy1_command_get_dropped_count(void);
+uint32_t buddy1_command_get_dropped_count (void);
 
 #endif
+
+/*** end of file ***/

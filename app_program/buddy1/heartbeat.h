@@ -3,6 +3,8 @@
 
 #include <tk/tkernel.h>
 
-ER buddy1_heartbeat_start(void);
+ER buddy1_heartbeat_start (void);
 
 #endif
+
+/*** end of file ***/

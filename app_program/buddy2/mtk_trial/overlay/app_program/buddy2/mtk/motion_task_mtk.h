@@ -12,12 +12,14 @@
 #define BUDDY2_TASK_STACK           (4096)
 
 /** Phase 1: release PWM/TIMER, motors braked, encoders counting. */
-ER buddy2_init(void);
+ER buddy2_init (void);
 
 /** Phase 2: start the motion_update() task (every MOTION_UPDATE_PERIOD_MS). */
-ER buddy2_start(void);
+ER buddy2_start (void);
 
 /** Number of motion_update() calls and the longest gap between two (us). */
-void buddy2_task_stats(UW *p_updates, UW *p_max_gap_us);
+void buddy2_task_stats (UW *p_updates, UW *p_max_gap_us);
 
 #endif /* MOTION_TASK_MTK_H */
+
+/*** end of file ***/

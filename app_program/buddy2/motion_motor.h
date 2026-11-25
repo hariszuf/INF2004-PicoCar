@@ -14,24 +14,26 @@
 #include "motion_types.h"
 
 /** Configure the four motor pins as PWM outputs, all motors braked. */
-void motion_motor_init(void);
+void motion_motor_init (void);
 
 /**
  * Drive one motor. duty is -1.0 (full backward) to +1.0 (full forward).
  * Ignored (motor braked) while the safety latch is set.
  */
-void motion_motor_set(motion_side_t side, float duty);
+void motion_motor_set (motion_side_t side, float duty);
 
 /** Brake one motor (both inputs low). */
-void motion_motor_brake(motion_side_t side);
+void motion_motor_brake (motion_side_t side);
 
 /** Brake both motors. Safe to call from any task. */
-void motion_motor_brake_all(void);
+void motion_motor_brake_all (void);
 
 /**
  * Safety latch. While set, motion_motor_set() only brakes. Used by the
  * emergency stop so normal movement commands cannot override it.
  */
-void motion_motor_set_latch(bool latched);
+void motion_motor_set_latch (bool latched);
 
 #endif /* MOTION_MOTOR_H */
+
+/*** end of file ***/

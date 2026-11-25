@@ -23,7 +23,8 @@
 
 /*
  * ---------------------------------------------------------------------------
- * Copy this file to config/udp_test_config.h, fill in the values below, then change
+ * Copy this file to config/udp_test_config.h, fill in the values below, then
+ * change
  * the 0 on the next line to 1.
  *
  * It is a value to flip rather than a line to delete, so that an unedited
@@ -43,3 +44,5 @@
 #define UTK_UDP_ECHO_PORT       7007U
 
 #endif
+
+/*** end of file ***/

@@ -18,36 +18,43 @@
 static uint32_t s_pwm_wrap = 0u;
 static volatile bool s_latched = false;
 
-static uint32_t pin_a(motion_side_t side)
+static uint32_t pin_a (motion_side_t side)
 {
-    if (side == MOTION_SIDE_LEFT)
+    if (MOTION_SIDE_LEFT == side)
     {
-        return (MOTION_LEFT_MOTOR_INVERT != 0u) ? MOTION_PIN_LEFT_MOTOR_B : MOTION_PIN_LEFT_MOTOR_A;
+        return (MOTION_LEFT_MOTOR_INVERT != 0u) ? MOTION_PIN_LEFT_MOTOR_B
+                : MOTION_PIN_LEFT_MOTOR_A;
     }
-    return (MOTION_RIGHT_MOTOR_INVERT != 0u) ? MOTION_PIN_RIGHT_MOTOR_B : MOTION_PIN_RIGHT_MOTOR_A;
+
+    return (MOTION_RIGHT_MOTOR_INVERT != 0u) ? MOTION_PIN_RIGHT_MOTOR_B
+            : MOTION_PIN_RIGHT_MOTOR_A;
 }
 
-static uint32_t pin_b(motion_side_t side)
+static uint32_t pin_b (motion_side_t side)
 {
-    if (side == MOTION_SIDE_LEFT)
+    if (MOTION_SIDE_LEFT == side)
     {
-        return (MOTION_LEFT_MOTOR_INVERT != 0u) ? MOTION_PIN_LEFT_MOTOR_A : MOTION_PIN_LEFT_MOTOR_B;
+        return (MOTION_LEFT_MOTOR_INVERT != 0u) ? MOTION_PIN_LEFT_MOTOR_A
+                : MOTION_PIN_LEFT_MOTOR_B;
     }
-    return (MOTION_RIGHT_MOTOR_INVERT != 0u) ? MOTION_PIN_RIGHT_MOTOR_A : MOTION_PIN_RIGHT_MOTOR_B;
+
+    return (MOTION_RIGHT_MOTOR_INVERT != 0u) ? MOTION_PIN_RIGHT_MOTOR_A
+            : MOTION_PIN_RIGHT_MOTOR_B;
 }
 
-static uint32_t slice_of(uint32_t pin)
+static uint32_t slice_of (uint32_t pin)
 {
     return (pin >> 1) & 7u;
 }
 
-/* Compare value: 'level' on this pin's channel, 0 on the other (odd pin = B). */
-static uint32_t cc_value(uint32_t pin, uint32_t level)
+/* Compare value: 'level' on this pin's channel, 0 on the other (odd pin = B).
+ */
+static uint32_t cc_value (uint32_t pin, uint32_t level)
 {
     return ((pin & 1u) != 0u) ? (level << 16) : level;
 }
 
-static void init_pin(uint32_t pin)
+static void init_pin (uint32_t pin)
 {
     uint32_t slice = slice_of(pin);
 
@@ -58,11 +65,11 @@ static void init_pin(uint32_t pin)
     B2_REG(B2_PWM_CC(slice)) = 0u;            /* both inputs low: brake */
     B2_REG(B2_PWM_CSR(slice)) = PWM_CSR_EN;
     B2_REG(B2_PAD_GPIO(pin)) = (B2_REG(B2_PAD_GPIO(pin)) | B2_PAD_IE) &
-                               ~(B2_PAD_OD | B2_PAD_PUE | B2_PAD_PDE);
+            ~(B2_PAD_OD | B2_PAD_PUE | B2_PAD_PDE);
     B2_REG(B2_IO_GPIO_CTRL(pin)) = B2_FUNCSEL_PWM;
 }
 
-void motion_motor_init(void)
+void motion_motor_init (void)
 {
     s_pwm_wrap = (B2_CLK_SYS_HZ / MOTION_PWM_FREQ_HZ) - 1u;
     init_pin(MOTION_PIN_LEFT_MOTOR_A);
@@ -72,18 +79,18 @@ void motion_motor_init(void)
     s_latched = false;
 }
 
-void motion_motor_brake(motion_side_t side)
+void motion_motor_brake (motion_side_t side)
 {
     B2_REG(B2_PWM_CC(slice_of(pin_a(side)))) = 0u;
 }
 
-void motion_motor_brake_all(void)
+void motion_motor_brake_all (void)
 {
     motion_motor_brake(MOTION_SIDE_LEFT);
     motion_motor_brake(MOTION_SIDE_RIGHT);
 }
 
-void motion_motor_set(motion_side_t side, float duty)
+void motion_motor_set (motion_side_t side, float duty)
 {
     float magnitude = (duty < 0.0f) ? -duty : duty;
     uint32_t pin;
@@ -93,19 +100,25 @@ void motion_motor_set(motion_side_t side, float duty)
         motion_motor_brake(side);
         return;
     }
+
     if (magnitude > 1.0f)
     {
         magnitude = 1.0f;
     }
+
     pin = (duty >= 0.0f) ? pin_a(side) : pin_b(side);
-    B2_REG(B2_PWM_CC(slice_of(pin))) = cc_value(pin, (uint32_t)(magnitude * (float)s_pwm_wrap));
+    B2_REG(B2_PWM_CC(slice_of(pin))) =
+            cc_value(pin, (uint32_t)(magnitude * (float)s_pwm_wrap));
 }
 
-void motion_motor_set_latch(bool latched)
+void motion_motor_set_latch (bool latched)
 {
     s_latched = latched;
+
     if (latched)
     {
         motion_motor_brake_all();
     }
 }
+
+/*** end of file ***/

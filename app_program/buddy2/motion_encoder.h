@@ -20,18 +20,20 @@
  * one per core), define MOTION_EXTERNAL_IRQ_DISPATCHER and call
  * motion_encoder_irq_handler() from it. Otherwise this registers its own.
  */
-void motion_encoder_init(void);
+void motion_encoder_init (void);
 
 /** Handler to call from a shared dispatcher for the encoder GPIOs. */
-void motion_encoder_irq_handler(unsigned int gpio, uint32_t events);
+void motion_encoder_irq_handler (uint32_t gpio, uint32_t events);
 
 /** Signed count since init or the last clear. */
-int32_t motion_encoder_get_count(motion_side_t side);
+int32_t motion_encoder_get_count (motion_side_t side);
 
 /** Set the sign applied to new pulses: +1 forward, -1 backward. */
-void motion_encoder_set_direction(motion_side_t side, int32_t direction);
+void motion_encoder_set_direction (motion_side_t side, int32_t direction);
 
 /** Zero a wheel count. */
-void motion_encoder_clear(motion_side_t side);
+void motion_encoder_clear (motion_side_t side);
 
 #endif /* MOTION_ENCODER_H */
+
+/*** end of file ***/

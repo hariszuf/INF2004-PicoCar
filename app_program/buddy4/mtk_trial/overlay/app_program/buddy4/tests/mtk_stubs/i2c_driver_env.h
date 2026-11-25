@@ -29,18 +29,38 @@ typedef uint8_t UB;
 #define TMCLK_MHz 125
 #define SYST_CVR 0xe000e018u
 #define SCB_ICSR 0xe000ed04u
-UW mock_disint(void);
-void mock_restore_interrupts(UW mask);
+UW mock_disint (void);
+void mock_restore_interrupts (UW mask);
 #define DI(x) ((x)=mock_disint())
 #define EI(x) mock_restore_interrupts(x)
 #define TIMER_TIMERAWL 0x40054028u
 #define NVIC_ISER(n) (0xe000e100u + ((n)/32u)*4u)
 #define NVIC_ISPR(n) (0xe000e200u + ((n)/32u)*4u)
-typedef struct {int flgatr;} T_CFLG;
-typedef struct {int intatr;void (*inthdr)(UINT);} T_DINT;
-typedef struct {UW unit;} T_I2C_DCB;
-typedef struct {UW sadr;SZ snd_size;UB *snd_data;SZ rcv_size;UB *rcv_data;} T_I2C_EXEC;
-enum {LLD_I2C_OPEN,LLD_I2C_CLOSE,LLD_I2C_READ,LLD_I2C_WRITE,LLD_I2C_EXEC};
+typedef struct
+{
+    int flgatr;
+} T_CFLG;
+typedef struct
+{
+    int intatr;
+    void (*inthdr)(UINT);
+} T_DINT;
+typedef struct
+{
+    UW unit;
+} T_I2C_DCB;
+typedef struct
+{
+    UW sadr;
+    SZ snd_size;
+    UB *snd_data;
+    SZ rcv_size;
+    UB *rcv_data;
+} T_I2C_EXEC;
+enum
+{
+    LLD_I2C_OPEN, LLD_I2C_CLOSE, LLD_I2C_READ, LLD_I2C_WRITE, LLD_I2C_EXEC
+};
 #include "../../../../device/i2c/sysdepend/rp2040/i2c_sysdep.h"
 #include "../../../../device/i2c/sysdepend/rp2040/i2c_cnf_sysdep.h"
 #define RESETS_RESET 0x4000c000u
@@ -54,16 +74,18 @@ enum {LLD_I2C_OPEN,LLD_I2C_CLOSE,LLD_I2C_READ,LLD_I2C_WRITE,LLD_I2C_EXEC};
 #define GPIO_DRIVE_4MA 16
 #define GPIO_PUE 8
 #define GPIO_SHEMITT 2
-UW in_w(UW address);
-void out_w(UW address,UW value);
-void set_w(UW address,UW value);
-void clr_w(UW address,UW value);
-void ClearInt(UINT number);
-void EnableInt(UINT number,PRI priority);
-ID tk_cre_flg(const T_CFLG *f);
-ER tk_del_flg(ID id);
-ER tk_def_int(UINT number,const T_DINT *d);
-ER tk_set_flg(ID id,UINT flags);
-ER tk_clr_flg(ID id,UINT flags);
-ER tk_wai_flg(ID id,UINT pattern,UINT mode,UINT *result,TMO timeout);
+UW in_w (UW address);
+void out_w (UW address, UW value);
+void set_w (UW address, UW value);
+void clr_w (UW address, UW value);
+void ClearInt (UINT number);
+void EnableInt (UINT number, PRI priority);
+ID tk_cre_flg (const T_CFLG *f);
+ER tk_del_flg (ID id);
+ER tk_def_int (UINT number, const T_DINT *d);
+ER tk_set_flg (ID id, UINT flags);
+ER tk_clr_flg (ID id, UINT flags);
+ER tk_wai_flg (ID id, UINT pattern, UINT mode, UINT *result, TMO timeout);
 #endif
+
+/*** end of file ***/

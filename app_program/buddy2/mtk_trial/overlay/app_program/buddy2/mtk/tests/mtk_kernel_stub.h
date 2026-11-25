@@ -2,11 +2,15 @@
 #ifndef MTK_KERNEL_STUB_H
 #define MTK_KERNEL_STUB_H
 #include <stdint.h>
-typedef unsigned int UINT;
+typedef uint32_t UINT;
 typedef int INT;
 typedef int ER;
 typedef void (*FP)(void);
-typedef struct { UINT intatr; FP inthdr; } T_DINT;
+typedef struct
+{
+    UINT intatr;
+    FP inthdr;
+} T_DINT;
 #define TA_HLNG 1u
 #define E_OK 0
 #define E_PAR (-17)
@@ -14,7 +18,9 @@ typedef struct { UINT intatr; FP inthdr; } T_DINT;
 extern UINT stub_irq_masked;
 #define DI(s) ((s) = stub_irq_masked, stub_irq_masked = 1u)
 #define EI(s) (stub_irq_masked = (s))
-ER tk_def_int(UINT intno, const T_DINT *p);
-void ClearInt(UINT intno);
-void EnableInt(UINT intno, INT level);
+ER tk_def_int (UINT intno, const T_DINT *p);
+void ClearInt (UINT intno);
+void EnableInt (UINT intno, INT level);
 #endif
+
+/*** end of file ***/

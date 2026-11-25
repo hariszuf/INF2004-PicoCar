@@ -4,21 +4,24 @@ static uint8_t s_map[JUNCTION_MAP_LETTERS];
 static uint16_t s_version = 0u;
 static uint8_t s_ready = 0u;
 
-static void load_defaults(void)
+static void load_defaults (void)
 {
-    unsigned i;
+    uint32_t idx;
 
-    for (i = 0u; i < JUNCTION_MAP_LETTERS; i++)
+    for (idx = 0u; idx < JUNCTION_MAP_LETTERS; idx++)
     {
-        s_map[i] = (uint8_t)JUNCTION_NONE;   /* any other letter: no instruction (the line follower then goes straight) */
+        /* any other letter: no instruction (the line follower then goes
+         * straight) */
+        s_map[idx] = (uint8_t)JUNCTION_NONE;
     }
+
     s_map['A' - 'A'] = (uint8_t)JUNCTION_LEFT;
     s_map['F' - 'A'] = (uint8_t)JUNCTION_UTURN;
     s_map['W' - 'A'] = (uint8_t)JUNCTION_RIGHT;
     s_ready = 1u;
 }
 
-junction_action_t junction_action_for_letter(char letter)
+junction_action_t junction_action_for_letter (char letter)
 {
     if (!s_ready)
     {
@@ -38,25 +41,25 @@ junction_action_t junction_action_for_letter(char letter)
     return (junction_action_t)s_map[letter - 'A'];
 }
 
-void junction_map_reset(void)
+void junction_map_reset (void)
 {
     load_defaults();
     s_version++;
 }
 
-int junction_map_apply(const char *codes, unsigned length)
+int junction_map_apply (const char * codes, uint32_t length)
 {
     uint8_t next[JUNCTION_MAP_LETTERS];
-    unsigned i;
+    uint32_t idx;
 
-    if ((codes == 0) || (length != JUNCTION_MAP_LETTERS))
+    if ((0 == codes) || (length != JUNCTION_MAP_LETTERS))
     {
         return -1;
     }
 
-    for (i = 0u; i < JUNCTION_MAP_LETTERS; i++)
+    for (idx = 0u; idx < JUNCTION_MAP_LETTERS; idx++)
     {
-        char c = codes[i];
+        char c = codes[idx];
 
         if ((c >= 'a') && (c <= 'z'))
         {
@@ -65,27 +68,39 @@ int junction_map_apply(const char *codes, unsigned length)
 
         switch (c)
         {
-        case 'L': next[i] = (uint8_t)JUNCTION_LEFT; break;
-        case 'S': next[i] = (uint8_t)JUNCTION_STRAIGHT; break;
-        case 'R': next[i] = (uint8_t)JUNCTION_RIGHT; break;
-        case 'U': next[i] = (uint8_t)JUNCTION_UTURN; break;
-        case 'N': next[i] = (uint8_t)JUNCTION_NONE; break;
-        default: return -1;
+            case 'L':
+            next[idx] = (uint8_t)JUNCTION_LEFT;
+            break;
+            case 'S':
+            next[idx] = (uint8_t)JUNCTION_STRAIGHT;
+            break;
+            case 'R':
+            next[idx] = (uint8_t)JUNCTION_RIGHT;
+            break;
+            case 'U':
+            next[idx] = (uint8_t)JUNCTION_UTURN;
+            break;
+            case 'N':
+            next[idx] = (uint8_t)JUNCTION_NONE;
+            break;
+            default:
+            return -1;
         }
     }
 
-    for (i = 0u; i < JUNCTION_MAP_LETTERS; i++)
+    for (idx = 0u; idx < JUNCTION_MAP_LETTERS; idx++)
     {
-        s_map[i] = next[i];
+        s_map[idx] = next[idx];
     }
+
     s_ready = 1u;
     s_version++;
     return 0;
 }
 
-void junction_map_pack(int32_t out[3])
+void junction_map_pack (int32_t out[3])
 {
-    unsigned i;
+    uint32_t idx;
 
     if (!s_ready)
     {
@@ -95,30 +110,33 @@ void junction_map_pack(int32_t out[3])
     out[0] = 0;
     out[1] = 0;
     out[2] = 0;
-    for (i = 0u; i < JUNCTION_MAP_LETTERS; i++)
+
+    for (idx = 0u; idx < JUNCTION_MAP_LETTERS; idx++)
     {
-        out[i / 10u] |= (int32_t)((uint32_t)s_map[i] << (3u * (i % 10u)));
+        out[idx / 10u] |= (int32_t)((uint32_t)s_map[idx] << (3u * (idx % 10u)));
     }
 }
 
-uint16_t junction_map_version(void)
+uint16_t junction_map_version (void)
 {
     return s_version;
 }
 
-const char *junction_action_name(junction_action_t action)
+const char * junction_action_name (junction_action_t action)
 {
     switch (action)
     {
-    case JUNCTION_LEFT:
+        case JUNCTION_LEFT:
         return "LEFT";
-    case JUNCTION_STRAIGHT:
+        case JUNCTION_STRAIGHT:
         return "STRAIGHT";
-    case JUNCTION_RIGHT:
+        case JUNCTION_RIGHT:
         return "RIGHT";
-    case JUNCTION_UTURN:
+        case JUNCTION_UTURN:
         return "UTURN";
-    default:
+        default:
         return "NONE";
     }
 }
+
+/*** end of file ***/

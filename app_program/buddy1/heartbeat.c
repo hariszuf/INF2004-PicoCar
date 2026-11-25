@@ -7,7 +7,7 @@
 #include "telemetry.h"
 
 
-LOCAL void heartbeat_task(INT stacd, void *exinf)
+LOCAL void heartbeat_task (INT stacd, void * exinf)
 {
     telemetry_message_t message;
     uint32_t sequence = 0U;
@@ -17,7 +17,8 @@ LOCAL void heartbeat_task(INT stacd, void *exinf)
     (void)exinf;
 
 
-    while (1) {
+    for (;;)
+    {
 
         sequence++;
 
@@ -35,16 +36,17 @@ LOCAL void heartbeat_task(INT stacd, void *exinf)
          * This call is non-blocking.
          */
         error_code = buddy1_telemetry_submit(
-            &message
-        );
+                                             &message
+                                             );
 
 
-        if (error_code < E_OK) {
+        if (error_code < E_OK)
+        {
 
             tm_printf(
-                (UB *)"[Heartbeat] Telemetry submit failed: %d\n",
-                error_code
-            );
+                      (UB *)"[Heartbeat] Telemetry submit failed: %d\n",
+                      error_code
+                      );
         }
 
 
@@ -61,20 +63,23 @@ LOCAL T_CTSK heartbeat_task_config = {
 };
 
 
-ER buddy1_heartbeat_start(void)
+ER buddy1_heartbeat_start (void)
 {
     ID task_id;
 
     task_id = tk_cre_tsk(
-        &heartbeat_task_config
-    );
+                         &heartbeat_task_config
+                         );
 
-    if (task_id < E_OK) {
+    if (task_id < E_OK)
+    {
         return task_id;
     }
 
     return tk_sta_tsk(
-        task_id,
-        0
-    );
+                      task_id,
+                      0
+                      );
 }
+
+/*** end of file ***/

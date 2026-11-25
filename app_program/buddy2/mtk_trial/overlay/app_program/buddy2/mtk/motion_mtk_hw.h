@@ -3,7 +3,8 @@
  * @brief Buddy 2 micro T-Kernel trial: RP2040 timer, interrupt masking and
  *        the shared GPIO interrupt dispatcher.
  *
- * The professor's port does not link the Pico SDK runtime, so the SDK calls used
+ * The professor's port does not link the Pico SDK runtime, so the SDK calls
+ * used
  * by the CMake drivers (pwm, gpio irq, time_us_64, save_and_disable_interrupts)
  * do not exist. These functions replace them, written against the RP2040
  * registers. The port also never releases PWM or TIMER from reset and never
@@ -22,8 +23,9 @@
 #include <stdint.h>
 
 #ifdef MOTION_MTK_HOST_TEST
-/* Host tests: registers live in a fake memory map (tests/test_mtk_drivers.c). */
-volatile uint32_t *motion_mtk_test_reg(uint32_t address);
+/* Host tests: registers live in a fake memory map (tests/test_mtk_drivers.c).
+ */
+volatile uint32_t * motion_mtk_test_reg (uint32_t address);
 #define B2_REG(address)     (*motion_mtk_test_reg((uint32_t)(address)))
 #else
 #define B2_REG(address)     (*(volatile uint32_t *)(uintptr_t)(address))
@@ -51,7 +53,8 @@ volatile uint32_t *motion_mtk_test_reg(uint32_t address);
 #define B2_PWM_CTR(slice)       (0x40050000u + (0x14u * (slice)) + 0x08u)
 #define B2_PWM_CC(slice)        (0x40050000u + (0x14u * (slice)) + 0x0Cu)
 #define B2_PWM_TOP(slice)       (0x40050000u + (0x14u * (slice)) + 0x10u)
-#define B2_RESETS_RESET_CLR     (0x4000C000u + 0x3000u)  /* atomic clear alias of RESET */
+/* atomic clear alias of RESET */
+#define B2_RESETS_RESET_CLR     (0x4000C000u + 0x3000u)
 #define B2_RESETS_RESET_DONE    (0x4000C008u)
 #define B2_RESET_PWM            (1u << 14)
 #define B2_RESET_TIMER          (1u << 21)
@@ -68,23 +71,27 @@ volatile uint32_t *motion_mtk_test_reg(uint32_t address);
 #define B2_GPIO_EDGE_RISE       (0x8u)
 
 /** Edge callback, interrupt context. now_us = TIMER low word at entry. */
-typedef void (*motion_mtk_gpio_handler_t)(uint32_t pin, uint32_t events, uint32_t now_us);
+typedef void (*motion_mtk_gpio_handler_t)(uint32_t pin, uint32_t events,
+                                          uint32_t now_us);
 
 /** Release PWM/TIMER resets, start the 1 us tick, install the GPIO interrupt.
  *  Returns E_OK (0) or a negative kernel error. Safe to call twice. */
-int32_t motion_mtk_hw_init(void);
+int32_t motion_mtk_hw_init (void);
 
-uint64_t motion_mtk_time_us(void);
-uint32_t motion_mtk_irq_save(void);
-void motion_mtk_irq_restore(uint32_t saved);
+uint64_t motion_mtk_time_us (void);
+uint32_t motion_mtk_irq_save (void);
+void motion_mtk_irq_restore (uint32_t saved);
 
 /** pull: 0 none, 1 up, 2 down */
-void motion_mtk_gpio_input(uint32_t pin, uint32_t pull);
+void motion_mtk_gpio_input (uint32_t pin, uint32_t pull);
 
 /** Route pin edges (B2_GPIO_EDGE_*) to handler. One owner per pin. */
-int32_t motion_mtk_gpio_irq_register(uint32_t pin, uint32_t edges, motion_mtk_gpio_handler_t handler);
+int32_t motion_mtk_gpio_irq_register (uint32_t pin, uint32_t edges,
+                                      motion_mtk_gpio_handler_t handler);
 
 /** The IO_IRQ_BANK0 handler (exposed for host tests). */
-void motion_mtk_gpio_isr(uint32_t intno);
+void motion_mtk_gpio_isr (uint32_t intno);
 
 #endif /* MOTION_MTK_HW_H */
+
+/*** end of file ***/

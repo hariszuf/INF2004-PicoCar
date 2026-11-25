@@ -10,18 +10,21 @@
 
 /* Callbacks return transferred byte count; use bounded hardware transfers.
  * no_stop keeps the bus active for the following repeated-start read. */
-typedef int (*buddy4_write_fn)(void *context, uint8_t address,
-                               const uint8_t *data, size_t count, bool no_stop);
-typedef int (*buddy4_read_fn)(void *context, uint8_t address,
-                              uint8_t *data, size_t count, bool no_stop);
+typedef int (*buddy4_write_fn)(void * context, uint8_t address,
+                               const uint8_t * data, size_t count,
+                                       bool no_stop);
+typedef int (*buddy4_read_fn)(void * context, uint8_t address,
+                              uint8_t * data, size_t count, bool no_stop);
 
-typedef struct {
-    void *context;
+typedef struct
+{
+    void * context;
     buddy4_write_fn write;
     buddy4_read_fn read;
 } buddy4_bus_t;
 
-typedef enum {
+typedef enum
+{
     BUDDY4_FRESH,
     BUDDY4_STALE,
     BUDDY4_IO_ERROR,
@@ -29,7 +32,8 @@ typedef enum {
 } buddy4_result_t;
 
 /* Acquisition success is independent of suitability for gravity-based tilt. */
-typedef enum {
+typedef enum
+{
     BUDDY4_QUALITY_UNAVAILABLE,
     BUDDY4_QUALITY_GRAVITY_LIKE,
     BUDDY4_QUALITY_CLIPPED,
@@ -37,12 +41,16 @@ typedef enum {
     BUDDY4_QUALITY_NON_GRAVITY,
 } buddy4_quality_t;
 
-typedef struct {
-    uint8_t who_am_i, ctrl[6]; /* CTRL0,1,2,3,4,7, in that order. */
-    bool valid : 1; /* Last verification succeeded; not continuous verification. */
+typedef struct
+{
+    uint8_t who_am_i;
+    uint8_t ctrl[6]; /* CTRL0,1,2,3,4,7, in that order. */
+    /* Last verification succeeded; not continuous verification. */
+    bool valid : 1;
 } buddy4_sensor_config_t;
 
-typedef struct {
+typedef struct
+{
     /* Sensor XYZ: corrected = (uncorrected - bias) * scale. Identity: 0, 1. */
     float accel_bias_g[3];
     float accel_scale[3];
@@ -56,12 +64,14 @@ typedef struct {
     bool centre_spacing_confirmed : 1;
 } buddy4_config_t;
 
-typedef struct {
+typedef struct
+{
     uint64_t start_us;
     float peak_roll_deg;
     float peak_height_cm;
     /* Experimental moving peak, independent of stability confirmation.
-     * Numeric fields are meaningful only when median_candidate_valid is true. */
+     * Numeric fields are meaningful only when median_candidate_valid is true.
+     */
     float median_candidate_roll_deg;
     float median_candidate_height_cm;
     float median_roll[11];
@@ -78,15 +88,19 @@ typedef struct {
     bool window_active : 1;
 } side_event_t;
 
-typedef struct {
+typedef struct
+{
     uint8_t clipped_axes;   /* XYZ bit mask: exact signed ADC endpoints. */
     uint8_t status_a;       /* Last status read; overrun is not clipping. */
-    uint32_t clipped_samples, unsuitable_samples; /* Saturating history. */
+    uint32_t clipped_samples;
+    uint32_t unsuitable_samples; /* Saturating history. */
     uint64_t timestamp_us;  /* Host acquisition time of last fresh sample. */
-    uint32_t error_count;   /* Configuration/transfer failures; excludes stale. */
+    /* Configuration/transfer failures; excludes stale. */
+    uint32_t error_count;
     int16_t raw[3];         /* X, Y, Z signed sensor counts. */
     float uncorrected_accel_g[3]; /* Sensor XYZ counts converted to g. */
-    float accel_g[3];       /* Corrected sensor XYZ in g; used for processing. */
+    /* Corrected sensor XYZ in g; used for processing. */
+    float accel_g[3];
     float magnitude_g;
     float pitch_deg;
     float roll_deg;
@@ -99,15 +113,20 @@ typedef struct {
     int8_t terrain;         /* -1 (unknown) .. 4, fits in one byte */
     int8_t side;            /* -1, 0 or +1 */
     uint8_t quality : 3;    /* buddy4_quality_t, 5 values */
-    bool valid : 1;             /* Acquisition only: latest complete, fresh poll. */
-    bool acceleration_valid : 1; /* Finite, non-clipped; usable by impact observer. */
-    bool tilt_valid : 1;        /* Gravity-like input; still not proof of static tilt. */
+    /* Acquisition only: latest complete, fresh poll. */
+    bool valid : 1;
+    /* Finite, non-clipped; usable by impact observer. */
+    bool acceleration_valid : 1;
+    /* Gravity-like input; still not proof of static tilt. */
+    bool tilt_valid : 1;
     bool transient_event : 1;
     bool height_geometry_confirmed : 1;
-    bool event_ended : 1;       /* One fresh-sample pulse; ended_event holds summary. */
+    /* One fresh-sample pulse; ended_event holds summary. */
+    bool event_ended : 1;
 } buddy4_output_t;
 
-typedef struct {
+typedef struct
+{
     buddy4_bus_t bus;
     buddy4_config_t config;
     buddy4_output_t output;
@@ -122,44 +141,52 @@ typedef struct {
     bool had_bump : 1;
 } buddy4_imu_t;
 
-/* Preliminary acceleration calibration; preserve the configured mounting offsets.
+/* Preliminary acceleration calibration; preserve the configured mounting
+ * offsets.
  * Confirmed wheel-centre spacing is 11.3 cm. No startup auto-zero. */
-buddy4_config_t buddy4_default_config(void);
+buddy4_config_t buddy4_default_config (void);
 
 /* Reset caller-owned state and store callbacks/configuration; no I/O occurs.
  * imu must be non-NULL and remain available for subsequent calls. */
-void buddy4_init(buddy4_imu_t *imu, buddy4_bus_t bus, buddy4_config_t config);
+void buddy4_init (buddy4_imu_t * imu, buddy4_bus_t bus, buddy4_config_t config);
 
 /* Validate configuration, identify the LSM303D and write/read back settings.
  * Resets detection state; returns false and increments error_count on failure.
  * Call after init, using bounded bus callbacks. */
-bool buddy4_configure(buddy4_imu_t *imu);
+bool buddy4_configure (buddy4_imu_t * imu);
 
 /* Bounded readback, no register writes. Failure aborts detection, clears ready,
  * increments configuration/transfer errors. Caller may retry configuration. */
-bool buddy4_verify_config(buddy4_imu_t *imu);
-const char *buddy4_quality_name(int quality);
+bool buddy4_verify_config (buddy4_imu_t * imu);
+const char * buddy4_quality_name (int quality);
 
-/* Check data-ready once and process at most one sample; never wait for freshness.
+/* Check data-ready once and process at most one sample; never wait for
+ * freshness.
  * Supply monotonic host timestamps, normally at BUDDY4_PERIOD_US intervals.
  * output.valid means acquisition only; tilt_valid gates tilt/height/peaks;
  * acceleration_valid gates impact input. Questionable fresh samples retain raw
- * diagnostics, abort the active tilt event without completion, reset its filter,
+ * diagnostics, abort the active tilt event without completion, reset its
+ * filter,
  * and preserve ended_event. Clipping does not increment error_count.
  * Non-fresh calls retain measurements and their timestamp with validity false.
  * Stale samples restart both estimator windows, retaining accepted event peaks.
- * Completed-event snapshots survive errors/reconfiguration until the next event ends.
+ * Completed-event snapshots survive errors/reconfiguration until the next event
+ * ends.
  * Transfer errors abort the event,
  * clear ready and increment errors; reconfigure before polling resumes. */
-buddy4_result_t buddy4_poll(buddy4_imu_t *imu, uint64_t timestamp_us);
+buddy4_result_t buddy4_poll (buddy4_imu_t * imu, uint64_t timestamp_us);
 
-/* Decode one full signed 16-bit, little-endian acceleration value without shift. */
-int16_t buddy4_decode_signed16(uint8_t low, uint8_t high);
+/* Decode one full signed 16-bit, little-endian acceleration value without
+ * shift. */
+int16_t buddy4_decode_signed16 (uint8_t low, uint8_t high);
 
 /* Map negative/zero/positive pitch state to DOWNHILL/FLAT/UPHILL. */
-const char *buddy4_terrain_name(int state);
+const char * buddy4_terrain_name (int state);
 
-/* Map negative/zero/positive roll state to LEFT_WHEEL_UP/SIDE_LEVEL/RIGHT_WHEEL_UP. */
-const char *buddy4_side_name(int state);
+/* Map negative/zero/positive roll state to
+ * LEFT_WHEEL_UP/SIDE_LEVEL/RIGHT_WHEEL_UP. */
+const char * buddy4_side_name (int state);
 
 #endif
+
+/*** end of file ***/

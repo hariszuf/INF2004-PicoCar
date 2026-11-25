@@ -17,7 +17,7 @@
 
 #if TM_WIFI_CYW43
 
-LOCAL void network_status_task(INT stacd, void *exinf)
+LOCAL void network_status_task (INT stacd, void * exinf)
 {
     T_CYW43_UTK_STATUS status;
 
@@ -36,7 +36,8 @@ LOCAL void network_status_task(INT stacd, void *exinf)
      * This prevents early Wi-Fi / DHCP / DNS messages
      * from being printed before the terminal is ready.
      */
-    while (tm_usb_state() < 2) {
+    while (tm_usb_state() < 2)
+    {
         tk_dly_tsk(100);
     }
 
@@ -47,7 +48,8 @@ LOCAL void network_status_task(INT stacd, void *exinf)
     tk_dly_tsk(500);
 
 
-    while (1) {
+    for (;;)
+    {
 
         /*
          * Read a safe snapshot of the current
@@ -64,10 +66,11 @@ LOCAL void network_status_task(INT stacd, void *exinf)
          * Print whenever the join/link state changes.
          */
         if ((status.join_complete != last_join_complete) ||
-            (status.link_up != last_link_up)) {
+            (status.link_up != last_link_up))
+        {
 
             tm_printf(
-                (UB *)"[WiFi] join_started=%u "
+                      (UB *)"[WiFi] join_started=%u "
                       "join_complete=%u "
                       "join_result=%d "
                       "link_up=%u "
@@ -75,14 +78,14 @@ LOCAL void network_status_task(INT stacd, void *exinf)
                       "RSSI=%d "
                       "elapsed=%u ms\n",
 
-                (unsigned int)status.join_started,
-                (unsigned int)status.join_complete,
-                (int)status.join_result,
-                (unsigned int)status.link_up,
-                (int)status.link_status,
-                (int)status.link_rssi,
-                (unsigned int)status.join_elapsed_ms
-            );
+                      (unsigned int)status.join_started,
+                      (unsigned int)status.join_complete,
+                      (int)status.join_result,
+                      (unsigned int)status.link_up,
+                      (int)status.link_status,
+                      (int)status.link_rssi,
+                      (unsigned int)status.join_elapsed_ms
+                      );
 
 
             last_join_complete = status.join_complete;
@@ -98,40 +101,41 @@ LOCAL void network_status_task(INT stacd, void *exinf)
          * Print once after DHCP successfully reaches
          * its completed state.
          */
-        if (status.dhcp_complete && !dhcp_reported) {
+        if ((status.dhcp_complete) && (!dhcp_reported))
+        {
 
             tm_printf(
-                (UB *)"[DHCP] result=%d "
+                      (UB *)"[DHCP] result=%d "
                       "ip=%u.%u.%u.%u "
                       "netmask=%u.%u.%u.%u "
                       "gateway=%u.%u.%u.%u "
                       "dns=%u.%u.%u.%u "
                       "elapsed=%u ms\n",
 
-                (int)status.dhcp_result,
+                      (int)status.dhcp_result,
 
-                (unsigned int)status.dhcp_address[0],
-                (unsigned int)status.dhcp_address[1],
-                (unsigned int)status.dhcp_address[2],
-                (unsigned int)status.dhcp_address[3],
+                      (unsigned int)status.dhcp_address[0],
+                      (unsigned int)status.dhcp_address[1],
+                      (unsigned int)status.dhcp_address[2],
+                      (unsigned int)status.dhcp_address[3],
 
-                (unsigned int)status.dhcp_netmask[0],
-                (unsigned int)status.dhcp_netmask[1],
-                (unsigned int)status.dhcp_netmask[2],
-                (unsigned int)status.dhcp_netmask[3],
+                      (unsigned int)status.dhcp_netmask[0],
+                      (unsigned int)status.dhcp_netmask[1],
+                      (unsigned int)status.dhcp_netmask[2],
+                      (unsigned int)status.dhcp_netmask[3],
 
-                (unsigned int)status.dhcp_gateway[0],
-                (unsigned int)status.dhcp_gateway[1],
-                (unsigned int)status.dhcp_gateway[2],
-                (unsigned int)status.dhcp_gateway[3],
+                      (unsigned int)status.dhcp_gateway[0],
+                      (unsigned int)status.dhcp_gateway[1],
+                      (unsigned int)status.dhcp_gateway[2],
+                      (unsigned int)status.dhcp_gateway[3],
 
-                (unsigned int)status.dhcp_dns[0],
-                (unsigned int)status.dhcp_dns[1],
-                (unsigned int)status.dhcp_dns[2],
-                (unsigned int)status.dhcp_dns[3],
+                      (unsigned int)status.dhcp_dns[0],
+                      (unsigned int)status.dhcp_dns[1],
+                      (unsigned int)status.dhcp_dns[2],
+                      (unsigned int)status.dhcp_dns[3],
 
-                (unsigned int)status.dhcp_elapsed_ms
-            );
+                      (unsigned int)status.dhcp_elapsed_ms
+                      );
 
 
             dhcp_reported = 1U;
@@ -150,25 +154,26 @@ LOCAL void network_status_task(INT stacd, void *exinf)
          *
          *     example.com
          */
-        if (status.dns_complete && !dns_reported) {
+        if ((status.dns_complete) && (!dns_reported))
+        {
 
             tm_printf(
-                (UB *)"[DNS] result=%d "
+                      (UB *)"[DNS] result=%d "
                       "host=%s "
                       "ip=%u.%u.%u.%u "
                       "elapsed=%u ms\n",
 
-                (int)status.dns_result,
+                      (int)status.dns_result,
 
-                (UB *)CYW43_UTK_DNS_TEST_HOSTNAME,
+                      (UB *)CYW43_UTK_DNS_TEST_HOSTNAME,
 
-                (unsigned int)status.dns_address[0],
-                (unsigned int)status.dns_address[1],
-                (unsigned int)status.dns_address[2],
-                (unsigned int)status.dns_address[3],
+                      (unsigned int)status.dns_address[0],
+                      (unsigned int)status.dns_address[1],
+                      (unsigned int)status.dns_address[2],
+                      (unsigned int)status.dns_address[3],
 
-                (unsigned int)status.dns_elapsed_ms
-            );
+                      (unsigned int)status.dns_elapsed_ms
+                      );
 
 
             dns_reported = 1U;
@@ -200,7 +205,7 @@ LOCAL T_CTSK network_task_config = {
 #endif
 
 
-ER buddy1_network_start(void)
+ER buddy1_network_start (void)
 {
 
 #if TM_WIFI_CYW43
@@ -212,11 +217,12 @@ ER buddy1_network_start(void)
      * Create the Buddy 1 networking/status task.
      */
     task_id = tk_cre_tsk(
-        &network_task_config
-    );
+                         &network_task_config
+                         );
 
 
-    if (task_id < E_OK) {
+    if (task_id < E_OK)
+    {
         return task_id;
     }
 
@@ -225,9 +231,9 @@ ER buddy1_network_start(void)
      * Start the task.
      */
     return tk_sta_tsk(
-        task_id,
-        0
-    );
+                      task_id,
+                      0
+                      );
 
 
 #else
@@ -240,3 +246,5 @@ ER buddy1_network_start(void)
 
 #endif
 }
+
+/*** end of file ***/

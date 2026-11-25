@@ -7,10 +7,14 @@
 
 #include <tk/tkernel.h>
 
-#define BUDDY2_SELFTEST_PRIORITY    (12)     /* below Buddy 1 (6-9): print-only work */
-#define BUDDY2_SELFTEST_DELAY_S     (15)     /* from power-up: time to open the monitor and set the car down */
+/* below Buddy 1 (6-9): print-only work */
+#define BUDDY2_SELFTEST_PRIORITY    (12)
+/* from power-up: time to open the monitor and set the car down */
+#define BUDDY2_SELFTEST_DELAY_S     (15)
 
 /** Start the self-test task (after buddy2_start()). */
-ER buddy2_selftest_start(void);
+ER buddy2_selftest_start (void);
 
 #endif /* MOTION_SELFTEST_MTK_H */
+
+/*** end of file ***/

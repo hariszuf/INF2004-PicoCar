@@ -22,7 +22,8 @@
 
 /*
  * ---------------------------------------------------------------------------
- * Copy this file to config/wifi_credentials.h, fill in the values below, then change
+ * Copy this file to config/wifi_credentials.h, fill in the values below, then
+ * change
  * the 0 on the next line to 1.
  *
  * It is a value to flip rather than a line to delete, so that an unedited
@@ -43,3 +44,5 @@
 #define UTK_WIFI_AUTH       CYW43_AUTH_WPA2_AES_PSK
 
 #endif /* WIFI_CREDENTIALS_H */
+
+/*** end of file ***/

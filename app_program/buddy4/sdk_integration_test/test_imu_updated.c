@@ -1,3 +1,6 @@
 /* Compatibility entry point only. Authoritative calibration/IMU tests and
- * independent expected values live in Buddy 4; do not duplicate assertions here. */
+ * independent expected values live in Buddy 4; do not duplicate assertions
+ * here. */
 #include "../tests/test_imu.c"
+
+/*** end of file ***/

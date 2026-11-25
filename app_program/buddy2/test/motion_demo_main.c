@@ -51,40 +51,42 @@ static const demo_step_t s_route[] =
 
 #define ROUTE_STEPS     ((uint32_t)(sizeof(s_route) / sizeof(s_route[0])))
 
-static void print_status(const char *label)
+static void print_status (const char * label)
 {
     motion_status_t status;
 
     motion_get_status(&status);
-    printf("%s: state=%d fault=%d dist=%.1f cm heading=%.1f deg countL=%ld countR=%ld\n",
+    printf("%s: state=%d fault=%d dist=%.1f cm heading=%.1f deg countL=%ld "
+           "countR=%ld\n",
            label, (int)status.state, (int)status.fault,
            (double)status.distance_cm, (double)status.heading_deg,
            (long)status.left_count, (long)status.right_count);
 }
 
-static motion_result_t issue_step(const demo_step_t *p_step)
+static motion_result_t issue_step (const demo_step_t * p_step)
 {
     motion_result_t result;
 
     switch (p_step->action)
     {
         case DEMO_FORWARD:
-            result = motion_move_forward(p_step->value);
-            break;
+        result = motion_move_forward(p_step->value);
+        break;
         case DEMO_BACKWARD:
-            result = motion_move_backward(p_step->value);
-            break;
+        result = motion_move_backward(p_step->value);
+        break;
         case DEMO_LEFT:
-            result = motion_turn_left(p_step->value);
-            break;
+        result = motion_turn_left(p_step->value);
+        break;
         default:
-            result = motion_turn_right(p_step->value);
-            break;
+        result = motion_turn_right(p_step->value);
+        break;
     }
+
     return result;
 }
 
-int main(void)
+int main (void)
 {
     uint32_t next_update_ms;
     uint32_t pause_until_ms;
@@ -115,7 +117,8 @@ int main(void)
         }
 
         motion_get_status(&status);
-        if (status.state == MOTION_STATE_ERROR)
+
+        if (MOTION_STATE_ERROR == status.state)
         {
             if (!finished)
             {
@@ -152,3 +155,5 @@ int main(void)
         }
     }
 }
+
+/*** end of file ***/

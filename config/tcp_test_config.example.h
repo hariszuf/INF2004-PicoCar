@@ -26,7 +26,8 @@
 
 /*
  * ---------------------------------------------------------------------------
- * Copy this file to config/tcp_test_config.h, fill in the values below, then change
+ * Copy this file to config/tcp_test_config.h, fill in the values below, then
+ * change
  * the 0 on the next line to 1.
  *
  * It is a value to flip rather than a line to delete, so that an unedited
@@ -46,3 +47,5 @@
 #define UTK_TCP_ECHO_PORT       7008U
 
 #endif
+
+/*** end of file ***/

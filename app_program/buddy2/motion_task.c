@@ -21,7 +21,7 @@
  * jitter is tolerated. Commands from the Vehicle Controller call the
  * motion_* functions directly; they only queue and are safe from other tasks.
  */
-void motion_task_entry(INT stacd, void *exinf)
+void motion_task_entry (INT stacd, void * exinf)
 {
     (void)stacd;
     (void)exinf;
@@ -36,3 +36,5 @@ void motion_task_entry(INT stacd, void *exinf)
 }
 
 #endif /* MOTION_USE_UTKERNEL */
+
+/*** end of file ***/

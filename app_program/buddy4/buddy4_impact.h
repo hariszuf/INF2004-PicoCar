@@ -2,43 +2,67 @@
 #define BUDDY4_IMPACT_H
 #include <stdbool.h>
 #include <stdint.h>
-/* Preliminary possible-impact observation, not collision detection or safety. */
-typedef struct {
+/* Preliminary possible-impact observation, not collision detection or safety.
+ */
+typedef struct
+{
     /* Thresholds apply to ||corrected XYZ - tracked XYZ baseline||, in g. */
-    float trigger_g, release_g;
-    uint32_t confirm_us, max_gap_us, cooldown_us, baseline_tau_us;
+    float trigger_g;
+    float release_g;
+    uint32_t confirm_us;
+    uint32_t max_gap_us;
+    uint32_t cooldown_us;
+    uint32_t baseline_tau_us;
 } buddy4_impact_config_t;
-typedef struct {
-    bool valid, possible_impact;
+typedef struct
+{
+    bool valid;
+    bool possible_impact;
     uint32_t event_count;
-    uint64_t sample_us, event_us;
+    uint64_t sample_us;
+    uint64_t event_us;
     float magnitude_g; /* ||corrected XYZ||, still includes gravity. */
     float baseline_g;  /* Norm of the vector reference used for this sample. */
-    float deviation_g; /* ||corrected XYZ - reference||; NOT |magnitude-baseline|. */
+    /* ||corrected XYZ - reference||; NOT |magnitude-baseline|. */
+    float deviation_g;
 } buddy4_impact_output_t;
-typedef struct {
+typedef struct
+{
     buddy4_impact_config_t config;
     buddy4_impact_output_t output;
-    bool configured, primed, has_time, has_clock, armed;
-    uint8_t pending_samples, calm_samples;
+    bool configured;
+    bool primed;
+    bool has_time;
+    bool has_clock;
+    bool armed;
+    uint8_t pending_samples;
+    uint8_t calm_samples;
     float baseline_xyz_g[3];
-    uint64_t last_time_us, clock_us, pending_since_us;
+    uint64_t last_time_us;
+    uint64_t clock_us;
+    uint64_t pending_since_us;
 } buddy4_impact_t;
-buddy4_impact_config_t buddy4_impact_default_config(void);
-bool buddy4_impact_init(buddy4_impact_t *d, buddy4_impact_config_t config);
+buddy4_impact_config_t buddy4_impact_default_config (void);
+bool buddy4_impact_init (buddy4_impact_t * d, buddy4_impact_config_t config);
 /* One call per poll. valid must mean NEW finite, non-clipped corrected data.
  * Vector baseline follows subthreshold changes (default tau 500 ms) and freezes
- * at/above trigger. Not gyro-based gravity removal: abrupt tilt, hard braking or
- * sustained vibration can resemble contact. No confirmed collision or motor action.
+ * at/above trigger. Not gyro-based gravity removal: abrupt tilt, hard braking
+ * or
+ * sustained vibration can resemble contact. No confirmed collision or motor
+ * action.
  * Use IMU acceleration_valid, not tilt_valid: dynamic non-clipped input remains
  * useful. Clipping makes amplitude/event assessment unknown, never proof of
  * collision or no impact. Callers must expose clipping separately from this
  * observer's false event pulse. Existing event count/time remain history.
- * Invalid/time faults clear baseline and pending evidence, preserving event history
+ * Invalid/time faults clear baseline and pending evidence, preserving event
+ * history
  * and cooldown. First recovery sample primes baseline and cannot trigger.
  * possible_impact pulses for exactly the triggering input sample. */
-void buddy4_impact_update(buddy4_impact_t *d, float x_g, float y_g, float z_g,
-                         bool valid, uint64_t sample_us, uint64_t now_us);
-/* Age check for clients without new polls; does not repeat detection/counting. */
-buddy4_impact_output_t buddy4_impact_get(buddy4_impact_t *d, uint64_t now_us);
+void buddy4_impact_update (buddy4_impact_t * d, float x_g, float y_g, float z_g,
+                           bool valid, uint64_t sample_us, uint64_t now_us);
+/* Age check for clients without new polls; does not repeat detection/counting.
+ */
+buddy4_impact_output_t buddy4_impact_get (buddy4_impact_t * d, uint64_t now_us);
 #endif
+
+/*** end of file ***/

@@ -32,13 +32,16 @@
  * both), otherwise every distance and angle is scaled wrongly.
  * 1u = rising edge only, 2u = falling edge only, 3u = both edges.
  */
-#define MOTION_ENCODER_EDGE_MODE    (3u)   /* both edges: 5 hand turns gave ~3170 counts in mode 1 (~634/turn), so mode 3 gives ~1266/turn matching the 12658/12685 per 10 turns constants */
+/* both edges: 5 hand turns gave ~3170 counts in mode 1 (~634/turn), so mode 3
+ * gives ~1266/turn matching the 12658/12685 per 10 turns constants */
+#define MOTION_ENCODER_EDGE_MODE    (3u)
 
 /* ------------------------------------------------------------------ */
 /* Measured geometry (team measurements)                               */
 /* ------------------------------------------------------------------ */
 #define MOTION_WHEEL_DIAMETER_CM        (6.5f)
-#define MOTION_WHEEL_BASE_CM            (12.2f)   /* centre of tyre to centre of tyre */
+/* centre of tyre to centre of tyre */
+#define MOTION_WHEEL_BASE_CM            (12.2f)
 #define MOTION_COUNTS_PER_REV_LEFT      (1265.8f) /* 12658 counts / 10 turns */
 #define MOTION_COUNTS_PER_REV_RIGHT     (1268.5f) /* 12685 counts / 10 turns */
 #define MOTION_PI                       (3.14159265f)
@@ -48,7 +51,8 @@
  * the real robot turn less than the geometry predicts, so calibrate this with
  * the 360 degree spin test (docs/Motion_Accuracy_Evaluation.md).
  */
-#define MOTION_TURN_SCALE               (0.88f)   /* TUNE: 180 / ~205 deg measured on the car */
+/* TUNE: 180 / ~205 deg measured on the car */
+#define MOTION_TURN_SCALE               (0.88f)
 
 /* ------------------------------------------------------------------ */
 /* Timing                                                              */
@@ -62,10 +66,12 @@
 /* Motion profile                                                      */
 /* ------------------------------------------------------------------ */
 #define MOTION_DEFAULT_SPEED_CM_S       (20.0f)   /* TUNE */
-#define MOTION_MAX_SPEED_CM_S           (65.0f)   /* measured 73-77 cm/s at full duty (5 Nov 2026), ~10 % margin */
+/* measured 73-77 cm/s at full duty (5 Nov 2026), ~10 % margin */
+#define MOTION_MAX_SPEED_CM_S           (65.0f)
 #define MOTION_MIN_SPEED_CM_S           (6.0f)    /* creep speed near target */
 #ifndef MOTION_TURN_SPEED_CM_S
-#define MOTION_TURN_SPEED_CM_S          (15.0f)   /* wheel speed during a spin */
+/* wheel speed during a spin */
+#define MOTION_TURN_SPEED_CM_S          (15.0f)
 #endif
 #define MOTION_MIN_TURN_SPEED_CM_S      (5.0f)
 #define MOTION_ACCEL_CM_S2              (60.0f)   /* TUNE */
@@ -81,31 +87,39 @@
 #define MOTION_PID_KI                   (0.100f)  /* TUNE */
 #define MOTION_PID_KD                   (0.000f)  /* TUNE */
 #define MOTION_PID_INTEGRAL_LIMIT       (0.30f)
-/* Both can be overridden from the build (e.g. Buddy 3 line following runs much slower). */
+/* Both can be overridden from the build (e.g. Buddy 3 line following runs much
+ * slower). */
 #ifndef MOTION_FEEDFORWARD_DUTY_PER_CM_S
-#define MOTION_FEEDFORWARD_DUTY_PER_CM_S (0.013f) /* measured duty sweep slope 0.0126-0.0133 (5 Nov 2026) */
+/* measured duty sweep slope 0.0126-0.0133 (5 Nov 2026) */
+#define MOTION_FEEDFORWARD_DUTY_PER_CM_S (0.013f)
 #endif
-/** Break-away: while a wheel that is asked to turn is still (measured speed below
+/** Break-away: while a wheel that is asked to turn is still (measured speed
+ * below
  *  MOTION_BREAKAWAY_SPEED_CM_S), apply at least this duty to overcome stiction.
- *  0 = off. Used by slow line following, where the normal duty floor is very low. */
+ * 0 = off. Used by slow line following, where the normal duty floor is very
+ * low. */
 #ifndef MOTION_BREAKAWAY_DUTY
 #define MOTION_BREAKAWAY_DUTY           (0.0f)
 #endif
 #define MOTION_BREAKAWAY_SPEED_CM_S     (0.3f)
 
-/** 1 = keep a wheel's speed-PID integral while that wheel is briefly commanded to 0
- *  during continuous driving (line following). Without this, every steering flip wipes
- *  the integral of the idle wheel, so it can never build the extra duty a wheel needs to
+/** 1 = keep a wheel's speed-PID integral while that wheel is briefly commanded
+ * to 0
+ * during continuous driving (line following). Without this, every steering flip
+ * wipes
+ * the integral of the idle wheel, so it can never build the extra duty a wheel
+ * needs to
  *  pivot the car, and it stalls. 0 = original behaviour (reset). */
 #ifndef MOTION_PID_HOLD_INTEGRAL_ON_ZERO
 #define MOTION_PID_HOLD_INTEGRAL_ON_ZERO (0u)
 #endif
 
 #ifndef MOTION_MIN_DUTY
-#define MOTION_MIN_DUTY                 (0.15f)   /* TUNE: stiction compensation */
+/* TUNE: stiction compensation */
+#define MOTION_MIN_DUTY                 (0.15f)
 #endif
 
-/** Straight-line correction: speed trim (cm/s) per cm of left/right mismatch. */
+/* Straight-line correction: speed trim (cm/s) per cm of left/right mismatch. */
 #define MOTION_STRAIGHT_KP              (1.5f)    /* TUNE */
 #define MOTION_STRAIGHT_TRIM_MAX_CM_S   (5.0f)
 
@@ -118,7 +132,8 @@
 /** Braking is not instant. A move or turn ends early by (wheel speed x this
  *  time) so the robot stops on target. TUNE: measure with the braking test,
  *  then adjust until the mean distance and angle error are close to zero. */
-#define MOTION_STOP_LEAD_S              (0.045f)  /* measured brake test, 3 runs (5 Nov 2026) */
+/* measured brake test, 3 runs (5 Nov 2026) */
+#define MOTION_STOP_LEAD_S              (0.045f)
 
 #define MOTION_SETTLE_SPEED_CM_S        (0.5f)
 #define MOTION_SETTLE_CYCLES            (3u)
@@ -146,10 +161,14 @@
 /** Terrain input older than this is ignored (car treated as on flat ground). */
 #define MOTION_TERRAIN_STALE_MS         (200u)
 /** Speed target multipliers while the IMU reports each condition. */
-#define MOTION_UPHILL_SPEED_SCALE       (1.0f)    /* TUNE: hold speed, add power */
-#define MOTION_DOWNHILL_SPEED_SCALE     (0.7f)    /* TUNE: slow down going down */
-#define MOTION_HUMP_SPEED_SCALE         (0.8f)    /* TUNE: one wheel on a hump/ramp */
-/** Gravity feed-forward: extra duty per g of slope (x sin(pitch)), both wheels. */
+/* TUNE: hold speed, add power */
+#define MOTION_UPHILL_SPEED_SCALE       (1.0f)
+/* TUNE: slow down going down */
+#define MOTION_DOWNHILL_SPEED_SCALE     (0.7f)
+/* TUNE: one wheel on a hump/ramp */
+#define MOTION_HUMP_SPEED_SCALE         (0.8f)
+/* Gravity feed-forward: extra duty per g of slope (x sin(pitch)), both wheels.
+ */
 #define MOTION_GRADE_DUTY_PER_G         (0.8f)    /* TUNE */
 /** Hump assist: extra duty on the RAISED wheel per sin(|roll|). */
 #ifndef MOTION_HUMP_DUTY_PER_G
@@ -162,3 +181,5 @@
 #define MOTION_TERRAIN_MAX_ANGLE_DEG    (30.0f)
 
 #endif /* MOTION_CONFIG_H */
+
+/*** end of file ***/

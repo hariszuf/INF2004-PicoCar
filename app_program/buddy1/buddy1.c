@@ -17,7 +17,7 @@
  * Initialise all shared Buddy 1 kernel resources
  * before any application task starts.
  */
-ER buddy1_init(void)
+ER buddy1_init (void)
 {
     ER error_code;
 
@@ -26,11 +26,12 @@ ER buddy1_init(void)
      */
     error_code = buddy1_telemetry_init();
 
-    if (error_code < E_OK) {
+    if (error_code < E_OK)
+    {
         tm_printf(
-            (UB *)"[Buddy1] Telemetry init failed: %d\n",
-            error_code
-        );
+                  (UB *)"[Buddy1] Telemetry init failed: %d\n",
+                  error_code
+                  );
 
         return error_code;
     }
@@ -40,11 +41,12 @@ ER buddy1_init(void)
      */
     error_code = buddy1_command_init();
 
-    if (error_code < E_OK) {
+    if (error_code < E_OK)
+    {
         tm_printf(
-            (UB *)"[Buddy1] Command init failed: %d\n",
-            error_code
-        );
+                  (UB *)"[Buddy1] Command init failed: %d\n",
+                  error_code
+                  );
 
         return error_code;
     }
@@ -67,7 +69,7 @@ ER buddy1_init(void)
  *
  * All shared kernel objects must already exist.
  */
-ER buddy1_start(void)
+ER buddy1_start (void)
 {
     ER error_code;
 
@@ -76,11 +78,12 @@ ER buddy1_start(void)
      */
     error_code = buddy1_telemetry_start();
 
-    if (error_code < E_OK) {
+    if (error_code < E_OK)
+    {
         tm_printf(
-            (UB *)"[Buddy1] Telemetry start failed: %d\n",
-            error_code
-        );
+                  (UB *)"[Buddy1] Telemetry start failed: %d\n",
+                  error_code
+                  );
 
         return error_code;
     }
@@ -90,11 +93,12 @@ ER buddy1_start(void)
      */
     error_code = buddy1_command_start();
 
-    if (error_code < E_OK) {
+    if (error_code < E_OK)
+    {
         tm_printf(
-            (UB *)"[Buddy1] Command start failed: %d\n",
-            error_code
-        );
+                  (UB *)"[Buddy1] Command start failed: %d\n",
+                  error_code
+                  );
 
         return error_code;
     }
@@ -107,11 +111,12 @@ ER buddy1_start(void)
      */
     error_code = buddy1_network_start();
 
-    if (error_code < E_OK) {
+    if (error_code < E_OK)
+    {
         tm_printf(
-            (UB *)"[Buddy1] Network start failed: %d\n",
-            error_code
-        );
+                  (UB *)"[Buddy1] Network start failed: %d\n",
+                  error_code
+                  );
 
         return error_code;
     }
@@ -122,14 +127,17 @@ ER buddy1_start(void)
      */
     error_code = buddy1_heartbeat_start();
 
-    if (error_code < E_OK) {
+    if (error_code < E_OK)
+    {
         tm_printf(
-            (UB *)"[Buddy1] Heartbeat start failed: %d\n",
-            error_code
-        );
+                  (UB *)"[Buddy1] Heartbeat start failed: %d\n",
+                  error_code
+                  );
 
         return error_code;
     }
 
     return E_OK;
 }
+
+/*** end of file ***/

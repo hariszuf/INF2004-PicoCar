@@ -11,16 +11,16 @@
 #define IMU_I2C_BAUD_HZ 100000
 #define CONFIG_RETRY_US 1000000
 
-static int bus_write(void *context, uint8_t address, const uint8_t *data,
-                     size_t count, bool no_stop)
+static int bus_write (void * context, uint8_t address, const uint8_t * data,
+                      size_t count, bool no_stop)
 {
     (void)context;
     return i2c_write_timeout_us(IMU_I2C_BUS, address, data, count, no_stop,
                                 BUDDY4_I2C_TIMEOUT_US);
 }
 
-static int bus_read(void *context, uint8_t address, uint8_t *data,
-                    size_t count, bool no_stop)
+static int bus_read (void * context, uint8_t address, uint8_t * data,
+                     size_t count, bool no_stop)
 {
     (void)context;
     return i2c_read_timeout_us(IMU_I2C_BUS, address, data, count, no_stop,
@@ -28,7 +28,7 @@ static int bus_read(void *context, uint8_t address, uint8_t *data,
 }
 
 /* Reprint on each observed USB connection so a new recording has a schema. */
-static void log_csv_header(const buddy4_config_t *config)
+static void log_csv_header (const buddy4_config_t * config)
 {
     printf("# preliminary_six_position,imperfect_orientation_alignment,"
            "mounting_offsets_need_recalibration=%d\n",
@@ -43,9 +43,9 @@ static void log_csv_header(const buddy4_config_t *config)
 }
 
 /* Keep event metadata out of the fixed-column sample rows. */
-static void log_side_event_summary(const buddy4_output_t *output)
+static void log_side_event_summary (const buddy4_output_t * output)
 {
-    const side_event_t *event = &output->ended_event;
+    const side_event_t * event = &output->ended_event;
     printf("# SIDE_EVENT_END,side=%s,reason=%s,start_us=%llu,end_us=%llu,"
            "peak_confirmed=%d,peak_roll_deg=%.2f,peak_wheel_height_cm=%.2f,median_candidate_valid=%d,median_candidate_roll_deg=%.3f,median_candidate_height_cm=%.3f\n",
            buddy4_side_name(event->side),
@@ -55,13 +55,14 @@ static void log_side_event_summary(const buddy4_output_t *output)
            event->peak_confirmed,
            event->peak_roll_deg,
            event->peak_height_cm, event->median_candidate_valid,
-           event->median_candidate_roll_deg,event->median_candidate_height_cm);
+           event->median_candidate_roll_deg, event->median_candidate_height_cm);
 }
 
 /* All results use the same columns. Invalid rows retain the last fresh values;
  * valid and sample_time_us distinguish these from a new measurement. */
-static void log_csv_sample(uint32_t sequence, uint64_t poll_time_us,
-                           buddy4_result_t result, const buddy4_output_t *output)
+static void log_csv_sample (uint32_t sequence, uint64_t poll_time_us,
+                            buddy4_result_t result,
+                            const buddy4_output_t * output)
 {
     printf("%lu,%llu,%d,%d,%d,%d,%s,%u,%lu,%lu,%llu,%lu,"
            "%d,%d,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,"
@@ -71,8 +72,10 @@ static void log_csv_sample(uint32_t sequence, uint64_t poll_time_us,
            (unsigned long long)poll_time_us,
            (int)result,
            output->valid,
-           output->tilt_valid, output->acceleration_valid, buddy4_quality_name(output->quality),
-           (unsigned)output->clipped_axes, (unsigned long)output->clipped_samples,
+           output->tilt_valid, output->acceleration_valid,
+           buddy4_quality_name(output->quality),
+           (unsigned)output->clipped_axes,
+           (unsigned long)output->clipped_samples,
            (unsigned long)output->unsuitable_samples,
            (unsigned long long)output->timestamp_us,
            (unsigned long)output->error_count,
@@ -100,11 +103,12 @@ static void log_csv_sample(uint32_t sequence, uint64_t poll_time_us,
            output->event.peak_confirmed,
            output->event.peak_roll_deg,
            output->event.peak_height_cm, output->event.median_candidate_valid,
-           output->event.median_candidate_roll_deg,output->event.median_candidate_height_cm);
+           output->event.median_candidate_roll_deg,
+           output->event.median_candidate_height_cm);
 }
 
 /* Standalone sensor monitor: sampling never depends on a USB connection. */
-int main(void)
+int main (void)
 {
     stdio_init_all();
     i2c_init(IMU_I2C_BUS, IMU_I2C_BAUD_HZ);
@@ -126,35 +130,50 @@ int main(void)
     uint32_t sequence = 0;
     bool usb_was_connected = false;
 
-    while (true) {
+    for (;;)
+    {
         sleep_until(from_us_since_boot(next_sample_us));
         uint64_t now_us = time_us_64();
-        if (!imu.ready && now_us >= next_config_retry_us) {
+
+        if ((!imu.ready) && (now_us >= next_config_retry_us))
+        {
             buddy4_configure(&imu);
             next_config_retry_us = now_us + CONFIG_RETRY_US;
         }
+
         buddy4_result_t result = buddy4_poll(&imu, now_us);
 
         /* USB writes have a bounded SDK timeout; logging is best effort. */
         bool usb_connected = stdio_usb_connected();
-        if (usb_connected) {
-            if (!usb_was_connected) {
+
+        if (usb_connected)
+        {
+            if (!usb_was_connected)
+            {
                 log_csv_header(&imu.config);
             }
-            if (imu.output.event_ended) {
+
+            if (imu.output.event_ended)
+            {
                 log_side_event_summary(&imu.output);
             }
+
             log_csv_sample(sequence++, now_us, result, &imu.output);
         }
+
         usb_was_connected = usb_connected;
 
         /* Skip missed slots instead of producing catch-up sample bursts. */
         next_sample_us += BUDDY4_PERIOD_US;
         now_us = time_us_64();
-        if (now_us >= next_sample_us) {
+
+        if (now_us >= next_sample_us)
+        {
             next_sample_us +=
-                ((now_us - next_sample_us) / BUDDY4_PERIOD_US + 1) *
-                BUDDY4_PERIOD_US;
+                    ((now_us - next_sample_us) / BUDDY4_PERIOD_US + 1) *
+                    BUDDY4_PERIOD_US;
         }
     }
 }
+
+/*** end of file ***/

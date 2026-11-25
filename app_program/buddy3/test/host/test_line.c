@@ -35,7 +35,7 @@ typedef struct
     double progress;
 } run_result_t;
 
-static run_result_t run(int max_ms, int verbose)
+static run_result_t run (int max_ms, int verbose)
 {
     run_result_t r = {0.0, 0.0, 0, 0, LINE_STATE_IDLE, 0.0};
     line_status_t status;
@@ -47,43 +47,61 @@ static run_result_t run(int max_ms, int verbose)
     {
         sim_advance_ms(1u);
         track_step_1ms();
-        if ((ms % (int)LINE_UPDATE_PERIOD_MS) == ((int)LINE_UPDATE_PERIOD_MS - 1))
+
+        if ((ms % (int)LINE_UPDATE_PERIOD_MS) == ((int)LINE_UPDATE_PERIOD_MS
+                - 1))
         {
             if ((ms % (int)MOTION_UPDATE_PERIOD_MS) == ((int)MOTION_UPDATE_PERIOD_MS - 1))
             {
                 motion_update();
             }
+
             line_follow_update();
             line_follow_get_status(&status);
-            if ((status.state == LINE_STATE_RECOVERING) && (track_progress() < 0.97))
+
+            if ((LINE_STATE_RECOVERING == status.state)
+                && (track_progress() < 0.97))
             {
                 r.lost_samples++;
             }
-            if ((status.state == LINE_STATE_FAULT) ||
-                ((status.state == LINE_STATE_STOPPED) && (track_progress() > 0.97)))
+
+            if ((LINE_STATE_FAULT == status.state) ||
+                ((LINE_STATE_STOPPED == status.state)
+                 && (track_progress() > 0.97)))
             {
                 break;
             }
-            if (verbose && ((ms % 500) == 499))
+
+            if (verbose && (499 == (ms % 500)))
             {
-                double x, y, h;
+                double x;
+                double y;
+                double h;
                 track_pose(&x, &y, &h);
-                printf("    t=%5d ms pose(%.0f,%.0f,%.0f) mask=%u state=%d err=%.1f mm\n",
+                printf("    t=%5d ms pose(%.0f,%.0f,%.0f) mask=%u state=%d "
+                       "err=%.1f mm\n",
                        ms + 1, x, y, h, (unsigned)status.sensor_mask,
                        (int)status.state, track_error_mm());
             }
         }
-        if ((ms % 5) == 0)
+
+        if (0 == (ms % 5))
         {
             double e = track_error_mm();
+
             if (track_progress() < 0.9)
             {
-                if (e > r.max_err_mm) { r.max_err_mm = e; }
+                if (e > r.max_err_mm)
+                {
+                    r.max_err_mm = e;
+                }
+
                 sum += e;
                 n++;
             }
         }
     }
+
     line_follow_get_status(&status);
     r.time_ms = ms;
     r.final_state = status.state;
@@ -92,7 +110,7 @@ static run_result_t run(int max_ms, int verbose)
     return r;
 }
 
-int main(int argc, char **argv)
+int main (int argc, char ** argv)
 
 {
     run_result_t r;
@@ -105,13 +123,21 @@ int main(int argc, char **argv)
     line_follow_init();
     CHECK(line_follow_start(), "line_follow_start() accepted");
 
-    printf("\n[follow the whole track: straights, 10 cm radius U-turn, S-curve, 270 deg loop, bend]\n");
+    printf("\n[follow the whole track: straights, 10 cm radius U-turn, "
+           "S-curve, 270 deg loop, bend]\n");
     r = run(240000, verbose);
-    printf("  time %d ms, progress %.0f %%, mean off-target %.1f mm, max %.1f mm, recovering ticks %d, final state %d\n",
-           r.time_ms, r.progress * 100.0, r.mean_err_mm, r.max_err_mm, r.lost_samples, (int)r.final_state);
+    printf("  time %d ms, progress %.0f %%, mean off-target %.1f mm, max %.1f "
+           "mm, recovering ticks %d, final state %d\n",
+           r.time_ms, r.progress * 100.0, r.mean_err_mm, r.max_err_mm,
+           r.lost_samples, (int)r.final_state);
     CHECK(r.progress > 0.97, "reaches the end of the line");
-    CHECK(r.final_state == LINE_STATE_STOPPED, "stops by itself after the line ends");
-    CHECK(r.max_err_mm < 20.0, "never farther than 20 mm from the line while following");
-    CHECK(r.lost_samples < 400, "brief line losses only (under 2 s of recovery turns in total)");
-    return (s_failures == 0) ? 0 : 1;
+    CHECK(LINE_STATE_STOPPED == r.final_state,
+          "stops by itself after the line ends");
+    CHECK(r.max_err_mm < 20.0,
+          "never farther than 20 mm from the line while following");
+    CHECK(r.lost_samples < 400,
+          "brief line losses only (under 2 s of recovery turns in total)");
+    return (0 == s_failures) ? 0 : 1;
 }
+
+/*** end of file ***/

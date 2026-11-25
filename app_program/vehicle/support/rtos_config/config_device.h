@@ -7,3 +7,5 @@
 #define DEVCNF_USE_IIC 1
 
 #endif
+
+/*** end of file ***/

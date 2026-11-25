@@ -1,0 +1,22 @@
+# Approximates BARR-C:2018 layout rules (clang-format >= 15).
+BasedOnStyle: LLVM
+Language: Cpp
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 80
+LineEnding: LF
+BreakBeforeBraces: Allman
+InsertBraces: true
+SpaceBeforeParens: ControlStatements
+PointerAlignment: Right
+IndentCaseLabels: false
+BreakBeforeBinaryOperators: NonAssignment
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 1
+SortIncludes: Never
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortBlocksOnASingleLine: Never
+AllowShortCaseLabelsOnASingleLine: false

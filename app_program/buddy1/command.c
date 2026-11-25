@@ -20,9 +20,9 @@ LOCAL uint32_t command_dropped_count = 0U;
     ((sizeof(command_message_t) + sizeof(UW) - 1U) / sizeof(UW))
 
 LOCAL UW command_buffer_memory[
-    (COMMAND_QUEUE_DEPTH * COMMAND_MESSAGE_WORDS)
-    + (COMMAND_QUEUE_DEPTH * 4U)
-];
+(COMMAND_QUEUE_DEPTH * COMMAND_MESSAGE_WORDS)
+        + (COMMAND_QUEUE_DEPTH * 4U)
+        ];
 
 LOCAL T_CMBF command_buffer_config = {
     .mbfatr = TA_TFIFO,
@@ -31,30 +31,31 @@ LOCAL T_CMBF command_buffer_config = {
     .bufptr = command_buffer_memory
 };
 
-LOCAL const char *command_type_to_string(uint8_t type)
+LOCAL const char * command_type_to_string (uint8_t type)
 {
-    switch (type) {
+    switch (type)
+    {
         case COMMAND_TYPE_START:
-            return "START";
+        return "START";
 
         case COMMAND_TYPE_STOP:
-            return "STOP";
+        return "STOP";
 
         case COMMAND_TYPE_PAUSE:
-            return "PAUSE";
+        return "PAUSE";
 
         case COMMAND_TYPE_RESUME:
-            return "RESUME";
+        return "RESUME";
 
         default:
-            return "UNKNOWN";
+        return "UNKNOWN";
     }
 }
 
 /*
  * Command consumer task.
  */
-LOCAL void command_task(INT stacd, void *exinf)
+LOCAL void command_task (INT stacd, void * exinf)
 {
     command_message_t message;
     INT received_size;
@@ -62,27 +63,29 @@ LOCAL void command_task(INT stacd, void *exinf)
     (void)stacd;
     (void)exinf;
 
-    while (1) {
+    for (;;)
+    {
         received_size = tk_rcv_mbf(
-            command_buffer_id,
-            &message,
-            TMO_FEVR
-        );
+                                   command_buffer_id,
+                                   &message,
+                                   TMO_FEVR
+                                   );
 
-        if (received_size != (INT)sizeof(command_message_t)) {
+        if (received_size != (INT)sizeof(command_message_t))
+        {
             tm_printf(
-                (UB *)"[Command] Invalid message size: %d\n",
-                received_size
-            );
+                      (UB *)"[Command] Invalid message size: %d\n",
+                      received_size
+                      );
             continue;
         }
 
         tm_printf(
-            (UB *)"[Command] type=%s seq=%u value=%d\n",
-            (UB *)command_type_to_string(message.type),
-            (unsigned int)message.sequence,
-            (int)message.value
-        );
+                  (UB *)"[Command] type=%s seq=%u value=%d\n",
+                  (UB *)command_type_to_string(message.type),
+                  (unsigned int)message.sequence,
+                  (int)message.value
+                  );
     }
 }
 
@@ -96,17 +99,19 @@ LOCAL T_CTSK command_task_config = {
 /*
  * PHASE 1: Create the message buffer.
  */
-ER buddy1_command_init(void)
+ER buddy1_command_init (void)
 {
-    if (command_buffer_id > 0) {
+    if (command_buffer_id > 0)
+    {
         return E_OK;
     }
 
     command_buffer_id = tk_cre_mbf(
-        &command_buffer_config
-    );
+                                   &command_buffer_config
+                                   );
 
-    if (command_buffer_id < E_OK) {
+    if (command_buffer_id < E_OK)
+    {
         return command_buffer_id;
     }
 
@@ -116,19 +121,21 @@ ER buddy1_command_init(void)
 /*
  * PHASE 2: Create and start the consumer task.
  */
-ER buddy1_command_start(void)
+ER buddy1_command_start (void)
 {
     ID task_id;
 
-    if (command_buffer_id <= 0) {
+    if (command_buffer_id <= 0)
+    {
         return E_OBJ;
     }
 
     task_id = tk_cre_tsk(
-        &command_task_config
-    );
+                         &command_task_config
+                         );
 
-    if (task_id < E_OK) {
+    if (task_id < E_OK)
+    {
         return task_id;
     }
 
@@ -138,35 +145,38 @@ ER buddy1_command_start(void)
 /*
  * Non-blocking command producer API.
  */
-ER buddy1_command_submit(
-    const command_message_t *message
-)
+ER buddy1_command_submit (
+                          const command_message_t * message
+                          )
 {
     ER error_code;
 
-    if (message == NULL) {
+    if (NULL == message)
+    {
         return E_PAR;
     }
 
-    if (command_buffer_id <= 0) {
+    if (command_buffer_id <= 0)
+    {
         return E_OBJ;
     }
 
     error_code = tk_snd_mbf(
-        command_buffer_id,
-        message,
-        sizeof(command_message_t),
-        TMO_POL
-    );
+                            command_buffer_id,
+                            message,
+                            sizeof(command_message_t),
+                            TMO_POL
+                            );
 
-    if (error_code == E_TMOUT) {
+    if (E_TMOUT == error_code)
+    {
         command_dropped_count++;
     }
 
     return error_code;
 }
 
-uint32_t buddy1_command_get_dropped_count(void)
+uint32_t buddy1_command_get_dropped_count (void)
 {
     return command_dropped_count;
 }
@@ -182,20 +192,23 @@ static uint32_t mqtt_command_sequence = 0U;
  * Use explicit lengths because MQTT payloads are binary data
  * and are not guaranteed to be null-terminated.
  */
-static uint8_t command_text_matches(
-    const char *payload,
-    uint16_t payload_length,
-    const char *expected,
-    uint16_t expected_length)
+static uint8_t command_text_matches (
+                                     const char * payload,
+                                     uint16_t payload_length,
+                                     const char * expected,
+                                     uint16_t expected_length)
 {
-    uint16_t i;
+    uint16_t idx;
 
-    if (payload_length != expected_length) {
+    if (payload_length != expected_length)
+    {
         return 0U;
     }
 
-    for (i = 0U; i < expected_length; i++) {
-        if (payload[i] != expected[i]) {
+    for (idx = 0U; idx < expected_length; idx++)
+    {
+        if (payload[idx] != expected[idx])
+        {
             return 0U;
         }
     }
@@ -210,117 +223,156 @@ static uint8_t command_text_matches(
  * and submit it using the existing non-blocking API.
  */
 /*
- * Integrated vehicle only: non-blocking START/STOP intent for the single controller task. Weak, so profiles
- * without the vehicle controller still link (the pointer is then NULL). It only sets flags: MQTT code never
- * calls a motor API, and it bypasses the diagnostic message buffer below so a full buffer cannot drop a STOP.
+ * Integrated vehicle only: non-blocking START/STOP intent for the single
+ * controller task. Weak, so profiles
+ * without the vehicle controller still link (the pointer is then NULL). It only
+ * sets flags: MQTT code never
+ * calls a motor API, and it bypasses the diagnostic message buffer below so a
+ * full buffer cannot drop a STOP.
  */
-extern void b5_remote_command_intent(unsigned command) __attribute__((weak));
+extern void b5_remote_command_intent (uint32_t command) __attribute__((weak));
 
 /*
- * Barcode map (Buddy 3): "MAP " followed by 26 letters (one per barcode letter A..Z, each L S R U or N) replaces
- * the A-Z table, "MAPRESET" restores the built-in defaults. Rejected while the car is running. All weak, so
- * profiles without Buddy 3 / the vehicle controller still link. The result is reported back through telemetry.
+ * Barcode map (Buddy 3): "MAP " followed by 26 letters (one per barcode letter
+ * A..Z, each L S R U or N) replaces
+ * the A-Z table, "MAPRESET" restores the built-in defaults. Rejected while the
+ * car is running. All weak, so
+ * profiles without Buddy 3 / the vehicle controller still link. The result is
+ * reported back through telemetry.
  */
-extern int junction_map_apply(const char *codes, unsigned length) __attribute__((weak));
-extern void junction_map_reset(void) __attribute__((weak));
-extern int b5_run_active(void) __attribute__((weak));
-static volatile int32_t barcode_map_result = 0;   /* 0 none yet, 1 applied, 2 bad format, 3 rejected (car running) */
+extern int junction_map_apply (const char * codes,
+                               uint32_t length) __attribute__((weak));
+extern void junction_map_reset (void) __attribute__((weak));
+extern int b5_run_active (void) __attribute__((weak));
+/* 0 none yet, 1 applied, 2 bad format, 3 rejected (car running) */
+static volatile int32_t barcode_map_result = 0;
 
-int32_t buddy1_barcode_map_result(void)
+int32_t buddy1_barcode_map_result (void)
 {
     return barcode_map_result;
 }
 
-static int32_t barcode_map_command(const char *payload, uint16_t payload_length)
+static int32_t barcode_map_command (const char * payload,
+                                    uint16_t payload_length)
 {
-    if ((junction_map_apply == NULL) || (junction_map_reset == NULL)) {
+    if ((NULL == junction_map_apply) || (NULL == junction_map_reset))
+    {
         barcode_map_result = 2;
         return (int32_t)E_NOSPT;
     }
-    if ((b5_run_active != NULL) && (b5_run_active() != 0)) {
+
+    if ((b5_run_active != NULL) && (b5_run_active() != 0))
+    {
         barcode_map_result = 3;
         return (int32_t)E_BUSY;
     }
-    if (command_text_matches(payload, payload_length, "MAPRESET", 8U) != 0U) {
+
+    if (command_text_matches(payload, payload_length, "MAPRESET", 8U) != 0U)
+    {
         junction_map_reset();
         barcode_map_result = 1;
         return 0;
     }
-    if ((payload_length == 30U) && (payload[3] == ' ') &&
-        (junction_map_apply(&payload[4], 26U) == 0)) {
+
+    if ((30U == payload_length) && (' ' == payload[3]) &&
+        (0 == junction_map_apply(&payload[4], 26U)))
+    {
         barcode_map_result = 1;
         return 0;
     }
+
     barcode_map_result = 2;
     return (int32_t)E_PAR;
 }
 
-int32_t buddy1_mqtt_command_ingest(
-    const char *payload,
-    uint16_t payload_length)
+int32_t buddy1_mqtt_command_ingest (
+                                    const char * payload,
+                                    uint16_t payload_length)
 {
     command_message_t message = {0};
 
-    if (payload == NULL) {
+    if (NULL == payload)
+    {
         return (int32_t)E_PAR;
     }
 
-    if ((payload_length >= 1U) && (((uint8_t)payload[0] & TF_BINARY_MARK) != 0U)) {
+    if ((payload_length >= 1U)
+        && (((uint8_t)payload[0] & TF_BINARY_MARK) != 0U))
+    {
         /* Compact binary command from the dashboard (see telemetry_frame.h). */
         uint8_t opcode = (uint8_t)payload[0] & 0x7FU;
 
-        if (opcode == TF_CMD_MAP) {
+        if (TF_CMD_MAP == opcode)
+        {
             char text[4U + TF_MAP_LETTERS + 1U] = { 'M', 'A', 'P', ' ' };
 
             if ((payload_length != TF_CMD_MAP_LENGTH) ||
-                !tf_decode_map((const uint8_t *)&payload[1], &text[4])) {
+                (!tf_decode_map((const uint8_t *) & payload[1], &text[4])))
+            {
                 barcode_map_result = 2;
                 return (int32_t)E_PAR;
             }
+
             return barcode_map_command(text, (uint16_t)(4U + TF_MAP_LETTERS));
         }
-        if (payload_length != 1U) {
+
+        if (payload_length != 1U)
+        {
             return (int32_t)E_PAR;
         }
-        if (opcode == TF_CMD_MAPRESET) {
+
+        if (TF_CMD_MAPRESET == opcode)
+        {
             return barcode_map_command("MAPRESET", 8U);
         }
-        else if (opcode == TF_CMD_START) {
+        else if (TF_CMD_START == opcode)
+        {
             message.type = COMMAND_TYPE_START;
         }
-        else if (opcode == TF_CMD_STOP) {
+        else if (TF_CMD_STOP == opcode)
+        {
             message.type = COMMAND_TYPE_STOP;
         }
-        else if (opcode == TF_CMD_PAUSE) {
+        else if (TF_CMD_PAUSE == opcode)
+        {
             message.type = COMMAND_TYPE_PAUSE;
         }
-        else if (opcode == TF_CMD_RESUME) {
+        else if (TF_CMD_RESUME == opcode)
+        {
             message.type = COMMAND_TYPE_RESUME;
         }
-        else {
+        else
+        {
             return (int32_t)E_PAR;
         }
     }
-    else if ((payload_length >= 3U) && (payload[0] == 'M') && (payload[1] == 'A') && (payload[2] == 'P')) {
+    else if ((payload_length >= 3U) && ('M' == payload[0])
+             && ('A' == payload[1]) && ('P' == payload[2]))
+    {
         return barcode_map_command(payload, payload_length);
     }
     else if (command_text_matches(payload, payload_length,
-                             "START", 5U) != 0U) {
+                                  "START", 5U) != 0U)
+    {
         message.type = COMMAND_TYPE_START;
     }
     else if (command_text_matches(payload, payload_length,
-                                  "STOP", 4U) != 0U) {
+                                  "STOP", 4U) != 0U)
+    {
         message.type = COMMAND_TYPE_STOP;
     }
     else if (command_text_matches(payload, payload_length,
-                                  "PAUSE", 5U) != 0U) {
+                                  "PAUSE", 5U) != 0U)
+    {
         message.type = COMMAND_TYPE_PAUSE;
     }
     else if (command_text_matches(payload, payload_length,
-                                  "RESUME", 6U) != 0U) {
+                                  "RESUME", 6U) != 0U)
+    {
         message.type = COMMAND_TYPE_RESUME;
     }
-    else {
+    else
+    {
         return (int32_t)E_PAR;
     }
 
@@ -328,13 +380,17 @@ int32_t buddy1_mqtt_command_ingest(
      * Source 1 represents Wi-Fi/Buddy 1.
      * No motor action is performed at this stage.
      */
-    if (b5_remote_command_intent != NULL) {
-        if (message.type == COMMAND_TYPE_STOP) {
+    if (b5_remote_command_intent != NULL)
+    {
+        if (COMMAND_TYPE_STOP == message.type)
+        {
             b5_remote_command_intent((unsigned)'S');
         }
-        else if (message.type == COMMAND_TYPE_START) {
+        else if (COMMAND_TYPE_START == message.type)
+        {
             b5_remote_command_intent((unsigned)'R');
         }
+
         /* PAUSE / RESUME stay parsed and logged only. */
     }
 
@@ -347,3 +403,5 @@ int32_t buddy1_mqtt_command_ingest(
 
     return (int32_t)buddy1_command_submit(&message);
 }
+
+/*** end of file ***/

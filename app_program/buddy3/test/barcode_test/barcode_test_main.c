@@ -3,8 +3,10 @@
  * @brief Stand-alone barcode reader test. NO MOTORS, NO LINE FOLLOWING.
  *
  * Push the car by hand over the barcode, with the barcode sensor (GP26) passing
- * over the bars at a steady, slow pace. The decoded letter is printed on USB serial
- * (115200 baud). Every black bar / white gap length is printed too, so a bad read
+ * over the bars at a steady, slow pace. The decoded letter is printed on USB
+ * serial
+ * (115200 baud). Every black bar / white gap length is printed too, so a bad
+ * read
  * can be diagnosed.
  */
 #include <stdio.h>
@@ -15,31 +17,35 @@
 #include "line_config.h"
 #include "line_sensors.h"
 
-void barcode_scan_on_decoded(const barcode39_result_t *p_result)
+void barcode_scan_on_decoded (const barcode39_result_t * p_result)
 {
     printf("\n*** BARCODE: %s  (%s) ***\n\n", p_result->text,
            p_result->reversed ? "crossed backwards" : "crossed forwards");
 }
 
-void barcode_scan_on_run(bool black, uint32_t width_us)
+void barcode_scan_on_run (bool black, uint32_t width_us)
 {
-    printf("  %s %6lu us\n", black ? "BLACK" : "white", (unsigned long)width_us);
+    printf("  %s %6lu us\n", black ? "BLACK" : "white",
+           (unsigned long)width_us);
 }
 
-int main(void)
+int main (void)
 {
     uint32_t last_print_ms = 0u;
 
     stdio_init_all();
-    for (int i = 0; (i < 100) && !stdio_usb_connected(); i++)
+
+    for (int idx = 0; (idx < 100) && (!stdio_usb_connected()); idx++)
     {
         sleep_ms(100);              /* wait up to 10 s for a terminal */
     }
+
     line_sensors_init();
     barcode_scan_init();
 
     printf("\nBarcode test. Push the car slowly over the barcode.\n");
-    printf("Sensor: GP%u, black level %u. Debounce %u us.\n", (unsigned)LINE_PIN_BARCODE_IR,
+    printf("Sensor: GP%u, black level %u. Debounce %u us.\n",
+           (unsigned)LINE_PIN_BARCODE_IR,
            (unsigned)LINE_BLACK_LEVEL, (unsigned)BARCODE_DEBOUNCE_US);
 
     for (;;)
@@ -54,9 +60,14 @@ int main(void)
             last_print_ms = now_ms;
             printf("[idle] sensor=%s decoded=%lu rejected=%lu last_reject=%u "
                    "(1 length,2 ratio,3 pattern,4 ends,5 gap,6 not-letter)\n",
-                   black ? "BLACK" : "white", (unsigned long)barcode_scan_count(),
-                   (unsigned long)barcode_scan_fail_count(), (unsigned)barcode_scan_last_fail());
+                   black ? "BLACK" : "white",
+                   (unsigned long)barcode_scan_count(),
+                   (unsigned long)barcode_scan_fail_count(),
+                   (unsigned)barcode_scan_last_fail());
         }
+
         sleep_us(1000);             /* 1 kHz sampling */
     }
 }
+
+/*** end of file ***/

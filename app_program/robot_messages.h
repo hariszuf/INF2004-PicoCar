@@ -11,7 +11,8 @@
  * Does not create kernel IPC objects.
  */
 
-typedef enum {
+typedef enum
+{
     ROBOT_SOURCE_WIFI     = 1,
     ROBOT_SOURCE_MOTION   = 2,
     ROBOT_SOURCE_BARCODE  = 3,
@@ -19,7 +20,8 @@ typedef enum {
     ROBOT_SOURCE_OBSTACLE = 5
 } robot_source_t;
 
-typedef enum {
+typedef enum
+{
     ROBOT_EVENT_LINE_SAMPLE = 1,
     ROBOT_EVENT_BARCODE_DETECTED,
     ROBOT_EVENT_IMU_SAMPLE,
@@ -30,7 +32,8 @@ typedef enum {
 
 #define ROBOT_MSG_VALID 0x0001U
 
-typedef struct {
+typedef struct
+{
     uint32_t timestamp_ms;
     uint32_t sequence;
 
@@ -43,8 +46,10 @@ typedef struct {
 } robot_event_t;
 
 _Static_assert(
-    sizeof(robot_event_t) == 20U,
-    "Unexpected robot_event_t layout"
-);
+               20U == sizeof(robot_event_t),
+               "Unexpected robot_event_t layout"
+               );
 
 #endif
+
+/*** end of file ***/

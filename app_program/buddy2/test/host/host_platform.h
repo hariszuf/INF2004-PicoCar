@@ -8,6 +8,8 @@
 #include <stdint.h>
 
 /** Simulated time in microseconds. */
-uint64_t host_time_us(void);
+uint64_t host_time_us (void);
 
 #endif /* HOST_PLATFORM_H */
+
+/*** end of file ***/
