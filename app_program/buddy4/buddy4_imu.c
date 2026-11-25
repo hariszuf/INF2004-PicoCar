@@ -357,8 +357,8 @@ static bool read_registers (buddy4_imu_t * p_imu, uint8_t reg,
     }
 
     return (p_imu->bus.write) && (p_imu->bus.read) &&
-            (p_imu->bus.write(p_imu->bus.context, LSM303D_ADDRESS,
-                            &reg, 1, true) == 1) &&
+            (1 == p_imu->bus.write(p_imu->bus.context, LSM303D_ADDRESS,
+                                   &reg, 1, true)) &&
             (p_imu->bus.read(p_imu->bus.context, LSM303D_ADDRESS,
                            data, count, false) == (int32_t)count);
 }

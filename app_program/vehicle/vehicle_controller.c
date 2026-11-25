@@ -948,11 +948,11 @@ static void controller_task (INT stacd, void * p_exinf)
                 || (current.state != last_reported_state) ||
                 ((uint32_t)(now - last_line_report) >= 1000u))
             {
-                if (report_measurement(TELEMETRY_SOURCE_BUDDY3,
+                if (E_OK == report_measurement(TELEMETRY_SOURCE_BUDDY3,
                                        TELEMETRY_TYPE_LINE_SENSOR,
                                        0,
                                        mask, current.state,
-                                               report_sequence) == E_OK)
+                                               report_sequence))
                 {
                     last_line_report = now;
                     last_reported_mask = mask;
@@ -997,13 +997,13 @@ static void controller_task (INT stacd, void * p_exinf)
              || (lift_count != last_lift_count_reported) ||
              ((uint32_t)(now - last_lift_report) >= 1000u)))
         {
-            if (report_measurement(4, TELEMETRY_TYPE_LIFT,
+            if (E_OK == report_measurement(4, TELEMETRY_TYPE_LIFT,
                                    (uint16_t)((b_lift_fresh ? 1u : 0u)
                                               | (b_lift_active ? 2u : 0u)),
                                    b_lift_active ? lift_reason : 0,
                                    (int32_t)((lift_count & 0xFFFFu)
                                              | ((uint32_t)lift_tilt_dec << 16)),
-                                   report_sequence) == E_OK)
+                                   report_sequence))
             {
                 last_lift_report = now;
                 b_last_lift_reported = b_lift_active;

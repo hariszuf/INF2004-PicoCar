@@ -4,8 +4,8 @@
 #include <stdio.h>
 #include "auto_start.h"
 static int32_t fails;
-#define CHECK(c) do{ if(!(c)){ printf("FAIL line %d: %s\n",__LINE__,#c); \
-    fails++; } }while(0)
+#define CHECK(c) do { if (!(c)) { printf("FAIL line %d: %s\n", __LINE__, #c); \
+    fails++; } } while (0)
 static uint32_t s_now;
 /* Run the controller policy for ms milliseconds; returns the last non-trivial
  * action seen. */
