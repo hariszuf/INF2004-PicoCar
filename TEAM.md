@@ -176,8 +176,8 @@ sends to it or waits on it. Agree on the data format before coding.
 
 | ID | From → To | Mechanism | Object ID name | Data / meaning | Agreed by |
 |---|---|---|---|---|---|
-| IF-01 | S2, S3, S4, S5 and `controller_task` → S1 | message buffer (owned by S1) | `telemetry_buffer_id` | frames from `telemetry_frame.h`, sent with `buddy1_telemetry_submit()` | Team 08 (as implemented) |
-| IF-02 | remote dashboard → S1 → `controller_task` | message buffer (owned by S1) | `command_buffer_id` | START / STOP / PAUSE / RESUME commands, sent with `buddy1_command_submit()` | Team 08 (as implemented) |
+| IF-01 | S2, S3, S4, S5 and `controller_task` → S1 | message buffer (owned by S1) | `telemetry_buffer_id` (static in `telemetry.c`) | frames from `telemetry_frame.h`, sent with `buddy1_telemetry_submit()` | Team 08 (as implemented) |
+| IF-02 | remote dashboard → S1 → `controller_task` | message buffer (owned by S1) | `command_buffer_id` (static in `command.c`) | START / STOP / PAUSE / RESUME commands, sent with `buddy1_command_submit()` | Team 08 (as implemented) |
 | IF-03 | S4 → `controller_task` | shared data under a mutex + event flag + cyclic handler (owned by S4) | `data_mutex`, `release_flag`, `release_cyclic` | IMU tilt, hump and impact results from `buddy4_task.h`, read only while locked | Team 08 (as implemented) |
 | IF-04 | `controller_task` ↔ S5 | shared request and feedback structs (owned by S5) | `pending_request`, `feedback_shared` | `b5_request_t` (scan or bypass request) and `b5_feedback_t` (front clear, scan result) | Team 08 (as implemented) |
 | IF-05 | `controller_task` → S2 | direct calls that only queue (owned by S2) | none | `motion_*` calls in `motion_control.h`: move, spin, drive, stop | Team 08 (as implemented) |

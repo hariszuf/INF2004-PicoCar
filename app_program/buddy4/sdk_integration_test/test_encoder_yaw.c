@@ -5,7 +5,7 @@
 #include <math.h>
 #include <stdio.h>
 static buddy4_encoder_yaw_t d;
-static const float64_t deg_per_rad = 57.29577951308232;
+static const float64_t s_deg_per_rad = 57.29577951308232;
 static void reset (float32_t spacing)
 {
     buddy4_encoder_yaw_config_t cfg = buddy4_encoder_yaw_default_config();
@@ -30,7 +30,7 @@ static void rate (float32_t l, float32_t r, float32_t spacing,
     assert((o.valid) && (20000 == o.sample_us));
     assert(fabs(o.encoder_yaw_rate_estimate_rad_s - expected) < 1e-6);
     assert(fabs(o.encoder_yaw_rate_estimate_deg_s - expected
-                * deg_per_rad) < 1e-4);
+                * s_deg_per_rad) < 1e-4);
 }
 
 static void signs_units (void)

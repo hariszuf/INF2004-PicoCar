@@ -19,8 +19,8 @@
 
 static drive_control_t control;
 /* Persistent observer storage avoids increasing the main task's stack frame. */
-static buddy4_obstruction_sdk_t obstruction;
-static buddy4_obstruction_output_t po;
+static buddy4_obstruction_sdk_t s_obstruction;
+static buddy4_obstruction_output_t s_po;
 static int32_t bus_write (void * p_ctx, uint8_t a, const uint8_t * p, size_t n,
                       bool b_ns)
 {
@@ -63,7 +63,7 @@ int main (void)
     buddy4_motion_init(&motion_class, buddy4_motion_default_config());
     buddy4_impact_t impact;
     buddy4_impact_init(&impact, buddy4_impact_default_config());
-    buddy4_obstruction_sdk_init(&obstruction);
+    buddy4_obstruction_sdk_init(&s_obstruction);
     /* Persistent IMU state also belongs in static storage: the expanded CSV
      * argument frame must leave room for nested calls on the SDK main stack. */
     static buddy4_imu_t imu;
@@ -103,7 +103,7 @@ int main (void)
             /* This bounds a controller update/status observation, not the
              * underlying encoder acquisition time (Buddy 2 does not expose it).
              */
-            buddy4_obstruction_sdk_note_update(&obstruction, &observed,
+            buddy4_obstruction_sdk_note_update(&s_obstruction, &observed,
                                                &control,
                                                start, speed_sample_us,
                                                        motor.skipped);
@@ -186,7 +186,7 @@ int main (void)
         /* Consume new observations only AFTER serial/safety decisions, so S or
          * a same-loop fault cancels pending obstruction before it can confirm.
          */
-        po = buddy4_obstruction_sdk_poll(&obstruction,
+        s_po = buddy4_obstruction_sdk_poll(&s_obstruction,
                                          &control, &imu, usb, time_us_64());
         /* Bounded best-effort output outside updates. Slow readers may lose
          * data. */
@@ -347,11 +347,11 @@ int main (void)
                    ey.valid, (uint64_t)ey.sample_us,
                    control.selected_left_cm_s, control.selected_right_cm_s,
                    control.reason,
-                   po.valid, po.established, po.possible_obstruction,
-                   (uint32_t)po.event_count,
-                   (uint64_t)po.observation_us,
-                   (uint64_t)po.event_us,
-                   (uint32_t)po.slow_ms);
+                   s_po.valid, s_po.established, s_po.possible_obstruction,
+                   (uint32_t)s_po.event_count,
+                   (uint64_t)s_po.observation_us,
+                   (uint64_t)s_po.event_us,
+                   (uint32_t)s_po.slow_ms);
         }
 
         tight_loop_contents();

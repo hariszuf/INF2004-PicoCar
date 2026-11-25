@@ -10,21 +10,22 @@
 static buddy4_obstruction_sdk_t a;
 static drive_control_t control;
 static motion_status_t motor;
-static buddy4_imu_t imu;
+static buddy4_imu_t s_imu;
 static uint64_t t;
-static uint32_t skipped;
+static uint32_t s_skipped;
 static void reset (void)
 {
     buddy4_obstruction_sdk_init(&a);
     t = 0;
-    skipped = 0;
+    s_skipped = 0;
     control = (drive_control_t){.running = true, .mode = DRIVE_MANUAL,
         .started_us = 1,
         .selected_left_cm_s = 3, .selected_right_cm_s = 3};
     motor = (motion_status_t){.state = MOTION_STATE_EXECUTING,
         .terrain_speed_scale = 1};
-    imu = (buddy4_imu_t){.ready = true};
-    imu.output.valid = imu.output.acceleration_valid = imu.output.tilt_valid =
+    s_imu = (buddy4_imu_t){.ready = true};
+    s_imu.output.valid =
+            s_imu.output.acceleration_valid = s_imu.output.tilt_valid =
             true;
 }
 
@@ -33,14 +34,14 @@ static void note (float32_t left, float32_t right)
     t += 20000;
     motor.left_speed_cm_s = left;
     motor.right_speed_cm_s = right;
-    imu.output.timestamp_us = t + 500;
+    s_imu.output.timestamp_us = t + 500;
     buddy4_obstruction_sdk_note_update(&a, &motor, &control, t, t + 100,
-                                       skipped);
+                                       s_skipped);
 }
 
 static buddy4_obstruction_output_t poll (void)
 {
-    return buddy4_obstruction_sdk_poll(&a, &control, &imu, true, t + 1000);
+    return buddy4_obstruction_sdk_poll(&a, &control, &s_imu, true, t + 1000);
 }
 
 static buddy4_obstruction_output_t step (float32_t l, float32_t r)
@@ -174,29 +175,29 @@ static void ramps_turns_faults (void)
 
         if (0 == kind)
         {
-            imu.output.terrain = 1;
+            s_imu.output.terrain = 1;
         }
 
         if (1 == kind)
         {
-            imu.output.side = -1;
+            s_imu.output.side = -1;
         }
 
         if (2 == kind)
         {
             /* Before 6 deg terrain entry. */
-            imu.output.filtered_pitch_deg = 3.01f;
+            s_imu.output.filtered_pitch_deg = 3.01f;
         }
 
         if (3 == kind)
         {
             /* Before 4 deg side entry. */
-            imu.output.filtered_roll_deg = -2.01f;
+            s_imu.output.filtered_roll_deg = -2.01f;
         }
 
         if (4 == kind)
         {
-            imu.output.filtered_pitch_deg = 4;
+            s_imu.output.filtered_pitch_deg = 4;
         }
 
         if (5 == kind)
@@ -262,11 +263,11 @@ static void timing_and_invalid (void)
         reset();
         establish();
         pending();
-        uint64_t imu_before = imu.output.timestamp_us;
+        uint64_t imu_before = s_imu.output.timestamp_us;
 
         if (0 == kind)
         {
-            skipped++;
+            s_skipped++;
         }
 
         if (1 == kind)
@@ -281,70 +282,70 @@ static void timing_and_invalid (void)
 
         if (3 == kind)
         {
-            imu.ready = false;
+            s_imu.ready = false;
         }
 
         if (4 == kind)
         {
-            imu.output.valid = false;
+            s_imu.output.valid = false;
         }
 
         if (5 == kind)
         {
-            imu.output.acceleration_valid = false;
+            s_imu.output.acceleration_valid = false;
         }
 
         if (6 == kind)
         {
-            imu.output.tilt_valid = false;
+            s_imu.output.tilt_valid = false;
         }
 
         if (7 == kind)
         {
-            imu.output.clipped_axes = 1;
+            s_imu.output.clipped_axes = 1;
         }
 
         if (8 == kind)
         {
-            imu.output.roll_deg = NAN;
+            s_imu.output.roll_deg = NAN;
         }
 
         note(9 == kind ? NAN : 0, 10 == kind ? INFINITY : 0);
 
         if (11 == kind)
         {
-            imu.output.timestamp_us = t - 40001;
+            s_imu.output.timestamp_us = t - 40001;
         }
 
         if (12 == kind)
         {
-            imu.output.timestamp_us = t + 1001; /* Future relative to poll. */
+            s_imu.output.timestamp_us = t + 1001; /* Future relative to poll. */
         }
 
         if (13 == kind)
         {
             /* Fresh age, excess cross-source skew. */
-            imu.output.timestamp_us = t - 31000;
+            s_imu.output.timestamp_us = t - 31000;
         }
 
         if (14 == kind)
         {
             /* Reversed IMU time is a fault. */
-            imu.output.timestamp_us = imu_before - 1;
+            s_imu.output.timestamp_us = imu_before - 1;
         }
 
         if (15 == kind)
         {
             /* Duplicate callback. */
             buddy4_obstruction_sdk_note_update(&a, &motor, &control, t, t + 100,
-                                               skipped);
+                                               s_skipped);
         }
 
         if (16 == kind)
         {
             /* Long update. */
             buddy4_obstruction_sdk_note_update(&a, &motor, &control, t,
-                                               t + 6000, skipped);
+                                               t + 6000, s_skipped);
         }
 
         if (17 == kind)
@@ -360,7 +361,7 @@ static void timing_and_invalid (void)
     reset();
     establish();
     pending();
-    assert(!buddy4_obstruction_sdk_poll(&a, &control, &imu, true,
+    assert(!buddy4_obstruction_sdk_poll(&a, &control, &s_imu, true,
                                         t + 41000).valid);
     t += 60000;
 
@@ -412,13 +413,13 @@ static void phased_20ms_updates (void)
         motor.left_speed_cm_s = 3.18f;
         motor.right_speed_cm_s = 3.09f;
         buddy4_obstruction_sdk_note_update(&a, &motor, &control, t, t + 100,
-                                           skipped);
+                                           s_skipped);
         uint64_t previous = a.observer.output.observation_us;
         bool b_delayed = idx % 2;
 
         if (!b_delayed)
         {
-            imu.output.timestamp_us = t + 500;
+            s_imu.output.timestamp_us = t + 500;
         }
 
         buddy4_obstruction_output_t out = poll();
@@ -431,8 +432,8 @@ static void phased_20ms_updates (void)
                 assert(out.observation_us == previous);
             }
 
-            imu.output.timestamp_us = t + 2000;
-            out = buddy4_obstruction_sdk_poll(&a, &control, &imu, true,
+            s_imu.output.timestamp_us = t + 2000;
+            out = buddy4_obstruction_sdk_poll(&a, &control, &s_imu, true,
                                               t + 3000);
         }
 
@@ -458,10 +459,10 @@ static void waiting_is_not_evidence (void)
     reset();
     establish();
     pending();
-    uint64_t previous_imu = imu.output.timestamp_us;
+    uint64_t previous_imu = s_imu.output.timestamp_us;
     uint64_t previous_motor = a.observer.output.observation_us;
     note(0, 0);
-    imu.output.timestamp_us = previous_imu;
+    s_imu.output.timestamp_us = previous_imu;
     buddy4_obstruction_output_t out = poll();
     assert((a.pending) && (out.valid) && (out.established));
     assert((out.observation_us == previous_motor) && (80 == out.slow_ms)
@@ -469,14 +470,14 @@ static void waiting_is_not_evidence (void)
 
     for (uint64_t now = t + 1100; now < t + 3000; now += 100)
     {
-        out = buddy4_obstruction_sdk_poll(&a, &control, &imu, true, now);
+        out = buddy4_obstruction_sdk_poll(&a, &control, &s_imu, true, now);
         assert((a.pending) && (!out.possible_obstruction)
                && (0 == out.event_count));
         assert((out.observation_us == previous_motor) && (80 == out.slow_ms));
     }
 
-    imu.output.timestamp_us = t + 3000;
-    out = buddy4_obstruction_sdk_poll(&a, &control, &imu, true, t + 4000);
+    s_imu.output.timestamp_us = t + 3000;
+    out = buddy4_obstruction_sdk_poll(&a, &control, &s_imu, true, t + 4000);
     assert((!a.pending) && (out.possible_obstruction)
            && (1 == out.event_count));
     /* Motor observation time is not rewritten. */
@@ -487,14 +488,14 @@ static void waiting_is_not_evidence (void)
     reset();
     establish();
     pending();
-    previous_imu = imu.output.timestamp_us;
+    previous_imu = s_imu.output.timestamp_us;
     note(0, 0);
-    imu.output.timestamp_us = previous_imu;
+    s_imu.output.timestamp_us = previous_imu;
     poll();
     assert(a.pending);
     control.running = false;
-    imu.output.timestamp_us = t + 3000;
-    out = buddy4_obstruction_sdk_poll(&a, &control, &imu, true, t + 4000);
+    s_imu.output.timestamp_us = t + 3000;
+    out = buddy4_obstruction_sdk_poll(&a, &control, &s_imu, true, t + 4000);
     assert((!out.valid) && (!out.established) && (!out.possible_obstruction)
            && (0 == out.event_count));
 
@@ -502,11 +503,11 @@ static void waiting_is_not_evidence (void)
     reset();
     establish();
     pending();
-    previous_imu = imu.output.timestamp_us;
+    previous_imu = s_imu.output.timestamp_us;
     note(0, 0);
-    imu.output.timestamp_us = previous_imu;
+    s_imu.output.timestamp_us = previous_imu;
     poll();
-    out = buddy4_obstruction_sdk_poll(&a, &control, &imu, true, t + 41001);
+    out = buddy4_obstruction_sdk_poll(&a, &control, &s_imu, true, t + 41001);
     assert((!out.valid) && (!out.established) && (!out.possible_obstruction)
            && (0 == out.event_count));
     /* Fresh IMU data cannot substitute for missing motor updates either. */
@@ -516,7 +517,7 @@ static void waiting_is_not_evidence (void)
     for (int32_t idx = 0; idx < 3; idx++)
     {
         t += 20000;
-        imu.output.timestamp_us = t + 500;
+        s_imu.output.timestamp_us = t + 500;
         out = poll();
         assert((!out.possible_obstruction) && (0 == out.event_count));
 
@@ -530,9 +531,9 @@ static void waiting_is_not_evidence (void)
      */
     reset();
     establish();
-    previous_imu = imu.output.timestamp_us;
+    previous_imu = s_imu.output.timestamp_us;
     note(3, 3);
-    imu.output.timestamp_us = previous_imu;
+    s_imu.output.timestamp_us = previous_imu;
     poll();
     assert(a.pending);
     note(3, 3); /* Still pending at a second actual motor update. */
@@ -541,9 +542,9 @@ static void waiting_is_not_evidence (void)
     /* Known nonfinite encoder input cancels even before a NEW IMU is ready. */
     reset();
     establish();
-    previous_imu = imu.output.timestamp_us;
+    previous_imu = s_imu.output.timestamp_us;
     note(NAN, 3);
-    imu.output.timestamp_us = previous_imu;
+    s_imu.output.timestamp_us = previous_imu;
     assert((!poll().valid) && (!a.observer.output.established));
 }
 
@@ -580,10 +581,10 @@ static void actual_foam_transition (void)
         const drive_row_t * p_r = &p_sample->row;
         /* Retain recorded gaps, simulate update phase. */
         t = p_sample->sample_us - 20000;
-        imu.output.pitch_deg = p_r->pitch;
-        imu.output.roll_deg = p_r->roll;
-        imu.output.filtered_pitch_deg = p_r->filtered_pitch;
-        imu.output.filtered_roll_deg = p_r->filtered_roll;
+        s_imu.output.pitch_deg = p_r->pitch;
+        s_imu.output.roll_deg = p_r->roll;
+        s_imu.output.filtered_pitch_deg = p_r->filtered_pitch;
+        s_imu.output.filtered_roll_deg = p_r->filtered_roll;
         buddy4_obstruction_output_t out = step(p_r->left, p_r->right);
 
         if ((p_sample->sample_us >= 87480295)
@@ -603,7 +604,7 @@ static void actual_foam_transition (void)
     assert((event >= 87840000) && (event < 88224602)
            && (1 == a.observer.output.event_count));
     control.running = false;
-    assert(!buddy4_obstruction_sdk_poll(&a, &control, &imu, true,
+    assert(!buddy4_obstruction_sdk_poll(&a, &control, &s_imu, true,
                                         88224602).possible_obstruction);
     assert(1 == a.observer.output.event_count);
     printf("Actual foam speed/angle replay: possible obstruction at %.6f s "
@@ -671,11 +672,11 @@ static void recorded_angles_and_cooperative_schedule (void)
 
             if (b_sampled)
             {
-                imu.output.timestamp_us = clock;
-                imu.output.pitch_deg = flat_control ? 0 : p_r->pitch;
-                imu.output.roll_deg = flat_control ? 0 : p_r->roll;
-                imu.output.filtered_pitch_deg = p_r->filtered_pitch;
-                imu.output.filtered_roll_deg = p_r->filtered_roll;
+                s_imu.output.timestamp_us = clock;
+                s_imu.output.pitch_deg = flat_control ? 0 : p_r->pitch;
+                s_imu.output.roll_deg = flat_control ? 0 : p_r->roll;
+                s_imu.output.filtered_pitch_deg = p_r->filtered_pitch;
+                s_imu.output.filtered_roll_deg = p_r->filtered_roll;
                 /* Bounded acquisition duration similar to capture. */
                 clock += 1500;
             }
@@ -683,7 +684,7 @@ static void recorded_angles_and_cooperative_schedule (void)
             /* Serial/safety decisions always precede assessment. */
             clock += 30;
             buddy4_obstruction_output_t out =
-                    buddy4_obstruction_sdk_poll(&a, &control, &imu, true,
+                    buddy4_obstruction_sdk_poll(&a, &control, &s_imu, true,
                                                 clock);
 
             if (b_sampled)
@@ -706,7 +707,7 @@ static void recorded_angles_and_cooperative_schedule (void)
                 {
                     clock += 10;
                     buddy4_obstruction_output_t again =
-                            buddy4_obstruction_sdk_poll(&a, &control, &imu,
+                            buddy4_obstruction_sdk_poll(&a, &control, &s_imu,
                             true, clock);
                     assert(again.observation_us == out.observation_us);
                     assert((again.established == out.established)
@@ -809,7 +810,7 @@ static void recorded_ramp (const char * name, uint32_t expected_rows,
                         : (motion_state_t)atoi(field[39]);
         motor.fault =
                 b_held ? MOTION_FAULT_NONE : (motion_fault_t)atoi(field[40]);
-        imu.output.valid = (0 != atoi(field[3])) && (0 == atoi(field[2]));
+        s_imu.output.valid = (0 != atoi(field[3])) && (0 == atoi(field[2]));
         float32_t x = strtof(field[9], NULL), y = strtof(field[10], NULL),
         z = strtof(field[11], NULL);
         float32_t mag = hypotf(hypotf(x, y), z);
@@ -824,23 +825,24 @@ static void recorded_ramp (const char * name, uint32_t expected_rows,
             }
         }
 
-        imu.output.acceleration_valid = (!b_clipped) && (isfinite(mag));
-        imu.output.tilt_valid = (imu.output.acceleration_valid) && (mag >= 0.8f)
+        s_imu.output.acceleration_valid = (!b_clipped) && (isfinite(mag));
+        s_imu.output.tilt_valid =
+                (s_imu.output.acceleration_valid) && (mag >= 0.8f)
                 && (mag <= 1.2f);
-        imu.output.clipped_axes = b_clipped ? 7 : 0;
-        imu.output.pitch_deg = strtof(field[12], NULL);
-        imu.output.roll_deg = strtof(field[13], NULL);
-        imu.output.filtered_pitch_deg = strtof(field[14], NULL);
-        imu.output.filtered_roll_deg = strtof(field[15], NULL);
-        imu.output.terrain = atoi(field[16]);
-        imu.output.side = atoi(field[17]);
+        s_imu.output.clipped_axes = b_clipped ? 7 : 0;
+        s_imu.output.pitch_deg = strtof(field[12], NULL);
+        s_imu.output.roll_deg = strtof(field[13], NULL);
+        s_imu.output.filtered_pitch_deg = strtof(field[14], NULL);
+        s_imu.output.filtered_roll_deg = strtof(field[15], NULL);
+        s_imu.output.terrain = atoi(field[16]);
+        s_imu.output.side = atoi(field[17]);
         buddy4_obstruction_output_t out =
                 step(strtof(field[36], NULL), strtof(field[37], NULL));
         assert((!out.possible_obstruction) && (0 == out.event_count));
 
-        if ((imu.output.terrain) || (imu.output.side)
-            || (fabsf(imu.output.filtered_pitch_deg) > 3) ||
-            (fabsf(imu.output.filtered_roll_deg) > 2))
+        if ((s_imu.output.terrain) || (s_imu.output.side)
+            || (fabsf(s_imu.output.filtered_pitch_deg) > 3) ||
+            (fabsf(s_imu.output.filtered_roll_deg) > 2))
         {
             assert((!out.valid) && (!out.established));
             guarded++;
@@ -880,11 +882,12 @@ static void filtered_onset_and_recovery (void)
 
             for (uint32_t idx = 0; idx < n; idx++)
             {
-                imu.output.pitch_deg = axis ? 0 : sign * 8;
-                imu.output.roll_deg = axis ? sign * 5 : 0;
-                imu.output.filtered_pitch_deg =
+                s_imu.output.pitch_deg = axis ? 0 : sign * 8;
+                s_imu.output.roll_deg = axis ? sign * 5 : 0;
+                s_imu.output.filtered_pitch_deg =
                         axis ? 0 : sign * pitch_step[idx];
-                imu.output.filtered_roll_deg = axis ? sign * roll_step[idx] : 0;
+                s_imu.output.filtered_roll_deg =
+                        axis ? sign * roll_step[idx] : 0;
                 assert(!step(0.1f, 0.1f).possible_obstruction);
             }
 
@@ -897,8 +900,9 @@ static void filtered_onset_and_recovery (void)
             }
 
             assert(0 == a.observer.output.event_count);
-            imu.output.pitch_deg = imu.output.roll_deg = 0;
-            imu.output.filtered_pitch_deg = imu.output.filtered_roll_deg = 0;
+            s_imu.output.pitch_deg = s_imu.output.roll_deg = 0;
+            s_imu.output.filtered_pitch_deg =
+                    s_imu.output.filtered_roll_deg = 0;
 
             for (int32_t idx = 0; idx < 15; idx++)
             {
@@ -922,19 +926,19 @@ static void filtered_onset_and_recovery (void)
     reset();
     establish();
     pending();
-    imu.output.filtered_roll_deg = 2.01f;
+    s_imu.output.filtered_roll_deg = 2.01f;
     assert((!step(0, 0).possible_obstruction)
            && (0 == a.observer.output.event_count));
     /* Hysteresis state still suppresses even at the angle guard boundary. */
     reset();
     establish();
-    imu.output.filtered_roll_deg = 2;
-    imu.output.side = 1;
+    s_imu.output.filtered_roll_deg = 2;
+    s_imu.output.side = 1;
     assert(!step(0, 0).valid);
     reset();
     establish();
-    imu.output.filtered_pitch_deg = -3;
-    imu.output.terrain = -1;
+    s_imu.output.filtered_pitch_deg = -3;
+    s_imu.output.terrain = -1;
     assert(!step(0, 0).valid);
 }
 
@@ -960,8 +964,8 @@ static void reported_contact_confirmation_limits (void)
         /* -4.41 degrees is below terrain's 6-degree entry, but outside the
          * adapter's stricter 3-degree ramp-onset guard. Both wheels still turn.
          */
-        imu.output.filtered_pitch_deg = -4.41f;
-        assert((0 == imu.output.terrain) && (0 == imu.output.side));
+        s_imu.output.filtered_pitch_deg = -4.41f;
+        assert((0 == s_imu.output.terrain) && (0 == s_imu.output.side));
         assert(!step(2.5f, 2.5f).valid);
         assert(!a.observer.output.established);
 
@@ -969,7 +973,7 @@ static void reported_contact_confirmation_limits (void)
         {
             if (transient)
             {
-                imu.output.filtered_pitch_deg *= 0.85f;
+                s_imu.output.filtered_pitch_deg *= 0.85f;
             }
 
             buddy4_obstruction_output_t out = step(0, 0);
@@ -981,7 +985,7 @@ static void reported_contact_confirmation_limits (void)
         {
             /* Level recovery while stationary cannot re-establish prior motion.
              * The normal full 500 ms moving window is required again. */
-            assert(fabsf(imu.output.filtered_pitch_deg) < 3);
+            assert(fabsf(s_imu.output.filtered_pitch_deg) < 3);
 
             for (int32_t idx = 0; idx < 25; idx++)
             {
@@ -1073,16 +1077,16 @@ static void new_recorded_contact (const char * name, uint32_t expected_rows,
         motor.terrain_speed_scale = strtof(field[49], NULL);
         motor.left_terrain_duty = strtof(field[50], NULL);
         motor.right_terrain_duty = strtof(field[51], NULL);
-        imu.output.valid = 0 != atoi(field[3]);
-        imu.output.tilt_valid = 0 != atoi(field[4]);
-        imu.output.acceleration_valid = 0 != atoi(field[5]);
-        imu.output.clipped_axes = (uint8_t)atoi(field[7]);
-        imu.output.pitch_deg = strtof(field[18], NULL);
-        imu.output.roll_deg = strtof(field[19], NULL);
-        imu.output.filtered_pitch_deg = strtof(field[20], NULL);
-        imu.output.filtered_roll_deg = strtof(field[21], NULL);
-        imu.output.terrain = atoi(field[22]);
-        imu.output.side = atoi(field[23]);
+        s_imu.output.valid = 0 != atoi(field[3]);
+        s_imu.output.tilt_valid = 0 != atoi(field[4]);
+        s_imu.output.acceleration_valid = 0 != atoi(field[5]);
+        s_imu.output.clipped_axes = (uint8_t)atoi(field[7]);
+        s_imu.output.pitch_deg = strtof(field[18], NULL);
+        s_imu.output.roll_deg = strtof(field[19], NULL);
+        s_imu.output.filtered_pitch_deg = strtof(field[20], NULL);
+        s_imu.output.filtered_roll_deg = strtof(field[21], NULL);
+        s_imu.output.terrain = atoi(field[22]);
+        s_imu.output.side = atoi(field[23]);
         buddy4_obstruction_output_t out =
                 step(strtof(field[42], NULL), strtof(field[43], NULL));
 
@@ -1117,11 +1121,11 @@ static void brief_pitch_pause_safety (void)
     reset();
     establish();
     pending();
-    imu.output.filtered_pitch_deg = -4.41f;
+    s_imu.output.filtered_pitch_deg = -4.41f;
     assert((!step(0, 0).valid) && (a.observer.paused));
     assert((!a.observer.output.established)
            && (0 == a.observer.output.slow_ms));
-    imu.output.filtered_pitch_deg = -2.834f;
+    s_imu.output.filtered_pitch_deg = -2.834f;
     /* The pre-pause 80 ms never contributes: need another full 100 ms. */
     for (int32_t idx = 0; idx < 5; idx++)
     {
@@ -1133,9 +1137,9 @@ static void brief_pitch_pause_safety (void)
     assert(1 == a.observer.output.event_count);
 
     reset(); /* A pitch excursion cannot create established history. */
-    imu.output.filtered_pitch_deg = -4.41f;
+    s_imu.output.filtered_pitch_deg = -4.41f;
     step(3, 3);
-    imu.output.filtered_pitch_deg = 0;
+    s_imu.output.filtered_pitch_deg = 0;
 
     for (int32_t idx = 0; idx < 30; idx++)
     {
@@ -1146,12 +1150,12 @@ static void brief_pitch_pause_safety (void)
 
     reset();
     establish();
-    imu.output.filtered_pitch_deg = 4.41f;
+    s_imu.output.filtered_pitch_deg = 4.41f;
     step(0, 0);
     step(0, 0);
     step(0, 0); /* Persistent for 40 ms cancels. */
     assert((!a.observer.paused) && (!a.observer.output.established));
-    imu.output.filtered_pitch_deg = 0;
+    s_imu.output.filtered_pitch_deg = 0;
 
     for (int32_t idx = 0; idx < 20; idx++)
     {
@@ -1165,10 +1169,10 @@ static void brief_pitch_pause_safety (void)
     {
         reset();
         establish();
-        imu.output.filtered_pitch_deg = -4.41f;
+        s_imu.output.filtered_pitch_deg = -4.41f;
         step(0, 0);
         assert(a.observer.paused);
-        imu.output.filtered_pitch_deg = 0;
+        s_imu.output.filtered_pitch_deg = 0;
 
         if (0 == kind)
         {
@@ -1192,32 +1196,32 @@ static void brief_pitch_pause_safety (void)
 
         if (4 == kind)
         {
-            imu.output.valid = false;
+            s_imu.output.valid = false;
         }
 
         if (5 == kind)
         {
-            imu.output.tilt_valid = false;
+            s_imu.output.tilt_valid = false;
         }
 
         if (6 == kind)
         {
-            imu.output.acceleration_valid = false;
+            s_imu.output.acceleration_valid = false;
         }
 
         if (7 == kind)
         {
-            imu.output.clipped_axes = 1;
+            s_imu.output.clipped_axes = 1;
         }
 
         if (8 == kind)
         {
-            imu.output.filtered_roll_deg = 2.01f;
+            s_imu.output.filtered_roll_deg = 2.01f;
         }
 
         if (9 == kind)
         {
-            imu.output.terrain = 1;
+            s_imu.output.terrain = 1;
         }
 
         if (10 == kind)
@@ -1227,7 +1231,7 @@ static void brief_pitch_pause_safety (void)
 
         if (11 == kind)
         {
-            skipped++;
+            s_skipped++;
         }
 
         if (12 == kind)
@@ -1250,19 +1254,19 @@ static void brief_pitch_pause_safety (void)
     reset();
     establish();
     step(0, 3);
-    imu.output.filtered_pitch_deg = 4.41f;
+    s_imu.output.filtered_pitch_deg = 4.41f;
     step(0, 0);
     assert((!a.observer.paused) && (!a.observer.output.established));
     reset();
     establish();
-    imu.output.filtered_pitch_deg = 4.41f;
+    s_imu.output.filtered_pitch_deg = 4.41f;
     step(0, 3);
     assert((!a.observer.paused) && (!a.observer.output.established));
     reset();
     establish();
-    imu.output.filtered_pitch_deg = 4.41f;
+    s_imu.output.filtered_pitch_deg = 4.41f;
     step(0, 0);
-    imu.output.filtered_pitch_deg = 0;
+    s_imu.output.filtered_pitch_deg = 0;
     step(0, 3);
     assert((!a.observer.output.established) && (!a.observer.asymmetric));
     puts("Brief pitch pause: no evidence bridging; full confirmation after "

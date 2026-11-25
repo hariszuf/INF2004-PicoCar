@@ -23,20 +23,20 @@ static const trace_sample_t foam[] = {
     {115020000, 0.015f, 0.015f}, {115040000, 0.008f, 0.008f},
     {115060000, 0.004f, 0.004f}, {115080000, 0.002f, 0.002f}
 };
-static const uint64_t stop_us = 115090000;
+static const uint64_t s_stop_us = 115090000;
 static void reproduce_input (void)
 {
     assert((foam[0].left > 3) && (foam[0].right > 3));
     assert((114960000 == foam[5].us) && (0.12f == foam[5].left));
     assert((115060000 == foam[10].us) && (0.004f == foam[10].right));
-    assert((foam[10].us < stop_us) && (130000 == stop_us - foam[5].us));
+    assert((foam[10].us < s_stop_us) && (130000 == s_stop_us - foam[5].us));
 
     for (uint32_t idx = 1; idx < sizeof(foam) / sizeof(foam[0]); idx++)
     {
         assert(20000 == foam[idx].us - foam[idx - 1].us);
         assert((foam[idx].left < foam[idx - 1].left)
                && (foam[idx].right < foam[idx - 1].right));
-        assert(foam[idx].us < stop_us);
+        assert(foam[idx].us < s_stop_us);
     }
 
     puts("Independent synthetic replay: both wheels 3.18/3.09 -> 0.12/0.12 -> "
@@ -113,9 +113,9 @@ static void replay (void)
         }
     }
 
-    assert((115020000 == detected) && (detected < stop_us)
+    assert((115020000 == detected) && (detected < s_stop_us)
            && (1 == d.output.event_count));
-    buddy4_obstruction_cancel(&d, stop_us);
+    buddy4_obstruction_cancel(&d, s_stop_us);
     assert((!d.output.valid) && (!d.output.possible_obstruction)
            && (1 == d.output.event_count));
     assert(d.output.event_us == detected);

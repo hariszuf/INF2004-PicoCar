@@ -11,13 +11,13 @@ static struct
     uint32_t size;
     uint8_t data[8][32];
 } queues[4];
-static uint32_t next_queue;
-static jmp_buf task_idle;
+static uint32_t s_next_queue;
+static jmp_buf s_task_idle;
 ID tk_cre_mbf (const T_CMBF *definition)
 {
-    assert((++next_queue < 4) && (definition->maxmsz <= 32));
-    queues[next_queue].size = definition->maxmsz;
-    return next_queue;
+    assert((++s_next_queue < 4) && (definition->maxmsz <= 32));
+    queues[s_next_queue].size = definition->maxmsz;
+    return s_next_queue;
 }
 
 ER tk_snd_mbf (ID id, const void * message, INT size, INT timeout)
@@ -42,7 +42,7 @@ INT tk_rcv_mbf (ID id, void * message, INT timeout)
     {
         if (TMO_FEVR == timeout)
         {
-            longjmp(task_idle, 1);
+            longjmp(s_task_idle, 1);
         }
 
         assert(TMO_POL == timeout);
@@ -80,33 +80,34 @@ void test_queue_telemetry (void)
         .value_1 = 7, .value_2 = -9};
     assert(E_OK == buddy1_telemetry_submit(&message));
 
-    if (0 == setjmp(task_idle))
+    if (0 == setjmp(s_task_idle))
     {
         telemetry_task(0, NULL);
     }
 
-    assert(1 == queues[mqtt_outbox_id].count);
+    assert(1 == queues[s_mqtt_outbox_id].count);
 }
 
 void test_consume_commands (void)
 {
-    assert(2 == queues[command_buffer_id].count);
+    assert(2 == queues[s_command_buffer_id].count);
 
     for (uint32_t idx = 0; idx < 2; idx++)
     {
         command_message_t message;
-        memcpy(&message, queues[command_buffer_id].data[idx], sizeof(message));
+        memcpy(&message, queues[s_command_buffer_id].data[idx],
+               sizeof(message));
         assert(message.type == (idx ? COMMAND_TYPE_STOP : COMMAND_TYPE_START));
         assert((message.sequence == idx + 1) && (1 == message.source)
                && (0 == message.value));
     }
 
-    if (0 == setjmp(task_idle))
+    if (0 == setjmp(s_task_idle))
     {
         command_task(0, NULL);
     }
 
-    assert(0 == queues[command_buffer_id].count);
+    assert(0 == queues[s_command_buffer_id].count);
 }
 
 /*** end of file ***/

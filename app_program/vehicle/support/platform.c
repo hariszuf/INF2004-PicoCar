@@ -8,8 +8,8 @@
 #include "compat/hardware/pwm.h"
 #define REG(a) (*(volatile uint32_t *)(uintptr_t)(a))
 extern void motion_encoder_irq_handler (uint32_t gpio, uint32_t events);
-static b5_gpio_callback_t encoder_callback;
-volatile uint32_t b5p_dbg_enc_events;
+static b5_gpio_callback_t s_encoder_callback;
+volatile uint32_t g_b5p_dbg_enc_events;
 volatile uint32_t b5p_dbg_cb_calls; /* diagnostic counters */
 uint64_t b5p_time_us_64 (void)
 {
@@ -103,7 +103,7 @@ void b5p_gpio_set_irq_enabled_with_callback (uint32_t p, uint32_t events,
                                              bool enabled,
                                              b5_gpio_callback_t callback)
 {
-    encoder_callback = callback;
+    s_encoder_callback = callback;
     b5p_gpio_set_irq_enabled(p, events, enabled);
 }
 
@@ -128,7 +128,7 @@ static void gpio_dispatch (UINT intno)
         if (events)
         {
             REG(0x400140f0u) = events << (p * 4u);
-            ++b5p_dbg_enc_events;
+            ++g_b5p_dbg_enc_events;
             /* Call Buddy 2 directly: the registered callback was never invoked
              * in this
              * build. */

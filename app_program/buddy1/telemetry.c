@@ -28,9 +28,9 @@
 /*
  * Existing telemetry input message buffer.
  */
-LOCAL ID telemetry_buffer_id = 0;
+LOCAL ID s_telemetry_buffer_id = 0;
 
-LOCAL uint32_t telemetry_dropped_count = 0U;
+LOCAL uint32_t s_telemetry_dropped_count = 0U;
 
 LOCAL UW telemetry_buffer_memory[
 (TELEMETRY_QUEUE_DEPTH * TELEMETRY_MESSAGE_WORDS)
@@ -52,9 +52,9 @@ LOCAL T_CMBF telemetry_buffer_config = {
  */
 #if TM_WIFI_MQTT
 
-LOCAL ID mqtt_outbox_id = 0;
+LOCAL ID s_mqtt_outbox_id = 0;
 
-LOCAL uint32_t mqtt_outbox_dropped_count = 0U;
+LOCAL uint32_t s_mqtt_outbox_dropped_count = 0U;
 
 LOCAL UW mqtt_outbox_memory[
 (MQTT_OUTBOX_DEPTH * TELEMETRY_MESSAGE_WORDS)
@@ -93,7 +93,7 @@ LOCAL void telemetry_task (INT stacd, void * p_exinf)
     {
 
         received_size = tk_rcv_mbf(
-                                   telemetry_buffer_id,
+                                   s_telemetry_buffer_id,
                                    &message,
                                    TMO_FEVR
                                    );
@@ -138,11 +138,11 @@ LOCAL void telemetry_task (INT stacd, void * p_exinf)
          * A full outbox causes message loss,
          * not a delay in the telemetry task.
          */
-        if (mqtt_outbox_id > 0)
+        if (s_mqtt_outbox_id > 0)
         {
 
             send_result = tk_snd_mbf(
-                                     mqtt_outbox_id,
+                                     s_mqtt_outbox_id,
                                      &message,
                                      sizeof(telemetry_message_t),
                                      TMO_POL
@@ -150,7 +150,7 @@ LOCAL void telemetry_task (INT stacd, void * p_exinf)
 
             if (E_OK != send_result)
             {
-                mqtt_outbox_dropped_count++;
+                s_mqtt_outbox_dropped_count++;
             }
         }
 #endif
@@ -172,30 +172,30 @@ LOCAL T_CTSK telemetry_task_config = {
  */
 ER buddy1_telemetry_init (void)
 {
-    if (telemetry_buffer_id <= 0)
+    if (s_telemetry_buffer_id <= 0)
     {
 
-        telemetry_buffer_id = tk_cre_mbf(
+        s_telemetry_buffer_id = tk_cre_mbf(
                                          &telemetry_buffer_config
                                          );
 
-        if (telemetry_buffer_id < E_OK)
+        if (s_telemetry_buffer_id < E_OK)
         {
-            return telemetry_buffer_id;
+            return s_telemetry_buffer_id;
         }
     }
 
 #if TM_WIFI_MQTT
-    if (mqtt_outbox_id <= 0)
+    if (s_mqtt_outbox_id <= 0)
     {
 
-        mqtt_outbox_id = tk_cre_mbf(
+        s_mqtt_outbox_id = tk_cre_mbf(
                                     &mqtt_outbox_config
                                     );
 
-        if (mqtt_outbox_id < E_OK)
+        if (s_mqtt_outbox_id < E_OK)
         {
-            return mqtt_outbox_id;
+            return s_mqtt_outbox_id;
         }
     }
 #endif
@@ -210,7 +210,7 @@ ER buddy1_telemetry_start (void)
 {
     ID task_id;
 
-    if (telemetry_buffer_id <= 0)
+    if (s_telemetry_buffer_id <= 0)
     {
         return E_OBJ;
     }
@@ -246,13 +246,13 @@ ER buddy1_telemetry_submit (
         return E_PAR;
     }
 
-    if (telemetry_buffer_id <= 0)
+    if (s_telemetry_buffer_id <= 0)
     {
         return E_OBJ;
     }
 
     error_code = tk_snd_mbf(
-                            telemetry_buffer_id,
+                            s_telemetry_buffer_id,
                             message,
                             sizeof(telemetry_message_t),
                             TMO_POL
@@ -260,7 +260,7 @@ ER buddy1_telemetry_submit (
 
     if (E_TMOUT == error_code)
     {
-        telemetry_dropped_count++;
+        s_telemetry_dropped_count++;
     }
 
     return error_code;
@@ -284,13 +284,13 @@ ER buddy1_mqtt_telemetry_receive (
         return E_PAR;
     }
 
-    if (mqtt_outbox_id <= 0)
+    if (s_mqtt_outbox_id <= 0)
     {
         return E_OBJ;
     }
 
     received_size = tk_rcv_mbf(
-                               mqtt_outbox_id,
+                               s_mqtt_outbox_id,
                                message,
                                TMO_POL
                                );
@@ -318,13 +318,13 @@ ER buddy1_mqtt_telemetry_receive (
  */
 uint32_t buddy1_telemetry_get_dropped_count (void)
 {
-    return telemetry_dropped_count;
+    return s_telemetry_dropped_count;
 }
 
 uint32_t buddy1_mqtt_telemetry_get_dropped_count (void)
 {
 #if TM_WIFI_MQTT
-    return mqtt_outbox_dropped_count;
+    return s_mqtt_outbox_dropped_count;
 #else
     return 0U;
 #endif

@@ -39,11 +39,11 @@ typedef struct
     int32_t allow_extra_blocked_at_adv;
 } scen_t;
 /* ---------- tiny RNG ---------- */
-static uint32_t rs;
+static uint32_t s_rs;
 static float64_t rnd (void)
 {
-    rs = rs * 1664525u + 1013904223u;
-    return (rs >> 8) / 16777216.0;
+    s_rs = s_rs * 1664525u + 1013904223u;
+    return (s_rs >> 8) / 16777216.0;
 }
 
 static float64_t gauss (void)
@@ -909,7 +909,7 @@ typedef struct
 } result_t;
 static result_t run (const scen_t * s, int32_t verbose)
 {
-    rs = s->seed * 2654435761u + 12345u;
+    s_rs = s->seed * 2654435761u + 12345u;
     veh_t v;
     memset(&v, 0, sizeof(v));
     v.px = s->start_x;

@@ -19,25 +19,25 @@ static int32_t capture_printf (const char * p_format, ...);
 #undef main
 #undef printf
 
-static jmp_buf finished;
-static int32_t scenario;
-static bool stop_received;
-static bool driven;
-static bool seen_error;
-static uint32_t key_index;
-static uint32_t rows_before;
-static uint32_t rows_after;
-static uint32_t invalid_rows;
-static uint32_t header_count;
-static uint32_t attempted;
-static uint32_t dropped;
-static uint32_t received_after_resume;
-static uint64_t previous_seq;
-static uint64_t last_row_us;
-static uint64_t first_stop_us;
-static bool have_seq;
-static i2c_inst_t fake_sensor;
-i2c_inst_t * const i2c0 = &fake_sensor;
+static jmp_buf s_finished;
+static int32_t s_scenario;
+static bool s_stop_received;
+static bool s_driven;
+static bool s_seen_error;
+static uint32_t s_key_index;
+static uint32_t s_rows_before;
+static uint32_t s_rows_after;
+static uint32_t s_invalid_rows;
+static uint32_t s_header_count;
+static uint32_t s_attempted;
+static uint32_t s_dropped;
+static uint32_t s_received_after_resume;
+static uint64_t s_previous_seq;
+static uint64_t s_last_row_us;
+static uint64_t s_first_stop_us;
+static bool s_have_seq;
+static i2c_inst_t s_fake_sensor;
+i2c_inst_t * const i2c0 = &s_fake_sensor;
 
 bool stdio_init_all (void)
 {
@@ -51,7 +51,7 @@ uint64_t time_us_64 (void)
 
 bool stdio_usb_connected (void)
 {
-    return !((2 == scenario) && (host_time_us() >= 1500000)
+    return !((2 == s_scenario) && (host_time_us() >= 1500000)
              && (host_time_us() < 4000000));
 }
 
@@ -69,15 +69,15 @@ int32_t getchar_timeout_us (uint32_t timeout)
         {2400000, 'S'}, {3000000, 'G'}, {4500000, ' '}
     };
 
-    if ((key_index < sizeof(commands) / sizeof(commands[0]))
-        && (host_time_us() >= commands[key_index].when))
+    if ((s_key_index < sizeof(commands) / sizeof(commands[0]))
+        && (host_time_us() >= commands[s_key_index].when))
     {
-        int32_t key = commands[key_index++].key;
+        int32_t key = commands[s_key_index++].key;
 
-        if (('S' == key) && (!stop_received))
+        if (('S' == key) && (!s_stop_received))
         {
-            stop_received = true;
-            first_stop_us = host_time_us();
+            s_stop_received = true;
+            s_first_stop_us = host_time_us();
         }
 
         return key;
@@ -125,7 +125,7 @@ uint32_t i2c_init (i2c_inst_t * p_bus, uint32_t baudrate)
 
 static bool io_error (void)
 {
-    return (3 == scenario) && (host_time_us() >= 3000000)
+    return (3 == s_scenario) && (host_time_us() >= 3000000)
             && (host_time_us() < 4000000);
 }
 
@@ -182,19 +182,19 @@ static int32_t capture_printf (const char * p_format, ...)
     int32_t count = vsnprintf(text, sizeof(text), p_format, ap);
     va_end(ap);
     assert((count >= 0) && ((size_t)count < sizeof(text)));
-    attempted++;
+    s_attempted++;
 
-    if ((1 == scenario) && (host_time_us() >= 1500000)
+    if ((1 == s_scenario) && (host_time_us() >= 1500000)
         && (host_time_us() < 4000000))
     {
-        dropped++;
+        s_dropped++;
         sim_advance_ms(1); /* Model finite TX wait/drop while RX works. */
         return count;
     }
 
     if (!strncmp(text, "seq,", 4))
     {
-        header_count++;
+        s_header_count++;
         return count;
     }
 
@@ -214,42 +214,43 @@ static int32_t capture_printf (const char * p_format, ...)
     assert(86 == n);
     uint64_t seq = strtoull(field[0], NULL, 10),
     row_us = strtoull(field[1], NULL, 10);
-    assert((!have_seq) || ((seq > previous_seq) && (row_us > last_row_us)));
-    previous_seq = seq;
-    last_row_us = row_us;
-    have_seq = true;
+    assert((!s_have_seq)
+           || ((seq > s_previous_seq) && (row_us > s_last_row_us)));
+    s_previous_seq = seq;
+    s_last_row_us = row_us;
+    s_have_seq = true;
 
     if (atoi(field[34]))
     {
-        driven = true;
+        s_driven = true;
     }
 
-    if (stop_received)
+    if (s_stop_received)
     {
-        rows_after++;
+        s_rows_after++;
         assert(!atoi(field[34]));
         assert((!control.running) && (!control.armed));
 
-        if (row_us > first_stop_us + 20000)
+        if (row_us > s_first_stop_us + 20000)
         {
             assert(MOTION_STATE_ERROR == atoi(field[45]));
             assert(MOTION_FAULT_ESTOP == atoi(field[46]));
-            seen_error = true;
+            s_seen_error = true;
         }
 
         if (!atoi(field[3]))
         {
-            invalid_rows++;
+            s_invalid_rows++;
         }
     }
     else
     {
-        rows_before++;
+        s_rows_before++;
     }
 
     if (row_us >= 4000000)
     {
-        received_after_resume++;
+        s_received_after_resume++;
     }
 
     return count;
@@ -257,7 +258,7 @@ static int32_t capture_printf (const char * p_format, ...)
 
 void tight_loop_contents (void)
 {
-    if (stop_received)
+    if (s_stop_received)
     {
         assert((!control.running) && (!control.armed));
         assert((sim_is_braked(MOTION_SIDE_LEFT))
@@ -266,7 +267,7 @@ void tight_loop_contents (void)
 
     if (host_time_us() >= 6500000)
     {
-        longjmp(finished, 1);
+        longjmp(s_finished, 1);
     }
 
     sim_advance_ms(1);
@@ -275,34 +276,35 @@ void tight_loop_contents (void)
 int main (int argc, char ** argv)
 {
     assert(2 == argc);
-    scenario = atoi(argv[1]);
-    assert((scenario >= 0) && (scenario <= 3));
+    s_scenario = atoi(argv[1]);
+    assert((s_scenario >= 0) && (s_scenario <= 3));
 
-    if (!setjmp(finished))
+    if (!setjmp(s_finished))
     {
         actual_sdk_main();
     }
 
-    assert(driven && stop_received && seen_error);
-    assert((rows_before > 20) && (rows_after > 100)
-           && (received_after_resume > 100));
-    assert((last_row_us > 6400000) && (sim_is_braked(MOTION_SIDE_LEFT))
+    assert(s_driven && s_stop_received && s_seen_error);
+    assert((s_rows_before > 20) && (s_rows_after > 100)
+           && (s_received_after_resume > 100));
+    assert((s_last_row_us > 6400000) && (sim_is_braked(MOTION_SIDE_LEFT))
            && (sim_is_braked(MOTION_SIDE_RIGHT)));
-    assert(header_count == (2 == scenario ? 2u : 1u));
+    assert(s_header_count == (2 == s_scenario ? 2u : 1u));
 
-    if (1 == scenario)
+    if (1 == s_scenario)
     {
-        assert((dropped > 50) && (attempted > rows_before + rows_after));
+        assert((s_dropped > 50)
+               && (s_attempted > s_rows_before + s_rows_after));
     }
 
-    if (3 == scenario)
+    if (3 == s_scenario)
     {
-        assert(invalid_rows > 20);
+        assert(s_invalid_rows > 20);
     }
 
     printf("Actual SDK main-loop scenario %d: %u received rows before S, %u "
            "after S, %u dropped writes, motors remain latched stopped\n",
-           scenario, rows_before, rows_after, dropped);
+           s_scenario, s_rows_before, s_rows_after, s_dropped);
     return 0;
 }
 

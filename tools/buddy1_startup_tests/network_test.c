@@ -20,16 +20,16 @@
 #include "lwip/apps/mqtt.h"
 #include "netif/ethernet.h"
 
-static u32_t test_now;
-static u32_t attempt_time[32];
-static uint32_t attempts;
-static uint32_t allocations;
-static uint32_t force_connect_error;
-static uint32_t force_alloc_error;
-static int32_t app_enabled;
+static u32_t s_test_now;
+static u32_t s_attempt_time[32];
+static uint32_t s_attempts;
+static uint32_t s_allocations;
+static uint32_t s_force_connect_error;
+static uint32_t s_force_alloc_error;
+static int32_t s_app_enabled;
 u32_t sys_now (void)
 {
-    return test_now;
+    return s_test_now;
 }
 
 uint32_t lwip_utk_rand (void)
@@ -67,12 +67,12 @@ static err_t observed_connect (mqtt_client_t * p_client, const ip_addr_t * p_ip,
                                mqtt_connection_cb_t cb, void * p_arg,
                                const struct mqtt_connect_client_info_t * p_info)
 {
-    assert(attempts < 32);
-    attempt_time[attempts++] = test_now;
+    assert(s_attempts < 32);
+    s_attempt_time[s_attempts++] = s_test_now;
 
-    if (force_connect_error)
+    if (s_force_connect_error)
     {
-        force_connect_error--;
+        s_force_connect_error--;
         return ERR_RTE;
     }
 
@@ -81,11 +81,11 @@ static err_t observed_connect (mqtt_client_t * p_client, const ip_addr_t * p_ip,
 
 static mqtt_client_t * observed_new (void)
 {
-    allocations++;
+    s_allocations++;
 
-    if (force_alloc_error)
+    if (s_force_alloc_error)
     {
-        force_alloc_error--;
+        s_force_alloc_error--;
         return NULL;
     }
 
@@ -109,12 +109,12 @@ static struct
 #define CYW43_ITF_STA 0
 #define CYW43_DHCP_TIMEOUT_US 30000000ULL
 #include "firmware_radio_status.h"
-static T_CYW43_UTK_STATUS radio_status;
-static uint64_t dhcp_started_us;
-static uint32_t dhcp_ipv4_adopted;
+static T_CYW43_UTK_STATUS s_radio_status;
+static uint64_t s_dhcp_started_us;
+static uint32_t s_dhcp_ipv4_adopted;
 static uint64_t time_us_64 (void)
 {
-    return (uint64_t)test_now * 1000;
+    return (uint64_t)s_test_now * 1000;
 }
 
 static void mp_memory_barrir (void)
@@ -128,22 +128,22 @@ static int32_t lwip_utk_ipv4_adopt_netif (struct netif * n)
     return ERR_OK;
 }
 #include "firmware_dhcp.c"
-static struct dhcp lease;
-static ip4_addr_t client_ip;
-static ip4_addr_t broker_ip;
-static ip4_addr_t router_ip;
+static struct dhcp s_lease;
+static ip4_addr_t s_client_ip;
+static ip4_addr_t s_broker_ip;
+static ip4_addr_t s_router_ip;
 static const uint8_t client_mac[6] = {2, 0, 0, 0, 0, 4};
 static const uint8_t peer_mac[6] = {2, 0, 0, 0, 0, 2};
-static u32_t syn_seq;
-static u32_t sent_next;
-static u16_t client_port;
-static uint32_t syns;
-static uint32_t connects;
-static uint32_t publishes;
-static uint32_t discovers;
-static uint32_t status_messages;
-static uint32_t telemetry_messages;
-static uint32_t subscribe_id;
+static u32_t s_syn_seq;
+static u32_t s_sent_next;
+static u16_t s_client_port;
+static uint32_t s_syns;
+static uint32_t s_connects;
+static uint32_t s_publishes;
+static uint32_t s_discovers;
+static uint32_t s_status_messages;
+static uint32_t s_telemetry_messages;
+static uint32_t s_subscribe_id;
 
 static void inspect_mqtt (const uint8_t * p, uint32_t length)
 {
@@ -166,13 +166,13 @@ static void inspect_mqtt (const uint8_t * p, uint32_t length)
 
         if (1 == type)
         {
-            connects++;
+            s_connects++;
         }
 
         if (8 == type)
         {
             assert(remaining >= 5);
-            subscribe_id = (p_body[0] << 8) | p_body[1];
+            s_subscribe_id = (p_body[0] << 8) | p_body[1];
             uint32_t topic_length = (p_body[2] << 8) | p_body[3];
             assert(topic_length == strlen(MQTT_COMMAND_TOPIC));
             assert((remaining == topic_length + 5)
@@ -181,7 +181,7 @@ static void inspect_mqtt (const uint8_t * p, uint32_t length)
 
         if (3 == type)
         {
-            publishes++;
+            s_publishes++;
             assert(remaining >= 2);
             uint32_t topic_length = (p_body[0] << 8) | p_body[1];
             assert(remaining >= topic_length + 2);
@@ -193,7 +193,7 @@ static void inspect_mqtt (const uint8_t * p, uint32_t length)
             {
                 assert((payload_length >= 14)
                        && (!memcmp(p_payload, "heartbeat seq=", 14)));
-                status_messages++;
+                s_status_messages++;
             }
 
             if ((topic_length == strlen(MQTT_TELEMETRY_TOPIC))
@@ -203,7 +203,7 @@ static void inspect_mqtt (const uint8_t * p, uint32_t length)
                         "src=1 type=1 seq=42 value1=7 value2=-9";
                 assert((payload_length == strlen(p_expected))
                        && (!memcmp(p_payload, p_expected, payload_length)));
-                telemetry_messages++;
+                s_telemetry_messages++;
             }
         }
 
@@ -235,7 +235,7 @@ static err_t wire_output (struct netif * n, struct pbuf * p)
 
         if (67 == lwip_ntohs(udp->dest))
         {
-            discovers++;
+            s_discovers++;
         }
     }
 
@@ -245,20 +245,20 @@ static err_t wire_output (struct netif * n, struct pbuf * p)
                 (const void *)((const uint8_t *)ip + ip_len);
         uint32_t len =
                 lwip_ntohs(IPH_LEN(ip)) - ip_len - TCPH_HDRLEN_BYTES(tcp);
-        client_port = lwip_ntohs(tcp->src);
+        s_client_port = lwip_ntohs(tcp->src);
 
         if (TCPH_FLAGS(tcp) & TCP_SYN)
         {
-            syns++;
-            syn_seq = lwip_ntohl(tcp->seqno);
-            sent_next = syn_seq + 1;
+            s_syns++;
+            s_syn_seq = lwip_ntohl(tcp->seqno);
+            s_sent_next = s_syn_seq + 1;
         }
 
         if (len)
         {
             const uint8_t * p_payload =
                     (const uint8_t *)tcp + TCPH_HDRLEN_BYTES(tcp);
-            sent_next = lwip_ntohl(tcp->seqno) + len;
+            s_sent_next = lwip_ntohl(tcp->seqno) + len;
             inspect_mqtt(p_payload, len);
         }
     }
@@ -285,12 +285,12 @@ static void advance (uint32_t ms)
 
     for (uint32_t idx = 0; idx < ms; idx += 10)
     {
-        test_now += 10;
+        s_test_now += 10;
         sys_check_timeouts();
-        radio_status.netif_link_up = netif_is_link_up(&iface);
+        s_radio_status.netif_link_up = netif_is_link_up(&iface);
         update_dhcp_status();
 
-        if (app_enabled)
+        if (s_app_enabled)
         {
             mqtt_utk_poll(&iface);
         }
@@ -332,7 +332,7 @@ static void dhcp_reply (u8_t type)
     ip4_addr_t broadcast;
     IP4_ADDR(&broadcast, 255, 255, 255, 255);
     struct ip_hdr * ip =
-            ip_header(frame, sizeof(frame), IP_PROTO_UDP, &router_ip,
+            ip_header(frame, sizeof(frame), IP_PROTO_UDP, &s_router_ip,
                       &broadcast);
     struct udp_hdr * udp = (void *)((uint8_t *)ip + IP_HLEN);
     udp->src = lwip_htons(67);
@@ -342,9 +342,9 @@ static void dhcp_reply (u8_t type)
     msg->op = DHCP_BOOTREPLY;
     msg->htype = 1;
     msg->hlen = 6;
-    msg->xid = lwip_htonl(lease.xid);
-    msg->yiaddr.addr = client_ip.addr;
-    msg->siaddr.addr = router_ip.addr;
+    msg->xid = lwip_htonl(s_lease.xid);
+    msg->yiaddr.addr = s_client_ip.addr;
+    msg->siaddr.addr = s_router_ip.addr;
     memcpy(msg->chaddr, client_mac, 6);
     msg->cookie = lwip_htonl(DHCP_MAGIC_COOKIE);
     uint8_t options[] = {53, 1, type, 54, 4, 172, 20, 10, 1, 1, 4, 255,
@@ -369,8 +369,8 @@ static void arp_reply (void)
     arp->opcode = lwip_htons(ARP_REPLY);
     memcpy(arp->shwaddr.addr, peer_mac, 6);
     memcpy(arp->dhwaddr.addr, client_mac, 6);
-    memcpy(&arp->sipaddr, &broker_ip, 4);
-    memcpy(&arp->dipaddr, &client_ip, 4);
+    memcpy(&arp->sipaddr, &s_broker_ip, 4);
+    memcpy(&arp->dipaddr, &s_client_ip, 4);
     deliver(frame, sizeof(frame));
 }
 
@@ -382,10 +382,10 @@ static void tcp_reply (uint32_t flags, u32_t seq, u32_t ack,
     assert(len <= 256);
     uint32_t size = SIZEOF_ETH_HDR + IP_HLEN + TCP_HLEN + len;
     struct ip_hdr * ip =
-            ip_header(frame, size, IP_PROTO_TCP, &broker_ip, &client_ip);
+            ip_header(frame, size, IP_PROTO_TCP, &s_broker_ip, &s_client_ip);
     struct tcp_hdr * tcp = (void *)((uint8_t *)ip + IP_HLEN);
     tcp->src = lwip_htons(1883);
-    tcp->dest = lwip_htons(client_port);
+    tcp->dest = lwip_htons(s_client_port);
     tcp->seqno = lwip_htonl(seq);
     tcp->ackno = lwip_htonl(ack);
     TCPH_HDRLEN_FLAGS_SET(tcp, 5, flags);
@@ -401,48 +401,48 @@ static void tcp_reply (uint32_t flags, u32_t seq, u32_t ack,
     pbuf_take(sum, tcp, (u16_t)(TCP_HLEN + len));
     tcp->chksum =
             inet_chksum_pseudo(sum, IP_PROTO_TCP, (u16_t)(TCP_HLEN + len),
-                               &broker_ip, &client_ip);
+                               &s_broker_ip, &s_client_ip);
     pbuf_free(sum);
     deliver(frame, size);
 }
 
 static void acquire_lease (int32_t late)
 {
-    IP4_ADDR(&client_ip, 172, 20, 10, 4);
-    IP4_ADDR(&broker_ip, 172, 20, 10, 2);
-    IP4_ADDR(&router_ip, 172, 20, 10, 1);
+    IP4_ADDR(&s_client_ip, 172, 20, 10, 4);
+    IP4_ADDR(&s_broker_ip, 172, 20, 10, 2);
+    IP4_ADDR(&s_router_ip, 172, 20, 10, 1);
     lwip_init();
     assert(netif_add(&iface, NULL, NULL, NULL, NULL, init_interface,
                      ethernet_input));
     netif_set_default(&iface);
     netif_set_up(&iface);
-    dhcp_set_struct(&iface, &lease);
+    dhcp_set_struct(&iface, &s_lease);
     assert(ERR_OK == dhcp_start(&iface));
-    assert((DHCP_STATE_INIT == lease.state) && (0 == discovers));
+    assert((DHCP_STATE_INIT == s_lease.state) && (0 == s_discovers));
     mqtt_utk_poll(NULL);
     mqtt_utk_poll(&iface);
-    assert(0 == attempts);
+    assert(0 == s_attempts);
     netif_set_link_up(&iface);
-    assert((DHCP_STATE_SELECTING == lease.state) && (discovers > 0));
+    assert((DHCP_STATE_SELECTING == s_lease.state) && (s_discovers > 0));
 
     if (late)
     {
         advance(45000);
-        assert(discovers > 1);
+        assert(s_discovers > 1);
     }
 
     mqtt_utk_poll(&iface);
-    assert(0 == attempts);
+    assert(0 == s_attempts);
     dhcp_reply(DHCP_OFFER);
-    assert(DHCP_STATE_REQUESTING == lease.state);
+    assert(DHCP_STATE_REQUESTING == s_lease.state);
     dhcp_reply(DHCP_ACK);
     advance(12000); /* Actual lwIP address-conflict probes. */
     assert(dhcp_supplied_address(&iface));
-    assert(ip4_addr_cmp(netif_ip4_addr(&iface), &client_ip));
-    assert(ip4_addr_cmp(netif_ip4_gw(&iface), &router_ip));
-    assert(ip4_addr_cmp(ip_2_ip4(dns_getserver(0)), &router_ip));
-    assert(radio_status.dhcp_complete);
-    assert(radio_status.dhcp_result == (late ? ERR_TIMEOUT : ERR_OK));
+    assert(ip4_addr_cmp(netif_ip4_addr(&iface), &s_client_ip));
+    assert(ip4_addr_cmp(netif_ip4_gw(&iface), &s_router_ip));
+    assert(ip4_addr_cmp(ip_2_ip4(dns_getserver(0)), &s_router_ip));
+    assert(s_radio_status.dhcp_complete);
+    assert(s_radio_status.dhcp_result == (late ? ERR_TIMEOUT : ERR_OK));
 }
 
 int main (int argc, char ** argv)
@@ -460,7 +460,7 @@ int main (int argc, char ** argv)
                          ethernet_input));
         netif_set_default(&iface);
         netif_set_up(&iface);
-        dhcp_set_struct(&iface, &lease);
+        dhcp_set_struct(&iface, &s_lease);
         /* Exhaust real lwIP UDP PCBs before the SDK-style pre-link start. */
         while ((count < MEMP_NUM_UDP_PCB)
                && ((held[count] = udp_new()) != NULL))
@@ -470,7 +470,7 @@ int main (int argc, char ** argv)
 
         assert((count > 0) && (NULL == udp_new()));
         assert((ERR_MEM == dhcp_start(&iface))
-               && (DHCP_STATE_OFF == lease.state));
+               && (DHCP_STATE_OFF == s_lease.state));
 
         while (count)
         {
@@ -478,13 +478,13 @@ int main (int argc, char ** argv)
         }
 
         netif_set_link_up(&iface);
-        app_enabled = 1;
+        s_app_enabled = 1;
         advance(60000);
-        assert((DHCP_STATE_OFF == lease.state) && (0 == discovers)
-               && (0 == attempts));
+        assert((DHCP_STATE_OFF == s_lease.state) && (0 == s_discovers)
+               && (0 == s_attempts));
         /* An explicit restart can recover after resources become available. */
         assert(ERR_OK == dhcp_start(&iface));
-        assert((DHCP_STATE_SELECTING == lease.state) && (discovers > 0));
+        assert((DHCP_STATE_SELECTING == s_lease.state) && (s_discovers > 0));
         puts("CONFIRMED LIMIT: initial DHCP PCB allocation failure stays OFF "
              "after link-up and 60s; explicit restart resumes discovery");
         return 0;
@@ -496,44 +496,44 @@ int main (int argc, char ** argv)
     if ((!strcmp(mode, "dhcp")) || (!strcmp(mode, "late_dhcp")))
     {
         printf("PASS %-16s DHCP bound at %u ms with no USB code; DHCP "
-               "packets=%u\n", mode, test_now, discovers);
+               "packets=%u\n", mode, s_test_now, s_discovers);
         return 0;
     }
 
     if (!strcmp(mode, "sync_error"))
     {
-        force_connect_error = 1;
+        s_force_connect_error = 1;
     }
 
     if (!strcmp(mode, "alloc_error"))
     {
-        force_alloc_error = 1;
+        s_force_alloc_error = 1;
     }
 
-    app_enabled = 1;
+    s_app_enabled = 1;
     advance(3010);
 
     if (!strcmp(mode, "alloc_error"))
     {
-        assert((2 == allocations) && (0 == attempts));
+        assert((2 == s_allocations) && (0 == s_attempts));
         advance(2990);
-        assert(0 == attempts);
+        assert(0 == s_attempts);
         advance(10);
-        assert(1 == attempts);
+        assert(1 == s_attempts);
         puts("PASS alloc_error      allocation retries after 3000 ms, connect "
              "3000 ms later");
         return 0;
     }
 
-    assert(1 == attempts);
+    assert(1 == s_attempts);
 
     if (!strcmp(mode, "sync_error"))
     {
-        u32_t first = attempt_time[0];
+        u32_t first = s_attempt_time[0];
         advance(2990);
-        assert(1 == attempts);
+        assert(1 == s_attempts);
         advance(10);
-        assert((2 == attempts) && (attempt_time[1] - first == 3000));
+        assert((2 == s_attempts) && (s_attempt_time[1] - first == 3000));
         puts("PASS sync_error       immediate connection error retried after "
              "3000 ms");
         return 0;
@@ -543,65 +543,66 @@ int main (int argc, char ** argv)
 
     if (!strcmp(mode, "no_arp"))
     {
-        u32_t first = attempt_time[0];
+        u32_t first = s_attempt_time[0];
         advance(60000);
-        assert((attempts >= 2) && (0 == syns));
+        assert((s_attempts >= 2) && (0 == s_syns));
         printf("PASS no_arp           missing ARP reply eventually retries, "
-               "interval=%u ms\n", attempt_time[1] - first);
+               "interval=%u ms\n", s_attempt_time[1] - first);
         return 0;
     }
 
     arp_reply();
-    assert(syns > 0);
+    assert(s_syns > 0);
 
     if (!strcmp(mode, "tcp_timeout"))
     {
-        u32_t first = attempt_time[0];
+        u32_t first = s_attempt_time[0];
         advance(250000);
-        assert(attempts >= 2);
+        assert(s_attempts >= 2);
         printf("PASS tcp_timeout      unanswered SYN eventually retries, "
-               "interval=%u ms\n", attempt_time[1] - first);
+               "interval=%u ms\n", s_attempt_time[1] - first);
         return 0;
     }
 
     if (!strcmp(mode, "tcp_reset"))
     {
-        tcp_reply(TCP_RST | TCP_ACK, 0, syn_seq + 1, NULL, 0);
+        tcp_reply(TCP_RST | TCP_ACK, 0, s_syn_seq + 1, NULL, 0);
         assert((!connecting) && (!connected));
-        u32_t failed = test_now;
+        u32_t failed = s_test_now;
         advance(2990);
-        assert(1 == attempts);
+        assert(1 == s_attempts);
         advance(10);
-        assert((2 == attempts) && (attempt_time[1] - failed == 3000));
+        assert((2 == s_attempts) && (s_attempt_time[1] - failed == 3000));
         puts("PASS tcp_reset        real TCP refusal callback, retry after "
              "3000 ms");
         return 0;
     }
 
-    tcp_reply(TCP_SYN | TCP_ACK, 9000, syn_seq + 1, NULL, 0);
-    assert(connects > 0);
-    tcp_reply(TCP_ACK, 9001, sent_next, NULL, 0);
+    tcp_reply(TCP_SYN | TCP_ACK, 9000, s_syn_seq + 1, NULL, 0);
+    assert(s_connects > 0);
+    tcp_reply(TCP_ACK, 9001, s_sent_next, NULL, 0);
 
     if (!strcmp(mode, "connack_timeout"))
     {
-        u32_t first = attempt_time[0];
+        u32_t first = s_attempt_time[0];
         advance(110000);
-        assert(attempts >= 2);
+        assert(s_attempts >= 2);
         printf("PASS connack_timeout  TCP accepted but no CONNACK, retry "
-               "interval=%u ms\n", attempt_time[1] - first);
+               "interval=%u ms\n", s_attempt_time[1] - first);
         return 0;
     }
 
     if (!strcmp(mode, "connack_refused"))
     {
         uint8_t refused[] = {0x20, 2, 0, 3}; /* Server unavailable. */
-        tcp_reply(TCP_ACK | TCP_PSH, 9001, sent_next, refused, sizeof(refused));
+        tcp_reply(TCP_ACK | TCP_PSH, 9001, s_sent_next, refused,
+                  sizeof(refused));
         assert((!connected) && (!connecting));
-        u32_t failed = test_now;
+        u32_t failed = s_test_now;
         advance(2990);
-        assert(1 == attempts);
+        assert(1 == s_attempts);
         advance(10);
-        assert((2 == attempts) && (attempt_time[1] - failed == 3000));
+        assert((2 == s_attempts) && (s_attempt_time[1] - failed == 3000));
         puts("PASS connack_refused  broker rejection callback, retry after "
              "3000 ms");
         return 0;
@@ -610,13 +611,13 @@ int main (int argc, char ** argv)
     assert((!strcmp(mode, "success")) || (!strcmp(mode, "buddy_io"))
            || (!strcmp(mode, "late_dhcp_mqtt")));
     uint8_t connack[] = {0x20, 2, 0, 0};
-    tcp_reply(TCP_ACK | TCP_PSH, 9001, sent_next, connack, sizeof(connack));
+    tcp_reply(TCP_ACK | TCP_PSH, 9001, s_sent_next, connack, sizeof(connack));
     assert(connected && (!connecting)
            && (mqtt_client_is_connected(mqtt_client)));
-    assert(subscribe_id);
-    uint8_t suback[] = {0x90, 3, (uint8_t)(subscribe_id >> 8),
-        (uint8_t)subscribe_id, 0};
-    tcp_reply(TCP_ACK | TCP_PSH, 9005, sent_next, suback, sizeof(suback));
+    assert(s_subscribe_id);
+    uint8_t suback[] = {0x90, 3, (uint8_t)(s_subscribe_id >> 8),
+        (uint8_t)s_subscribe_id, 0};
+    tcp_reply(TCP_ACK | TCP_PSH, 9005, s_sent_next, suback, sizeof(suback));
     u32_t server_seq = 9010;
 
     if (!strcmp(mode, "buddy_io"))
@@ -625,24 +626,24 @@ int main (int argc, char ** argv)
     }
 
     advance(10);
-    tcp_reply(TCP_ACK, server_seq, sent_next, NULL, 0);
+    tcp_reply(TCP_ACK, server_seq, s_sent_next, NULL, 0);
     advance(4990);
-    assert((status_messages > 0) && (1 == heartbeat_sequence));
+    assert((s_status_messages > 0) && (1 == heartbeat_sequence));
 
     if (!strcmp(mode, "success"))
     {
         for (uint32_t expected = 2; expected <= 7; expected++)
         {
-            tcp_reply(TCP_ACK, server_seq, sent_next, NULL, 0);
+            tcp_reply(TCP_ACK, server_seq, s_sent_next, NULL, 0);
             advance(5000);
-            assert((status_messages == expected)
+            assert((s_status_messages == expected)
                    && (heartbeat_sequence == expected));
         }
     }
 
     if (!strcmp(mode, "buddy_io"))
     {
-        assert(telemetry_messages > 0);
+        assert(s_telemetry_messages > 0);
         const char * topics[] = {MQTT_COMMAND_TOPIC, MQTT_COMMAND_TOPIC,
             MQTT_STATUS_TOPIC, MQTT_COMMAND_TOPIC};
         const char * payloads[] = {"START", "STOP", "START", "INVALID"};
@@ -663,12 +664,13 @@ int main (int argc, char ** argv)
             /* Split START across real TCP receives to exercise MQTT reassembly.
              */
             uint32_t first = 0 == idx ? size - 2 : size;
-            tcp_reply(TCP_ACK | TCP_PSH, server_seq, sent_next, packet, first);
+            tcp_reply(TCP_ACK | TCP_PSH, server_seq, s_sent_next, packet,
+                      first);
             server_seq += first;
 
             if (first < size)
             {
-                tcp_reply(TCP_ACK | TCP_PSH, server_seq, sent_next,
+                tcp_reply(TCP_ACK | TCP_PSH, server_seq, s_sent_next,
                           packet + first, size - first);
                 server_seq += size - first;
             }
@@ -681,7 +683,7 @@ int main (int argc, char ** argv)
     }
     else if (!strcmp(mode, "late_dhcp_mqtt"))
     {
-        assert((ERR_TIMEOUT == radio_status.dhcp_result)
+        assert((ERR_TIMEOUT == s_radio_status.dhcp_result)
                && (dhcp_supplied_address(&iface)));
         puts("PASS late_dhcp_mqtt   diagnostic DHCP timeout stays latched, "
              "but a later real lease permits MQTT and heartbeat");

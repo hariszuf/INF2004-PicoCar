@@ -40,28 +40,28 @@ uint32_t buddy5_clock_ms (void)
 }
 
 /* ---- echo capture (called from the GPIO interrupt in platform.c) ---- */
-static volatile uint32_t echo_rise_us;
-static volatile uint32_t echo_width_us;
-static volatile bool echo_high;
-static volatile bool echo_done;
-static volatile int32_t raw_mm = -1;
-static volatile int32_t raw_status = -1;
-static volatile uint32_t raw_ms;
-static volatile uint32_t obstacle_id;
-static volatile uint8_t rescans;
+static volatile uint32_t s_echo_rise_us;
+static volatile uint32_t s_echo_width_us;
+static volatile bool s_echo_high;
+static volatile bool s_echo_done;
+static volatile int32_t s_raw_mm = -1;
+static volatile int32_t s_raw_status = -1;
+static volatile uint32_t s_raw_ms;
+static volatile uint32_t s_obstacle_id;
+static volatile uint8_t s_rescans;
 void b5_echo_irq (uint32_t events, uint32_t timestamp_us)
 {
     if (events & GPIO_IRQ_EDGE_RISE)
     {
-        echo_rise_us = timestamp_us;
-        echo_high = true;
+        s_echo_rise_us = timestamp_us;
+        s_echo_high = true;
     }
 
-    if ((events & GPIO_IRQ_EDGE_FALL) && echo_high)
+    if ((events & GPIO_IRQ_EDGE_FALL) && s_echo_high)
     {
-        echo_width_us = (uint32_t)(timestamp_us - echo_rise_us);
-        echo_high = false;
-        echo_done = true;
+        s_echo_width_us = (uint32_t)(timestamp_us - s_echo_rise_us);
+        s_echo_high = false;
+        s_echo_done = true;
     }
 }
 
@@ -94,8 +94,8 @@ static void servo_set_angle (int32_t deg)
 static b5_range_t ping_once (void)
 {
     b5_range_t r = {false, 0};
-    echo_done = false;
-    echo_high = false;
+    s_echo_done = false;
+    s_echo_high = false;
     b5p_gpio_put(B5_TRIG_PIN, false);
     uint32_t t0 = (uint32_t)b5p_time_us_64();
 
@@ -115,7 +115,7 @@ static b5_range_t ping_once (void)
      * politely, the CPU is shared). */
     for (uint32_t waited = 0; waited < 30u; ++waited)
     {
-        if (echo_done)
+        if (s_echo_done)
         {
             break;
         }
@@ -123,24 +123,24 @@ static b5_range_t ping_once (void)
         tk_dly_tsk(1);
     }
 
-    if (!echo_done)
+    if (!s_echo_done)
     {
         r.valid = true;
         /* nothing came back (or it never fell): open air / far wall */
         r.distance_mm = B5_NO_ECHO_MM;
-        raw_mm = -1;
-        raw_status = echo_high ? 3 : 2;
-        raw_ms = buddy5_clock_ms();
+        s_raw_mm = -1;
+        s_raw_status = s_echo_high ? 3 : 2;
+        s_raw_ms = buddy5_clock_ms();
         return r;
     }
 
-    uint32_t w = echo_width_us;
-    raw_ms = buddy5_clock_ms();
+    uint32_t w = s_echo_width_us;
+    s_raw_ms = buddy5_clock_ms();
 
     if (w < B5_ECHO_MIN_US)
     {
-        raw_mm = -1;
-        raw_status = 1;
+        s_raw_mm = -1;
+        s_raw_status = 1;
         return r;
     }          /* glitch: bad ping */
 
@@ -148,27 +148,27 @@ static b5_range_t ping_once (void)
     {
         r.valid = true;
         r.distance_mm = B5_NO_ECHO_MM;
-        raw_mm = -1;
-        raw_status = 4;
+        s_raw_mm = -1;
+        s_raw_status = 4;
         return r;
     }
 
     r.valid = true;
     /* mm, speed of sound 343 m/s */
     r.distance_mm = (w * 343u) / 2000u;
-    raw_mm = (int32_t)r.distance_mm;
-    raw_status = 0;
+    s_raw_mm = (int32_t)r.distance_mm;
+    s_raw_status = 0;
     return r;
 }
 
 /* ---- shared state ---- */
 static b5_core_t core;
-static b5_sampler_t sampler;
-static volatile bool task_started;
-static volatile bool paused;
-static volatile bool reset_req;
-static line_scan_status_t status_shared;
-static ID scan_tid;
+static b5_sampler_t s_sampler;
+static volatile bool s_task_started;
+static volatile bool s_paused;
+static volatile bool s_reset_req;
+static line_scan_status_t s_status_shared;
+static ID s_scan_tid;
 
 static void publish (uint32_t now, int32_t servo_angle,
                      const b5_range_t * p_last,
@@ -183,23 +183,23 @@ static void publish (uint32_t now, int32_t servo_angle,
     s.front_valid = p_last->valid;
     s.front_timestamp_ms = last_ms;
     s.heartbeat_ms = now;
-    s.obstacle_id = obstacle_id;
-    s.rescans = rescans;
+    s.obstacle_id = s_obstacle_id;
+    s.rescans = s_rescans;
 
-    if ((uint32_t)(now - raw_ms) > 1500u)
+    if ((uint32_t)(now - s_raw_ms) > 1500u)
     {
         s.raw_range_mm = -1;
         s.raw_status = -1;
     }
     else
     {
-        s.raw_range_mm = raw_mm;
-        s.raw_status = raw_status;
+        s.raw_range_mm = s_raw_mm;
+        s.raw_status = s_raw_status;
     }
 
     UW irq;
     DI(irq);
-    status_shared = s;
+    s_status_shared = s;
     EI(irq);
 }
 
@@ -220,18 +220,18 @@ static void scan_task (INT stacd, void * p_exinf)
     {
         now = buddy5_clock_ms();
 
-        if (reset_req)
+        if (s_reset_req)
         {
-            reset_req = false;
+            s_reset_req = false;
             b5_core_reset(&core, now);
-            b5_sampler_reset(&sampler);
+            b5_sampler_reset(&s_sampler);
             servo = 0;
             servo_set_angle(0);
             settle_until = now + B5_SERVO_SETTLE_MS;
             last.valid = false;
         }
 
-        if (paused)
+        if (s_paused)
         {
             /* Stopped by the operator: stay in MONITORING, centred, no
              * requests; keep
@@ -253,7 +253,7 @@ static void scan_task (INT stacd, void * p_exinf)
         {
             servo = want;
             servo_set_angle(servo);
-            b5_sampler_reset(&sampler);
+            b5_sampler_reset(&s_sampler);
             settle_until = now + B5_SERVO_SETTLE_MS;
             last.valid = false;
         }
@@ -269,7 +269,7 @@ static void scan_task (INT stacd, void * p_exinf)
             {
                 b5_range_t sample = ping_once();
 
-                if (b5_sampler_push(&sampler, &sample, &out))
+                if (b5_sampler_push(&s_sampler, &sample, &out))
                 {
                     b_have = true;
                 }
@@ -292,16 +292,16 @@ static void scan_task (INT stacd, void * p_exinf)
 
             if ((B5_WAIT_STOP == core.state) && (B5_WAIT_STOP != prev_state))
             {
-                ++obstacle_id;
-                rescans = 0;
+                ++s_obstacle_id;
+                s_rescans = 0;
             }
 
             uint8_t n = (uint8_t)((core.blocked_mask & 1u)
                                   + ((core.blocked_mask >> 1) & 1u));
 
-            if (n > rescans)
+            if (n > s_rescans)
             {
-                rescans = n;
+                s_rescans = n;
             }
 
             prev_state = core.state;
@@ -310,7 +310,7 @@ static void scan_task (INT stacd, void * p_exinf)
             static uint32_t seen_nofaces = 0;
             static uint32_t seen_dump = 0;
             static uint32_t seen_nofaces_dump = 0;
-            obstacle_id = core.scan_count;
+            s_obstacle_id = core.scan_count;
 
             if (core.scan_count != seen_scans)
             {
@@ -367,7 +367,7 @@ static void scan_task (INT stacd, void * p_exinf)
                                    "clearance=%d "
                               "scans=%u nofaces=%u saved_width=%d\n",
                               (UB*)b5_state_name(core.state), servo,
-                                      (int32_t)raw_mm, (int32_t)raw_status,
+                                      (int32_t)s_raw_mm, (int32_t)s_raw_status,
                               (int32_t)core.front_clearance_mm,
                               (uint32_t)core.scan_count,
                                       (uint32_t)core.noface_count,
@@ -401,7 +401,7 @@ static void scan_task (INT stacd, void * p_exinf)
 
 int32_t line_scan_start (void)
 {
-    if (task_started)
+    if (s_task_started)
     {
         return E_OK;
     }
@@ -421,12 +421,12 @@ int32_t line_scan_start (void)
     pwm_init(pwm_gpio_to_slice_num(B5_SERVO_PIN), &pc, true);
     servo_set_angle(0);
     b5_core_init(&core, buddy5_clock_ms());
-    b5_sampler_reset(&sampler);
+    b5_sampler_reset(&s_sampler);
     uint32_t now = buddy5_clock_ms();
-    status_shared = (line_scan_status_t){0};
-    status_shared.state = B5_MONITORING;
-    status_shared.front_clearance_mm = B5_CLEAR_FRONT_MM;
-    status_shared.heartbeat_ms = now;
+    s_status_shared = (line_scan_status_t){0};
+    s_status_shared.state = B5_MONITORING;
+    s_status_shared.front_clearance_mm = B5_CLEAR_FRONT_MM;
+    s_status_shared.heartbeat_ms = now;
     T_CTSK cfg = {0};
     cfg.tskatr = TA_HLNG | TA_RNG3;
     cfg.task = scan_task;
@@ -439,7 +439,7 @@ int32_t line_scan_start (void)
         return id;
     }
 
-    scan_tid = id;
+    s_scan_tid = id;
     ER e = tk_sta_tsk(id, 0);
 
     if (e < E_OK)
@@ -447,30 +447,30 @@ int32_t line_scan_start (void)
         return e;
     }
 
-    task_started = true;
+    s_task_started = true;
     return E_OK;
 }
 
 void line_scan_reset (void)
 {
-    paused = false;
-    reset_req = true;
+    s_paused = false;
+    s_reset_req = true;
 }
 
 void line_scan_abort (void)
 {
-    paused = true;
-    reset_req = true;
+    s_paused = true;
+    s_reset_req = true;
 }
 
 void line_scan_get_status (line_scan_status_t * status)
 {
     UW irq;
     DI(irq);
-    *status = status_shared;
+    *status = s_status_shared;
     EI(irq);
 
-    if (!task_started)
+    if (!s_task_started)
     {
         status->state = B5_MONITORING;
         status->heartbeat_ms = buddy5_clock_ms();

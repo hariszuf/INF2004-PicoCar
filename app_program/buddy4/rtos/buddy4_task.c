@@ -21,23 +21,23 @@
 #define TASK_PRIORITY 10
 #define TASK_STACK 8192
 static ID data_mutex, task_id, release_flag, release_cyclic;
-static bool initialised;
+static bool s_initialised;
 static buddy4_device_t device;
-static buddy4_imu_t imu;
-static buddy4_lift_t lift;
-static buddy4_motion_t motion;
-static buddy4_encoder_yaw_t yaw;
-static buddy4_task_snapshot_t published;
+static buddy4_imu_t s_imu;
+static buddy4_lift_t s_lift;
+static buddy4_motion_t s_motion;
+static buddy4_encoder_yaw_t s_yaw;
+static buddy4_task_snapshot_t s_published;
 static buddy4_task_snapshot_t next;
-static buddy4_task_speed_t mailbox;
-static uint64_t retry_us;
-static uint64_t last_speed_us;
-static bool has_speed;
-static bool pending_run_reset;
+static buddy4_task_speed_t s_mailbox;
+static uint64_t s_retry_us;
+static uint64_t s_last_speed_us;
+static bool s_has_speed;
+static bool s_pending_run_reset;
 
 ER buddy4_task_begin_run (void)
 {
-    if (!initialised)
+    if (!s_initialised)
     {
         return E_OBJ;
     }
@@ -49,7 +49,7 @@ ER buddy4_task_begin_run (void)
         return e;
     }
 
-    pending_run_reset = true;
+    s_pending_run_reset = true;
     return tk_unl_mtx(data_mutex);
 }
 
@@ -79,7 +79,7 @@ ER buddy4_task_submit_speed (const buddy4_task_speed_t * speed)
         return E_PAR;
     }
 
-    if (!initialised)
+    if (!s_initialised)
     {
         return E_OBJ;
     }
@@ -91,7 +91,7 @@ ER buddy4_task_submit_speed (const buddy4_task_speed_t * speed)
         return e;
     }
 
-    mailbox = *speed;
+    s_mailbox = *speed;
     return tk_unl_mtx(data_mutex);
 }
 
@@ -117,7 +117,7 @@ ER buddy4_task_get (buddy4_task_snapshot_t * out)
         return E_PAR;
     }
 
-    if (!initialised)
+    if (!s_initialised)
     {
         return E_OBJ;
     }
@@ -129,7 +129,7 @@ ER buddy4_task_get (buddy4_task_snapshot_t * out)
         return e;
     }
 
-    *out = published;
+    *out = s_published;
     e = tk_unl_mtx(data_mutex);
 
     if (e < E_OK)
@@ -169,7 +169,7 @@ ER buddy4_task_get (buddy4_task_snapshot_t * out)
 
 static void copy_lift (void)
 {
-    const buddy4_lift_output_t * p_l = &lift.output;
+    const buddy4_lift_output_t * p_l = &s_lift.output;
     next.lift_valid = p_l->valid;
     next.lifted = p_l->lifted;
     next.lift_reason = p_l->lifted ? p_l->reason : 0;
@@ -183,7 +183,7 @@ static void publish (void)
 {
     if (tk_loc_mtx(data_mutex, TMO_FEVR) >= E_OK)
     {
-        published = next;
+        s_published = next;
         (void)tk_unl_mtx(data_mutex);
     }
 }
@@ -218,9 +218,9 @@ static void process_once (uint64_t now)
 
     if (tk_loc_mtx(data_mutex, TMO_FEVR) >= E_OK)
     {
-        speed = mailbox;
-        b_reset_run = pending_run_reset;
-        pending_run_reset = false;
+        speed = s_mailbox;
+        b_reset_run = s_pending_run_reset;
+        s_pending_run_reset = false;
         (void)tk_unl_mtx(data_mutex);
     }
 
@@ -232,10 +232,10 @@ static void process_once (uint64_t now)
         next.last_event = (buddy4_task_event_t){0};
     }
 
-    if ((!imu.ready) && (now >= retry_us))
+    if ((!s_imu.ready) && (now >= s_retry_us))
     {
-        (void)buddy4_configure(&imu);
-        retry_us = now + RETRY_US;
+        (void)buddy4_configure(&s_imu);
+        s_retry_us = now + RETRY_US;
     }
 
     uint64_t acquired = now;
@@ -244,7 +244,7 @@ static void process_once (uint64_t now)
     if (clock_error < E_OK)
     {
         /* Do not present a retained time as a fresh acquisition. */
-        imu.ready = false;
+        s_imu.ready = false;
         next.sequence++;
         next.poll_us = now;
         next.valid = next.tilt_valid = next.acceleration_valid =
@@ -253,21 +253,21 @@ static void process_once (uint64_t now)
         next.timing_valid = false;
         next.poll_result = BUDDY4_NOT_READY;
         next.device_error = (int32_t)clock_error;
-        buddy4_lift_update(&lift, 0, 0, 0, false, now, now);
+        buddy4_lift_update(&s_lift, 0, 0, 0, false, now, now);
         copy_lift();
         publish();
         return;
     }
 
     /* At most one bounded verification per second, before acquisition. */
-    if ((imu.ready) && ((0 == next.config_checked_us) ||
+    if ((s_imu.ready) && ((0 == next.config_checked_us) ||
                         (acquired - next.config_checked_us >= RETRY_US)))
     {
-        (void)buddy4_verify_config(&imu);
+        (void)buddy4_verify_config(&s_imu);
         next.config_checked_us = acquired;
     }
 
-    buddy4_result_t result = buddy4_poll(&imu, acquired);
+    buddy4_result_t result = buddy4_poll(&s_imu, acquired);
     /* Diagnostic clock only: do not change acquisition timestamps or filters.
      */
     uint64_t finished = acquired;
@@ -277,39 +277,39 @@ static void process_once (uint64_t now)
             next.timing_valid ? elapsed_ms(finished, acquired) : UINT32_MAX;
     next.poll_interval_ms =
             next.sequence ? elapsed_ms(acquired, next.poll_us) : 0;
-    buddy4_output_t * p_o = &imu.output;
+    buddy4_output_t * p_o = &s_imu.output;
     /* Only gravity-like samples (0.8-1.2 g) say anything about tilt. A reading
      * that is not ~1 g (bad range,
      * wiring, a stuck bus) gives a meaningless angle, and used to latch
      * "lifted" forever, which blocked the start.
      * Such samples now count as "no data", and the lift state releases after
      * invalid_release_us. */
-    buddy4_lift_update(&lift, p_o->accel_g[0], p_o->accel_g[1],
+    buddy4_lift_update(&s_lift, p_o->accel_g[0], p_o->accel_g[1],
                        p_o->accel_g[2], (BUDDY4_FRESH == result) && (p_o->valid)
                                && (p_o->tilt_valid),
                        p_o->timestamp_us, acquired);
 
     if (!speed.valid)
     {
-        buddy4_motion_update(&motion, 0, 0, false, acquired, acquired);
-        buddy4_encoder_yaw_update(&yaw, 0, 0, false, acquired, acquired);
+        buddy4_motion_update(&s_motion, 0, 0, false, acquired, acquired);
+        buddy4_encoder_yaw_update(&s_yaw, 0, 0, false, acquired, acquired);
     }
-    else if ((!has_speed) || (speed.sample_us != last_speed_us))
+    else if ((!s_has_speed) || (speed.sample_us != s_last_speed_us))
     {
-        buddy4_motion_update(&motion, speed.left_cm_s, speed.right_cm_s,
+        buddy4_motion_update(&s_motion, speed.left_cm_s, speed.right_cm_s,
                              true, speed.sample_us, acquired);
-        buddy4_encoder_yaw_update(&yaw, speed.left_cm_s, speed.right_cm_s,
+        buddy4_encoder_yaw_update(&s_yaw, speed.left_cm_s, speed.right_cm_s,
                                   true, speed.sample_us, acquired);
-        has_speed = true;
-        last_speed_us = speed.sample_us;
+        s_has_speed = true;
+        s_last_speed_us = speed.sample_us;
     }
     else
     {
         /* no action required */
     }
 
-    buddy4_motion_output_t mo = buddy4_motion_get(&motion, acquired);
-    buddy4_encoder_yaw_output_t yo = buddy4_encoder_yaw_get(&yaw, acquired);
+    buddy4_motion_output_t mo = buddy4_motion_get(&s_motion, acquired);
+    buddy4_encoder_yaw_output_t yo = buddy4_encoder_yaw_get(&s_yaw, acquired);
     next.sequence++;
     next.poll_us = acquired;
     next.sample_us = p_o->timestamp_us;
@@ -322,9 +322,10 @@ static void process_once (uint64_t now)
     next.status_a = p_o->status_a;
     next.clipped_samples = p_o->clipped_samples;
     next.unsuitable_samples = p_o->unsuitable_samples;
-    next.sensor_config_valid = imu.sensor_config.valid;
-    next.who_am_i = imu.sensor_config.who_am_i;
-    memcpy(next.sensor_ctrl, imu.sensor_config.ctrl, sizeof(next.sensor_ctrl));
+    next.sensor_config_valid = s_imu.sensor_config.valid;
+    next.who_am_i = s_imu.sensor_config.who_am_i;
+    memcpy(next.sensor_ctrl, s_imu.sensor_config.ctrl,
+           sizeof(next.sensor_ctrl));
 
     if (p_o->error_count != next.io_errors)
     {
@@ -424,7 +425,7 @@ static void sensor_task (INT code, void * p_info)
         {
             /* A failed release/clock read interrupts fresh-sample evidence.
              * Use the last known poll time; now may be unavailable. */
-            buddy4_lift_update(&lift, 0, 0, 0, false,
+            buddy4_lift_update(&s_lift, 0, 0, 0, false,
                                next.poll_us, next.poll_us);
             copy_lift();
             next.valid = next.tilt_valid = next.acceleration_valid =
@@ -448,7 +449,7 @@ static void sensor_task (INT code, void * p_info)
 
 ER buddy4_task_init (void)
 {
-    if (initialised)
+    if (s_initialised)
     {
         return E_OBJ;
     }
@@ -471,23 +472,23 @@ ER buddy4_task_init (void)
     }
 
     device = (buddy4_device_t){.descriptor = (int32_t)dd};
-    buddy4_init(&imu, buddy4_device_bus(&device), buddy4_default_config());
-    (void)buddy4_lift_init(&lift, buddy4_lift_default_config());
-    (void)buddy4_motion_init(&motion, buddy4_motion_default_config());
-    (void)buddy4_encoder_yaw_init(&yaw, buddy4_encoder_yaw_default_config());
+    buddy4_init(&s_imu, buddy4_device_bus(&device), buddy4_default_config());
+    (void)buddy4_lift_init(&s_lift, buddy4_lift_default_config());
+    (void)buddy4_motion_init(&s_motion, buddy4_motion_default_config());
+    (void)buddy4_encoder_yaw_init(&s_yaw, buddy4_encoder_yaw_default_config());
     memset(&next, 0, sizeof(next));
-    memset(&mailbox, 0, sizeof(mailbox));
+    memset(&s_mailbox, 0, sizeof(s_mailbox));
     next.poll_result = BUDDY4_NOT_READY;
-    published = next;
-    retry_us = last_speed_us = 0;
-    has_speed = pending_run_reset = false;
-    initialised = true;
+    s_published = next;
+    s_retry_us = s_last_speed_us = 0;
+    s_has_speed = s_pending_run_reset = false;
+    s_initialised = true;
     return E_OK;
 }
 
 ER buddy4_task_start (void)
 {
-    if ((!initialised) || (task_id > 0))
+    if ((!s_initialised) || (task_id > 0))
     {
         return E_OBJ;
     }

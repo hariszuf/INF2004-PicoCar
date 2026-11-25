@@ -9,9 +9,9 @@
 #undef main
 static motion_status_t motor;
 static line_status_t line;
-static int32_t line_updates;
-static int32_t line_starts;
-static int32_t drives;
+static int32_t s_line_updates;
+static int32_t s_line_starts;
+static int32_t s_drives;
 static bool latch;
 static float32_t left;
 static float32_t right;
@@ -43,20 +43,20 @@ motion_result_t motion_drive (float32_t l, float32_t r)
     assert(!latch);
     left = l;
     right = r;
-    drives++;
+    s_drives++;
     return MOTION_OK;
 }
 
 bool line_follow_start (void)
 {
-    line_starts++;
+    s_line_starts++;
     line.state = LINE_STATE_STRAIGHT;
     return true;
 }
 
 void line_follow_update (void)
 {
-    line_updates++;
+    s_line_updates++;
 }
 
 void line_follow_get_status (line_status_t * s)
@@ -103,8 +103,8 @@ static void turn_tests (void)
         drive_init(&c);
         int32_t key = direction ? 'D' : 'A';
         uint64_t now = UINT64_C(0x100000000) + 12345;
-        int32_t previous_updates = line_updates;
-        int32_t previous_starts = line_starts;
+        int32_t previous_updates = s_line_updates;
+        int32_t previous_starts = s_line_starts;
         begin_turn(&c, key, now);
         assert(c.mode == (direction ? DRIVE_TURN_RIGHT : DRIVE_TURN_LEFT));
         assert(left == (direction ? TURN_TEST_SPEED_CM_S
@@ -117,8 +117,8 @@ static void turn_tests (void)
             drive_line_update(&c);
         }
 
-        assert((line_updates == previous_updates)
-               && (line_starts == previous_starts));
+        assert((s_line_updates == previous_updates)
+               && (s_line_starts == previous_starts));
         const char modes[] = {'M', 'L', 'A', 'D', 'R', 'G'};
 
         for (uint32_t idx = 0; idx < sizeof(modes); idx++)
@@ -349,8 +349,8 @@ int main (void)
     drive_command(&c, 'R', true, false, 0);
     assert(!c.armed);
     start(&c);
-    assert((1 == drives) && (3.0f == left) && (3.0f == right)
-           && (0 == line_starts));
+    assert((1 == s_drives) && (3.0f == left) && (3.0f == right)
+           && (0 == s_line_starts));
     line.state = LINE_STATE_STOPPED;
 
     for (int32_t idx = 0; idx < 1000; idx++)
@@ -358,7 +358,7 @@ int main (void)
         drive_line_update(&c);
     }
 
-    assert((0 == line_updates) && (c.running) && (1 == drives));
+    assert((0 == s_line_updates) && (c.running) && (1 == s_drives));
     drive_command(&c, 'L', true, true, 0);
     assert(DRIVE_MANUAL == c.mode);
     drive_command(&c, 'S', true, true, 0);
@@ -389,17 +389,17 @@ int main (void)
     drive_command(&c, 'L', true, true, 0);
     assert((!c.armed) && (DRIVE_LINE == c.mode));
     start(&c);
-    assert(1 == line_starts);
+    assert(1 == s_line_starts);
     line.state = LINE_STATE_STOPPED;
     drive_line_update(&c);
-    assert((1 == line_updates) && (!c.running) && latch
+    assert((1 == s_line_updates) && (!c.running) && latch
            && (!strcmp(c.reason, "LINE_LOST")));
     start(&c);
     drive_command(&c, 'S', true, true, 0);
     drive_command(&c, 'M', true, true, 0);
     start(&c);
     drive_line_update(&c);
-    assert((1 == line_updates) && (c.running));
+    assert((1 == s_line_updates) && (c.running));
     drive_command(&c, 'S', true, true, 0);
     settle_stop();
     drive_command(&c, 'R', true, true, 0);

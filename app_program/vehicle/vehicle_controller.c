@@ -37,8 +37,8 @@
 #if TM_CONSOLE_USB_CDC
 IMPORT UW tm_usb_state (void);
 #endif
-static b5_feedback_t feedback_shared;
-static b5_request_t pending_request;
+static b5_feedback_t s_feedback_shared;
+static b5_request_t s_pending_request;
 /* Controller flags packed into one word (robot_flags.h): every write takes the
  * DI/EI lock, a read is one load. */
 static robot_flags_t ctl_flags;
@@ -55,7 +55,7 @@ static robot_flags_t ctl_flags;
 #define CF_REQUEST_PENDING (1u<<6)
 #define CTL(m) robot_flags_test(&ctl_flags,(m))
 /* Shared fault bitmask (robot_faults.h), refreshed by the controller task. */
-static robot_flags_t fault_mask;
+static robot_flags_t s_fault_mask;
 
 #if TM_WIFI_MQTT
 extern int32_t buddy1_barcode_map_result (void);
@@ -71,7 +71,7 @@ static ER report_measurement (uint8_t source, uint8_t type, uint16_t flags,
  * bits0-3 GP4 funcsel (5=SIO ok), 4-7 GP6 funcsel, 8 GP4 level, 9 GP6 level,
  * 10 GP4 irq enabled, 11 GP6 irq enabled, 12 NVIC13 enabled, 13 NVIC13 pending,
  * 14 GP4 raw edge latched, 15 GP6 raw edge latched. */
-extern volatile uint32_t b5p_dbg_enc_events;
+extern volatile uint32_t g_b5p_dbg_enc_events;
 extern volatile uint32_t b5p_dbg_cb_calls;
 static uint16_t enc_diag_flags (void)
 {
@@ -96,11 +96,11 @@ static uint16_t enc_diag_flags (void)
 #endif
 #endif
 /* Packed values for the existing source 5, type 60 telemetry. */
-static int32_t execution_state;
-static int32_t execution_reason;
-static uint8_t commands[8];
-static uint32_t command_head;
-static uint32_t command_tail;
+static int32_t s_execution_state;
+static int32_t s_execution_reason;
+static uint8_t s_commands[8];
+static uint32_t s_command_head;
+static uint32_t s_command_tail;
 bool line_controller_active (void)
 {
     return CTL(CF_RUN_ENABLED);
@@ -108,7 +108,7 @@ bool line_controller_active (void)
 
 uint32_t vehicle_fault_mask (void)
 {
-    return fault_mask;
+    return s_fault_mask;
 }
 
 static bool b5_line_usb_connected (void)
@@ -134,22 +134,22 @@ void b5_line_command_received (uint32_t c)
     if (('S' == c) || (' ' == c))
     {
         robot_flags_set_nl(&ctl_flags, CF_USER_STOP);
-        command_tail = command_head;
+        s_command_tail = s_command_head;
         robot_flags_clear_nl(&ctl_flags, CF_START_PENDING);
     }
     else if (b5_line_usb_connected())
     {
-        uint32_t next = (command_head + 1u) % 8u;
+        uint32_t next = (s_command_head + 1u) % 8u;
 
-        if (next == command_tail)
+        if (next == s_command_tail)
         {
             robot_flags_set_nl(&ctl_flags, CF_USER_STOP);
-            command_tail = command_head;
+            s_command_tail = s_command_head;
         }
         else
         {
-            commands[command_head] = (uint8_t)c;
-            command_head = next;
+            s_commands[s_command_head] = (uint8_t)c;
+            s_command_head = next;
         }
     }
     else
@@ -171,10 +171,10 @@ static int32_t b5_line_take_command (void)
     int32_t c = -1;
     DI(irq);
 
-    if (command_head != command_tail)
+    if (s_command_head != s_command_tail)
     {
-        c = commands[command_tail];
-        command_tail = (command_tail + 1u) % 8u;
+        c = s_commands[s_command_tail];
+        s_command_tail = (s_command_tail + 1u) % 8u;
     }
 
     EI(irq);
@@ -198,7 +198,7 @@ void b5_remote_command_intent (uint32_t c)
     if ('S' == c)
     {
         robot_flags_set_nl(&ctl_flags, CF_USER_STOP);
-        command_tail = command_head;
+        s_command_tail = s_command_head;
         robot_flags_clear_nl(&ctl_flags, CF_START_PENDING | CF_START_REJECTED);
     }
     else if (('R' == c) && (!CTL(CF_USER_STOP)))
@@ -229,7 +229,7 @@ static void discard_commands (void)
 {
     UW irq;
     DI(irq);
-    command_tail = command_head;
+    s_command_tail = s_command_head;
     robot_flags_clear_nl(&ctl_flags, CF_START_PENDING);
     EI(irq);
 }
@@ -238,7 +238,7 @@ bool line_controller_feedback (b5_feedback_t * f)
 {
     UW irq;
     DI(irq);
-    *f = feedback_shared;
+    *f = s_feedback_shared;
     EI(irq);
     return f->valid;
 }
@@ -252,7 +252,7 @@ bool line_controller_request (const b5_request_t * p_r)
     if (((CTL(CF_RUN_ENABLED)) || (B5_REQ_STOP == p_r->kind))
         && ((!CTL(CF_REQUEST_PENDING)) || (B5_REQ_STOP == p_r->kind)))
     {
-        pending_request = *p_r;
+        s_pending_request = *p_r;
         robot_flags_set_nl(&ctl_flags, CF_REQUEST_PENDING);
         accepted = true;
     }
@@ -265,8 +265,8 @@ void vehicle_controller_execution_status (int32_t * state, int32_t * p_reason)
 {
     UW irq;
     DI(irq);
-    *state = execution_state;
-    *p_reason = execution_reason;
+    *state = s_execution_state;
+    *p_reason = s_execution_reason;
     EI(irq);
 }
 
@@ -525,7 +525,7 @@ static void controller_task (INT stacd, void * p_exinf)
 
         if (b_got)
         {
-            request = pending_request;
+            request = s_pending_request;
             robot_flags_clear_nl(&ctl_flags, CF_REQUEST_PENDING);
         }
 
@@ -921,7 +921,8 @@ static void controller_task (INT stacd, void * p_exinf)
                 fm |= ROBOT_FAULT_MQTT_LOST;
             }
 #endif
-            robot_flags_update(&fault_mask, (1u << ROBOT_FAULT_MASK_BITS) - 1u,
+            robot_flags_update(&s_fault_mask,
+                               (1u << ROBOT_FAULT_MASK_BITS) - 1u,
                                fm);
         }
 
@@ -932,9 +933,9 @@ static void controller_task (INT stacd, void * p_exinf)
                 (int32_t)auto_start_exec_state(&start)
                 | ((int32_t)start.last_start << 4);
         DI(irq);
-        feedback_shared = f;
-        execution_state = state;
-        execution_reason = start.reason;
+        s_feedback_shared = f;
+        s_execution_state = state;
+        s_execution_reason = start.reason;
         EI(irq);
 #if TM_WIFI_MQTT
         if ((mqtt_dashboard_ready())
@@ -1261,7 +1262,7 @@ static void controller_task (INT stacd, void * p_exinf)
 #if B2_ENC_DIAG
                                /* DIAG: left=edges seen by IRQ, right=callback
                                 * calls */
-                               (int32_t)b5p_dbg_enc_events,
+                               (int32_t)g_b5p_dbg_enc_events,
                                        (int32_t)b5p_dbg_cb_calls,
                                        report_sequence);
 #else

@@ -55,11 +55,11 @@ static float64_t ray_box (float64_t ox, float64_t oy, float64_t dx,
     return t0;
 }
 
-static uint32_t rs = 1;
+static uint32_t s_rs = 1;
 static float64_t rnd (void)
 {
-    rs = rs * 1664525u + 1013904223u;
-    return (rs >> 8) / 16777216.0;
+    s_rs = s_rs * 1664525u + 1013904223u;
+    return (s_rs >> 8) / 16777216.0;
 }
 
 static int32_t run (float64_t face_x, float64_t cy, float64_t width,

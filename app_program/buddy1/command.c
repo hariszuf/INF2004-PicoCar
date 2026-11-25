@@ -14,8 +14,8 @@
 #define COMMAND_TASK_PRIORITY  6
 #define COMMAND_STACK_SIZE     4096
 
-LOCAL ID command_buffer_id = 0;
-LOCAL uint32_t command_dropped_count = 0U;
+LOCAL ID s_command_buffer_id = 0;
+LOCAL uint32_t s_command_dropped_count = 0U;
 
 #define COMMAND_MESSAGE_WORDS \
     ((sizeof(command_message_t) + sizeof(UW) - 1U) / sizeof(UW))
@@ -67,7 +67,7 @@ LOCAL void command_task (INT stacd, void * p_exinf)
     for (;;)
     {
         received_size = tk_rcv_mbf(
-                                   command_buffer_id,
+                                   s_command_buffer_id,
                                    &message,
                                    TMO_FEVR
                                    );
@@ -102,18 +102,18 @@ LOCAL T_CTSK command_task_config = {
  */
 ER buddy1_command_init (void)
 {
-    if (command_buffer_id > 0)
+    if (s_command_buffer_id > 0)
     {
         return E_OK;
     }
 
-    command_buffer_id = tk_cre_mbf(
+    s_command_buffer_id = tk_cre_mbf(
                                    &command_buffer_config
                                    );
 
-    if (command_buffer_id < E_OK)
+    if (s_command_buffer_id < E_OK)
     {
-        return command_buffer_id;
+        return s_command_buffer_id;
     }
 
     return E_OK;
@@ -126,7 +126,7 @@ ER buddy1_command_start (void)
 {
     ID task_id;
 
-    if (command_buffer_id <= 0)
+    if (s_command_buffer_id <= 0)
     {
         return E_OBJ;
     }
@@ -157,13 +157,13 @@ ER buddy1_command_submit (
         return E_PAR;
     }
 
-    if (command_buffer_id <= 0)
+    if (s_command_buffer_id <= 0)
     {
         return E_OBJ;
     }
 
     error_code = tk_snd_mbf(
-                            command_buffer_id,
+                            s_command_buffer_id,
                             message,
                             sizeof(command_message_t),
                             TMO_POL
@@ -171,7 +171,7 @@ ER buddy1_command_submit (
 
     if (E_TMOUT == error_code)
     {
-        command_dropped_count++;
+        s_command_dropped_count++;
     }
 
     return error_code;
@@ -179,14 +179,14 @@ ER buddy1_command_submit (
 
 uint32_t buddy1_command_get_dropped_count (void)
 {
-    return command_dropped_count;
+    return s_command_dropped_count;
 }
 
 /*
  * MQTT command sequence counter.
  * Only the MQTT networking owner task calls this bridge.
  */
-static uint32_t mqtt_command_sequence = 0U;
+static uint32_t s_mqtt_command_sequence = 0U;
 
 /*
  * Compare an MQTT payload against an expected command.
@@ -246,11 +246,11 @@ extern int32_t junction_map_apply (const char * codes,
 extern void junction_map_reset (void) __attribute__((weak));
 extern int32_t b5_run_active (void) __attribute__((weak));
 /* 0 none yet, 1 applied, 2 bad format, 3 rejected (car running) */
-static volatile int32_t barcode_map_result = 0;
+static volatile int32_t s_barcode_map_result = 0;
 
 int32_t buddy1_barcode_map_result (void)
 {
-    return barcode_map_result;
+    return s_barcode_map_result;
 }
 
 static int32_t barcode_map_command (const char * p_payload,
@@ -258,31 +258,31 @@ static int32_t barcode_map_command (const char * p_payload,
 {
     if ((NULL == junction_map_apply) || (NULL == junction_map_reset))
     {
-        barcode_map_result = 2;
+        s_barcode_map_result = 2;
         return (int32_t)E_NOSPT;
     }
 
     if ((NULL != b5_run_active) && (0 != b5_run_active()))
     {
-        barcode_map_result = 3;
+        s_barcode_map_result = 3;
         return (int32_t)E_BUSY;
     }
 
     if (0U != command_text_matches(p_payload, payload_length, "MAPRESET", 8U))
     {
         junction_map_reset();
-        barcode_map_result = 1;
+        s_barcode_map_result = 1;
         return 0;
     }
 
     if ((30U == payload_length) && (' ' == p_payload[3]) &&
         (0 == junction_map_apply(&p_payload[4], 26U)))
     {
-        barcode_map_result = 1;
+        s_barcode_map_result = 1;
         return 0;
     }
 
-    barcode_map_result = 2;
+    s_barcode_map_result = 2;
     return (int32_t)E_PAR;
 }
 
@@ -310,7 +310,7 @@ int32_t buddy1_mqtt_command_ingest (
             if ((TF_CMD_MAP_LENGTH != payload_length) ||
                 (!tf_decode_map((const uint8_t *) & p_payload[1], &text[4])))
             {
-                barcode_map_result = 2;
+                s_barcode_map_result = 2;
                 return (int32_t)E_PAR;
             }
 
@@ -403,8 +403,8 @@ int32_t buddy1_mqtt_command_ingest (
     message.flags = 0U;
     message.value = 0;
 
-    mqtt_command_sequence++;
-    message.sequence = mqtt_command_sequence;
+    s_mqtt_command_sequence++;
+    message.sequence = s_mqtt_command_sequence;
 
     return (int32_t)buddy1_command_submit(&message);
 }

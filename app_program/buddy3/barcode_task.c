@@ -10,15 +10,15 @@
 
 #define BARCODE_REPORT_US 2000000u
 
-static char latest_letter;
-static uint32_t latest_read_ms;
+static char s_latest_letter;
+static uint32_t s_latest_read_ms;
 
 bool buddy3_barcode_latest (char * letter, uint32_t * p_read_ms)
 {
     UW irq;
     DI(irq);
-    *letter = latest_letter;
-    *p_read_ms = latest_read_ms;
+    *letter = s_latest_letter;
+    *p_read_ms = s_latest_read_ms;
     EI(irq);
     return 0 != *letter;
 }
@@ -65,8 +65,8 @@ void barcode_scan_on_decoded (const barcode39_result_t * p_result)
         uint32_t now = (uint32_t)(b5p_time_us_64() / 1000u);
         UW irq;
         DI(irq);
-        latest_letter = p_result->text[0];
-        latest_read_ms = now;
+        s_latest_letter = p_result->text[0];
+        s_latest_read_ms = now;
         EI(irq);
     }
 #if TM_CONSOLE_USB_CDC
