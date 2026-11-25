@@ -283,7 +283,7 @@ int main (void)
 
         key = getchar_timeout_us(0u);
 
-        if (key != PICO_ERROR_TIMEOUT)
+        if (PICO_ERROR_TIMEOUT != key)
         {
             handle_command(key);
         }

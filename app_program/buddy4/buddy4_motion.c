@@ -129,7 +129,7 @@ buddy4_motion_output_t buddy4_motion_get (buddy4_motion_t * c, uint64_t now)
     }
 
     bool valid = (c->configured) && (c->has_sample)
-            && (c->state != BUDDY4_MOTION_UNKNOWN);
+            && (BUDDY4_MOTION_UNKNOWN != c->state);
     return (buddy4_motion_output_t)
     {
         valid ? c->state : BUDDY4_MOTION_UNKNOWN,

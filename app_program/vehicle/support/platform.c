@@ -53,7 +53,7 @@ void b5p_gpio_pull_up (uint32_t p)
 
 bool b5p_gpio_get (uint32_t p)
 {
-    return (REG(0xd0000004u) & (1u << p)) != 0;
+    return 0 != (REG(0xd0000004u) & (1u << p));
 }
 
 void b5p_gpio_put (uint32_t p, bool value)
@@ -99,7 +99,8 @@ void b5p_gpio_set_irq_enabled (uint32_t p, uint32_t events, bool enabled)
 }
 
 void b5p_gpio_set_irq_enabled_with_callback (uint32_t p, uint32_t events,
-                                             bool enabled, b5_gpio_callback_t callback)
+                                             bool enabled,
+                                             b5_gpio_callback_t callback)
 {
     encoder_callback = callback;
     b5p_gpio_set_irq_enabled(p, events, enabled);

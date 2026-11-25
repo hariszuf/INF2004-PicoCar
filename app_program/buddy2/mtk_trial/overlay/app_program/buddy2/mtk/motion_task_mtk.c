@@ -61,7 +61,7 @@ ER buddy2_init (void)
         return err;
     }
 
-    if (motion_init() != MOTION_OK)
+    if (MOTION_OK != motion_init())
     {
         return E_SYS;
     }

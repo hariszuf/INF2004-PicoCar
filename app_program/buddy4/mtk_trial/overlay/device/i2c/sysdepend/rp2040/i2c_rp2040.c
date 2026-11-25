@@ -123,7 +123,7 @@ EXPORT void buddy4_i2c_timeout_trace (uint32_t unit, uint32_t out[32])
 EXPORT void buddy4_i2c_wait_event (UINT event, ID id, UW kind, UW deadline,
                                    UW now)
 {
-    if (kind != TTW_FLG)
+    if (TTW_FLG != kind)
     {
         return;
     }
@@ -159,6 +159,10 @@ EXPORT void buddy4_i2c_wait_event (UINT event, ID id, UW kind, UW deadline,
         else if (2 == event)
         {
             p->wait_probe[7] = elapsed;
+        }
+        else
+        {
+            /* no action required */
         }
         break;
     }
@@ -417,7 +421,7 @@ LOCAL ER i2c_trans (INT unit, T_I2C_LLDCB *p_cb)
     (void)in_w(I2C_CLR_INTR(unit));             // Clear all Interrupt Registers
     in_w(I2C_CLR_TX_ABRT(unit));                // Clear Transmit abort
 
-    while (p_cb->state != I2C_STS_STOP)
+    while (I2C_STS_STOP != p_cb->state)
     {
         I2C_LOCK(unit, imask);
         (void)tk_clr_flg(p_cb->done_flgid, 0);
@@ -438,7 +442,7 @@ LOCAL ER i2c_trans (INT unit, T_I2C_LLDCB *p_cb)
                 cmd = I2C_DATA_CMD_CMD_READ | I2C_DATA_CMD_STOP;
             }
 
-            if (p_cb->sbuf != NULL)
+            if (NULL != p_cb->sbuf)
             {
                 cmd |= I2C_DATA_CMD_RESTART;
             }
@@ -450,7 +454,7 @@ LOCAL ER i2c_trans (INT unit, T_I2C_LLDCB *p_cb)
 
         I2C_UNLOCK(unit, imask);
 
-        if (p_cb->ioerr != E_OK)
+        if (E_OK != p_cb->ioerr)
         {
             err = p_cb->ioerr;
             break;

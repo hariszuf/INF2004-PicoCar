@@ -20,7 +20,8 @@ void b5p_gpio_put (uint32_t pin, bool value);
 void b5p_gpio_set_function (uint32_t pin, uint32_t function);
 void b5p_gpio_set_irq_enabled (uint32_t pin, uint32_t events, bool enabled);
 void b5p_gpio_set_irq_enabled_with_callback (uint32_t pin, uint32_t events,
-                                             bool enabled, b5_gpio_callback_t callback);
+                                             bool enabled,
+                                             b5_gpio_callback_t callback);
 #define gpio_init b5p_gpio_init
 #define gpio_set_dir b5p_gpio_set_dir
 #define gpio_pull_up b5p_gpio_pull_up

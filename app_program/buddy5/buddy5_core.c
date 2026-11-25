@@ -74,11 +74,19 @@ b5_range_t b5_filter (const b5_range_t samples[B5_SAMPLER_N])
             out.valid = true;
             out.distance_mm = (uint32_t)((echo[0] + echo[1]) / 2);
         }
+        else
+        {
+            /* no action required */
+        }
     }
     else if (none >= (int)B5_MIN_VALID_SAMPLES)
     {
         out.valid = true;
         out.distance_mm = B5_NO_ECHO_MM;
+    }
+    else
+    {
+        /* no action required */
     }
 
     return out;
@@ -147,7 +155,7 @@ static void issue (b5_core_t * c, b5_request_kind_t kind, uint32_t now,
 
 static bool request_done (const b5_core_t * c, const b5_feedback_t * f)
 {
-    return f && (f->valid) && (c->request.id != 0) && (!c->request_pending)
+    return f && (f->valid) && (0 != c->request.id) && (!c->request_pending)
             && (c->request_active) && (f->completed_id == c->request.id);
 }
 
@@ -497,6 +505,10 @@ void b5_core_update (b5_core_t * c, uint32_t now, const b5_feedback_t * f,
         {
             b5_core_fail(c, B5_FAULT_TIMEOUT, now);
         }
+        else
+        {
+            /* no action required */
+        }
         break;
         case B5_SCANNING:
         if (range && (c->slot < B5_SCAN_POINTS))
@@ -524,6 +536,10 @@ void b5_core_update (b5_core_t * c, uint32_t now, const b5_feedback_t * f,
         else if ((uint32_t)(now - c->state_since_ms) > B5_SCAN_TIMEOUT_MS)
         {
             b5_core_fail(c, B5_FAULT_TIMEOUT, now);
+        }
+        else
+        {
+            /* no action required */
         }
 
         if (B5_PROCESSING == c->state)
@@ -574,6 +590,10 @@ void b5_core_update (b5_core_t * c, uint32_t now, const b5_feedback_t * f,
                         c->phase = PH_UNWIND;
                         issue(c, B5_REQ_LOOK, now, 0, 0);
                     }   /* turn back square to the line, then stop */
+                }
+                else
+                {
+                    /* no action required */
                 }
                 break;
             }
@@ -630,6 +650,10 @@ void b5_core_update (b5_core_t * c, uint32_t now, const b5_feedback_t * f,
                     /* go back to the line, scan again without this side */
                     start_recover(c, now, PH_RETURN);
                 }
+                else
+                {
+                    /* no action required */
+                }
                 break;
             }
             case PH_ADVANCE:
@@ -669,7 +693,7 @@ void b5_core_update (b5_core_t * c, uint32_t now, const b5_feedback_t * f,
         break;
         case B5_LINE_RECOVERY:
         if (((uint32_t)(now - c->avoid_since_ms) > B5_AVOID_TIMEOUT_MS)
-            && (c->phase != PH_RESUME))
+            && (PH_RESUME != c->phase))
         {
             b5_core_fail(c, B5_FAULT_TIMEOUT, now);
             break;
@@ -719,7 +743,7 @@ void b5_core_update (b5_core_t * c, uint32_t now, const b5_feedback_t * f,
         break;
     }
 
-    if ((c->request_active) && (c->state != B5_ERROR)
+    if ((c->request_active) && (B5_ERROR != c->state)
         && ((uint32_t)(now - c->request_since_ms) > B5_REQUEST_TIMEOUT_MS))
     {
         b5_core_fail(c, B5_FAULT_TIMEOUT, now);

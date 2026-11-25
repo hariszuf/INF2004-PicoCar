@@ -112,7 +112,8 @@ static void test_api (void)
 {
     motion_terrain_input_t in = { true, 0, 0, 0.0f, 0.0f };
     printf("\n[terrain API]\n");
-    CHECK(MOTION_ERR_INVALID_ARG == motion_set_terrain((const motion_terrain_input_t *)0),
+    CHECK(MOTION_ERR_INVALID_ARG
+          == motion_set_terrain((const motion_terrain_input_t *)0),
           "null report rejected");
     in.pitch_deg = NAN;
     CHECK(MOTION_ERR_INVALID_ARG == motion_set_terrain(&in),

@@ -111,7 +111,8 @@ void buddy4_impact_update (buddy4_impact_t * d, float x, float y, float z,
         }
 
         if ((d->calm_samples >= 2) && ((0 == d->output.event_count) ||
-                                       (sample - d->output.event_us >= d->config.cooldown_us)))
+                                       (sample - d->output.event_us
+                                        >= d->config.cooldown_us)))
         {
             d->armed = true;
         }
@@ -138,7 +139,7 @@ void buddy4_impact_update (buddy4_impact_t * d, float x, float y, float z,
         {
             d->output.possible_impact = true;
 
-            if (d->output.event_count != UINT32_MAX)
+            if (UINT32_MAX != d->output.event_count)
             {
                 ++d->output.event_count;
             }

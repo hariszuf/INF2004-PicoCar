@@ -126,7 +126,7 @@ static junction_action_t junction_choose (void)
     {
         junction_action_t from_barcode = junction_action_for_letter(letter);
 
-        if (from_barcode != JUNCTION_NONE)
+        if (JUNCTION_NONE != from_barcode)
         {
             s_barcode_used = true;
             s_barcode_used_ms = read_ms;
@@ -190,7 +190,7 @@ static void junction_abort (void)
            tape) instead of failing,
            which restarted the whole obstacle process and left the car turning
            around. */
-        rejoin_finish(((s_mask & (LINE_SENSOR_LEFT | LINE_SENSOR_RIGHT)) != 0u)
+        rejoin_finish((0u != (s_mask & (LINE_SENSOR_LEFT | LINE_SENSOR_RIGHT)))
                       ? 1 : -1);
         return;
     }
@@ -253,7 +253,7 @@ static void rj_clear (int idx)
     s_ev[idx].in = false;
     s_ev[idx].done = false;
     /* already black: measure it on a later pass */
-    s_ev[idx].ignore = ((s_mask & rj_bit(idx)) != 0u);
+    s_ev[idx].ignore = (0u != (s_mask & rj_bit(idx)));
 }
 
 static void rj_track (float h)
@@ -262,7 +262,7 @@ static void rj_track (float h)
 
     for (idx = 0; idx < 2; ++idx)
     {
-        bool black = ((s_mask & rj_bit(idx)) != 0u);
+        bool black = (0u != (s_mask & rj_bit(idx)));
         rj_event_t * e = &s_ev[idx];
 
         if (e->done)
@@ -290,6 +290,10 @@ static void rj_track (float h)
             e->in = false;
             e->done = true;
             e->centre = 0.5f * (e->enter + h);
+        }
+        else
+        {
+            /* no action required */
         }
     }
 }
@@ -356,7 +360,7 @@ static void junction_start_turn (void)
 
     s_junction_ms = 0u;
 
-    if (result != MOTION_OK)
+    if (MOTION_OK != result)
     {
         junction_abort();
         return;
@@ -430,6 +434,10 @@ static void junction_step (void)
                     junction_abort();
                 }
             }
+            else
+            {
+                /* no action required */
+            }
 
             return;
         }
@@ -449,6 +457,10 @@ static void junction_step (void)
             else if (travelled > 2.0f * LINE_REJOIN_SEARCH_SPAN_DEG)
             {
                 junction_abort();
+            }
+            else
+            {
+                /* no action required */
             }
 
             return;
@@ -480,7 +492,7 @@ static void junction_step (void)
 #endif
     if (J_SEARCHING == s_junction)
     {
-        if ((s_mask & (LINE_SENSOR_LEFT | LINE_SENSOR_RIGHT)) != 0u)
+        if (0u != (s_mask & (LINE_SENSOR_LEFT | LINE_SENSOR_RIGHT)))
         {
             /* Found the new line: hand over to normal line following, which
              * centres it. */
@@ -492,6 +504,10 @@ static void junction_step (void)
         else if (s_junction_ms > LINE_JUNCTION_SEARCH_MS)
         {
             junction_abort();
+        }
+        else
+        {
+            /* no action required */
         }
 
         return;
@@ -518,7 +534,7 @@ static void junction_step (void)
 
         if (JUNCTION_STRAIGHT == s_junction_action)
         {
-            if (motion_move_forward(LINE_JUNCTION_CROSS_CM) != MOTION_OK)
+            if (MOTION_OK != motion_move_forward(LINE_JUNCTION_CROSS_CM))
             {
                 junction_abort();
                 return;
@@ -528,7 +544,7 @@ static void junction_step (void)
         }
         else if (LINE_JUNCTION_ADVANCE_CM > 0.0f)
         {
-            if (motion_move_forward(LINE_JUNCTION_ADVANCE_CM) != MOTION_OK)
+            if (MOTION_OK != motion_move_forward(LINE_JUNCTION_ADVANCE_CM))
             {
                 junction_abort();
                 return;
@@ -649,7 +665,7 @@ bool line_follow_rejoin (int direction, float advance_cm)
                 (advance_cm > 0.0f) ? motion_move_forward(advance_cm)
                 : motion_move_backward(-advance_cm);
 
-        if (r != MOTION_OK)
+        if (MOTION_OK != r)
         {
             rejoin_finish(-1);
             return false;
@@ -707,10 +723,10 @@ void line_follow_update (void)
      * bar
        widths matters, so the 5 ms update tick is accurate enough as a clock. */
     s_clock_us += (LINE_UPDATE_PERIOD_MS * 1000u);
-    barcode_scan_update((s_mask & LINE_SENSOR_BARCODE) != 0u, s_clock_us);
+    barcode_scan_update(0u != (s_mask & LINE_SENSOR_BARCODE), s_clock_us);
 #endif
 #if LINE_JUNCTION
-    if (s_junction != J_NONE)
+    if (J_NONE != s_junction)
     {
         /* the junction sequence drives the car; sensors are ignored */
         junction_step();
@@ -730,7 +746,7 @@ void line_follow_update (void)
        commands and ignore the sensors. No timer: released the moment the tilt
        is gone. */
     {
-        bool tilted = (status.terrain != MOTION_TERRAIN_FLAT);
+        bool tilted = (MOTION_TERRAIN_FLAT != status.terrain);
         float pitch_deg = 0.0f;
         float roll_deg = 0.0f;
 
@@ -780,8 +796,8 @@ void line_follow_update (void)
         }
     }
 #endif
-    left = ((s_mask & LINE_SENSOR_LEFT) != 0u);
-    right = ((s_mask & LINE_SENSOR_RIGHT) != 0u);
+    left = (0u != (s_mask & LINE_SENSOR_LEFT));
+    right = (0u != (s_mask & LINE_SENSOR_RIGHT));
 #if LINE_JUNCTION
     if ((!left) && (!right))
     {
@@ -795,7 +811,8 @@ void line_follow_update (void)
     {
         s_lost_ms = 0u;
         s_side_ms = 0u;
-#if (LINE_SENSORS_STRADDLE != 0u) && (LINE_BOTH_BLACK_STOP != 0u) && (LINE_JUNCTION != 0u)
+#if (LINE_SENSORS_STRADDLE != 0u) && (LINE_BOTH_BLACK_STOP != 0u) \
+    && (LINE_JUNCTION != 0u)
         /* "+" junction: stop, then turn / cross by the barcode letter (or the
          * test default). */
         if (s_junction_armed)
@@ -811,7 +828,7 @@ void line_follow_update (void)
 #elif (LINE_SENSORS_STRADDLE != 0u) && (LINE_BOTH_BLACK_STOP != 0u)
         /* Straddle mode: both sensors over black is not "on the line". Black =
          * stop. */
-        if (s_state != LINE_STATE_STOPPED)
+        if (LINE_STATE_STOPPED != s_state)
         {
             s_state = LINE_STATE_STOPPED;
             s_left_cmd = 0.0f;
@@ -856,7 +873,7 @@ void line_follow_update (void)
         {
             s_state = LINE_STATE_RECOVERING;
 
-            if (s_last_side != 0)
+            if (0 != s_last_side)
             {
                 steer(s_last_side, LINE_RECOVER_INNER_CM_S);
             }
@@ -868,7 +885,7 @@ void line_follow_update (void)
         }
         else
         {
-            if (s_state != LINE_STATE_STOPPED)
+            if (LINE_STATE_STOPPED != s_state)
             {
                 s_state = LINE_STATE_STOPPED;
                 s_left_cmd = 0.0f;
@@ -904,7 +921,7 @@ void line_follow_discard_barcode (void)
 
 void line_follow_get_status (line_status_t * p_status)
 {
-    if (p_status != 0)
+    if (0 != p_status)
     {
         p_status->state = s_state;
         p_status->sensor_mask = s_mask;

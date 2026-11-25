@@ -61,7 +61,7 @@ void drive_safety (drive_control_t * c, bool usb, bool has_fresh,
         drive_stop(c, "IMU_INVALID_TIMEOUT", MOTION_FAULT_NONE);
     }
     else if (((c->running) || (c->armed)) &&
-             ((s.fault != MOTION_FAULT_NONE)
+             ((MOTION_FAULT_NONE != s.fault)
               || (MOTION_STATE_ERROR == s.state)))
     {
         drive_stop(c, "MOTOR_FAULT", s.fault);
@@ -73,6 +73,10 @@ void drive_safety (drive_control_t * c, bool usb, bool has_fresh,
               || (now - c->started_us >= TURN_TEST_LIMIT_US)))
     {
         drive_stop(c, "TURN_TEST_TIMEOUT", MOTION_FAULT_NONE);
+    }
+    else
+    {
+        /* no action required */
     }
 }
 
@@ -122,7 +126,7 @@ void drive_command (drive_control_t * c, int key, bool usb, bool healthy,
     else if (('G' == key) && (!c->running) && (c->armed) && healthy &&
              (MOTION_STATE_IDLE == s.state))
     {
-        if ((c->mode != DRIVE_MANUAL) && (c->mode != DRIVE_LINE) &&
+        if ((DRIVE_MANUAL != c->mode) && (DRIVE_LINE != c->mode) &&
             ((!isfinite(TURN_TEST_SPEED_CM_S)) || (TURN_TEST_SPEED_CM_S <= 0) ||
              (TURN_TEST_SPEED_CM_S > MOTION_MAX_SPEED_CM_S)))
         {
@@ -147,12 +151,16 @@ void drive_command (drive_control_t * c, int key, bool usb, bool healthy,
             drive_stop(c, "START_FAILED", s.fault);
         }
     }
+    else
+    {
+        /* no action required */
+    }
 }
 
 void drive_line_update (drive_control_t * c)
 {
     /* Buddy 3 updates run only in explicitly selected line mode. */
-    if ((!c->running) || (c->mode != DRIVE_LINE))
+    if ((!c->running) || (DRIVE_LINE != c->mode))
     {
         return;
     }
@@ -170,6 +178,10 @@ void drive_line_update (drive_control_t * c)
         motion_status_t m;
         motion_get_status(&m);
         drive_stop(c, "MOTOR_FAULT", m.fault);
+    }
+    else
+    {
+        /* no action required */
     }
 }
 

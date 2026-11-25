@@ -261,13 +261,13 @@ static int32_t barcode_map_command (const char * payload,
         return (int32_t)E_NOSPT;
     }
 
-    if ((b5_run_active != NULL) && (b5_run_active() != 0))
+    if ((NULL != b5_run_active) && (0 != b5_run_active()))
     {
         barcode_map_result = 3;
         return (int32_t)E_BUSY;
     }
 
-    if (command_text_matches(payload, payload_length, "MAPRESET", 8U) != 0U)
+    if (0U != command_text_matches(payload, payload_length, "MAPRESET", 8U))
     {
         junction_map_reset();
         barcode_map_result = 1;
@@ -297,7 +297,7 @@ int32_t buddy1_mqtt_command_ingest (
     }
 
     if ((payload_length >= 1U)
-        && (((uint8_t)payload[0] & TF_BINARY_MARK) != 0U))
+        && (0U != ((uint8_t)payload[0] & TF_BINARY_MARK)))
     {
         /* Compact binary command from the dashboard (see telemetry_frame.h). */
         uint8_t opcode = (uint8_t)payload[0] & 0x7FU;
@@ -306,7 +306,7 @@ int32_t buddy1_mqtt_command_ingest (
         {
             char text[4U + TF_MAP_LETTERS + 1U] = { 'M', 'A', 'P', ' ' };
 
-            if ((payload_length != TF_CMD_MAP_LENGTH) ||
+            if ((TF_CMD_MAP_LENGTH != payload_length) ||
                 (!tf_decode_map((const uint8_t *) & payload[1], &text[4])))
             {
                 barcode_map_result = 2;
@@ -316,7 +316,7 @@ int32_t buddy1_mqtt_command_ingest (
             return barcode_map_command(text, (uint16_t)(4U + TF_MAP_LETTERS));
         }
 
-        if (payload_length != 1U)
+        if (1U != payload_length)
         {
             return (int32_t)E_PAR;
         }
@@ -380,7 +380,7 @@ int32_t buddy1_mqtt_command_ingest (
      * Source 1 represents Wi-Fi/Buddy 1.
      * No motor action is performed at this stage.
      */
-    if (b5_remote_command_intent != NULL)
+    if (NULL != b5_remote_command_intent)
     {
         if (COMMAND_TYPE_STOP == message.type)
         {
@@ -389,6 +389,10 @@ int32_t buddy1_mqtt_command_ingest (
         else if (COMMAND_TYPE_START == message.type)
         {
             b5_remote_command_intent((unsigned)'R');
+        }
+        else
+        {
+            /* no action required */
         }
 
         /* PAUSE / RESUME stay parsed and logged only. */

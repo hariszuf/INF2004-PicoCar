@@ -19,7 +19,7 @@ bool buddy3_barcode_latest (char * letter, uint32_t * read_ms)
     *letter = latest_letter;
     *read_ms = latest_read_ms;
     EI(irq);
-    return *letter != 0;
+    return 0 != *letter;
 }
 
 #if TM_CONSOLE_USB_CDC
@@ -85,7 +85,7 @@ static void barcode_task (INT start_code, void * exinf)
 #endif
     for (;;)
     {
-        bool black = (line_sensors_read() & LINE_SENSOR_BARCODE) != 0u;
+        bool black = 0u != (line_sensors_read() & LINE_SENSOR_BARCODE);
         uint32_t now = (uint32_t)b5p_time_us_64();
         barcode_scan_update(black, now);
 #if TM_CONSOLE_USB_CDC

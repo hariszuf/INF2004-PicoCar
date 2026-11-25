@@ -233,7 +233,7 @@ void buddy4_obstruction_update (buddy4_obstruction_t * d,
             {
                 d->output.possible_obstruction = true;
 
-                if (d->output.event_count != UINT32_MAX)
+                if (UINT32_MAX != d->output.event_count)
                 {
                     ++d->output.event_count;
                 }

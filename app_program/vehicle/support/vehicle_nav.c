@@ -136,7 +136,7 @@ static void trip (full_nav_t * n, float target_y, bool check)
 
 bool full_nav_accept (full_nav_t * n, const b5_request_t * r, uint32_t now)
 {
-    if ((n->failed) || ((n->active) && (r->kind != B5_REQ_STOP)))
+    if ((n->failed) || ((n->active) && (B5_REQ_STOP != r->kind)))
     {
         return false;
     }
@@ -317,7 +317,7 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
         return;
     }
 
-    if ((m->fault != MOTION_FAULT_NONE)
+    if ((MOTION_FAULT_NONE != m->fault)
         || ((uint32_t)(now - n->started) > 90000u))
     {
         fail(n);
@@ -374,7 +374,7 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
          * of the line is the box (or
          * something else in the way). Stop before touching it. */
         if ((!n->tape_entered) && (n->front_fresh) && (0 == n->front_angle)
-            && (n->front_mm != B5_CLEAR_FRONT_MM) && (n->front_mm >= 0))
+            && (B5_CLEAR_FRONT_MM != n->front_mm) && (n->front_mm >= 0))
         {
             float remain =
                     absolute(n->y + B5_AXLE_TO_SENSOR_MM
@@ -428,7 +428,7 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
          * line centre. Stop once past it; the hand-back then drives exactly
          * onto the
          * line. */
-        bool black = (mask & (LINE_SENSOR_LEFT | LINE_SENSOR_RIGHT)) != 0;
+        bool black = 0 != (mask & (LINE_SENSOR_LEFT | LINE_SENSOR_RIGHT));
         float sy = n->y + B5_AXLE_TO_SENSOR_MM
                 * sinf(n->heading * 0.01745329252f);
 
@@ -456,13 +456,17 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
             n->tape_entered = false;
         }
         else if ((n->tape_entered)
-                 && ((!black) || (absolute(sy
-                                           - n->tape_enter_y) >= B5_TAPE_MAX_MM)))
+                 && ((!black)
+                     || (absolute(sy - n->tape_enter_y) >= B5_TAPE_MAX_MM)))
         {
             n->tape_line_y = 0.5f*(n->tape_enter_y + sy);
             n->tape_measured = true;
             motion_stop();
             n->recovery_stop = true;
+        }
+        else
+        {
+            /* no action required */
         }
     }
 
@@ -516,7 +520,7 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
     {
         if (1 == n->search_phase)
         {
-            bool seen = (mask & (LINE_SENSOR_LEFT | LINE_SENSOR_RIGHT)) != 0;
+            bool seen = 0 != (mask & (LINE_SENSOR_LEFT | LINE_SENSOR_RIGHT));
             /* Stop when the heading is back to the line direction, or earlier
              * if a
              * sensor already sees the line
@@ -535,6 +539,10 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
             else if ((uint32_t)(now - n->check_since) > B5_LINE_SEARCH_MS)
             {
                 fail(n);
+            }
+            else
+            {
+                /* no action required */
             }
 
             return;
@@ -637,9 +645,8 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
 
         if (B5_REQ_LOOK == n->request.kind)
         {
-            pose = absolute(n->heading
-                            - (float)n->request.lateral_mm) <= NAV_HEADING_ALIGNED_DEG
-                    + 4.0f;
+            pose = absolute(n->heading - (float)n->request.lateral_mm)
+                    <= NAV_HEADING_ALIGNED_DEG + 4.0f;
         }
 
         if (B5_REQ_BYPASS == n->request.kind)
@@ -652,8 +659,9 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
 
         if (B5_REQ_ADVANCE == n->request.kind)
         {
-            pose = pose && (absolute(n->x
-                                     - n->request.forward_mm) <= B5_ADV_TOL_X_MM)
+            pose = pose
+                    && (absolute(n->x - n->request.forward_mm)
+                        <= B5_ADV_TOL_X_MM)
                     && (absolute(n->y
                                  - n->request.lateral_mm) <= B5_ADV_TOL_Y_MM);
         }
@@ -720,7 +728,7 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
             int a = n->front_angle < 0 ? -n->front_angle : n->front_angle;
             uint32_t k = 0 == a ? 0u : a <= 20 ? 1u : 2u;
 
-            if (n->look[k] != 2u)
+            if (2u != n->look[k])
             {
                 n->look[k] = v;
             }
@@ -868,7 +876,7 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
             return;
         }
 
-        if (motion_set_speed(9.0f) != MOTION_OK)
+        if (MOTION_OK != motion_set_speed(9.0f))
         {
             fail(n);
             return;
@@ -876,7 +884,7 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
 
         result = motion_move_backward(a.value / 10.0f);
 
-        if (result != MOTION_OK)
+        if (MOTION_OK != result)
         {
             fail(n);
             return;
@@ -946,7 +954,7 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
         /* +: pivot left */
         result = a.value > 0 ? motion_drive(-v, v) : motion_drive(v, -v);
 
-        if (result != MOTION_OK)
+        if (MOTION_OK != result)
         {
             fail(n);
             return;
@@ -963,7 +971,7 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
     {
         if (!guard)
         {
-            if (n->request.kind != B5_REQ_BYPASS)
+            if (B5_REQ_BYPASS != n->request.kind)
             {
                 /* only a forward translation needs clear forward sonar */
                 return;
@@ -1010,7 +1018,7 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
                         : motion_turn_right(extra);
             }
 
-            if (result != MOTION_OK)
+            if (MOTION_OK != result)
             {
                 fail(n);
                 return;
@@ -1055,7 +1063,7 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
             return;
         }
 
-        if (motion_set_speed(B5_BYPASS_SPEED_CM_S) != MOTION_OK)
+        if (MOTION_OK != motion_set_speed(B5_BYPASS_SPEED_CM_S))
         {
             fail(n);
             return;
@@ -1064,7 +1072,7 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
         result = motion_move_forward(a.value / 10.0f);
     }
 
-    if (result != MOTION_OK)
+    if (MOTION_OK != result)
     {
         fail(n);
         return;
@@ -1080,7 +1088,7 @@ void full_nav_update (full_nav_t * n, uint32_t now, const motion_status_t * m,
 
 bool full_nav_block_stop (full_nav_t * n)
 {
-    if ((!n->active) || (n->failed) || (n->request.kind != B5_REQ_BYPASS)
+    if ((!n->active) || (n->failed) || (B5_REQ_BYPASS != n->request.kind)
         || (n->block_fixes >= B5_BLOCK_MAX_FIXES))
     {
         return false;

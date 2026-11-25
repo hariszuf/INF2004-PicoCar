@@ -178,7 +178,7 @@ static void update_median (side_event_t * event, uint64_t timestamp,
     event->median_time_us[n] = timestamp;
     event->median_count = ++n;
 
-    if (n != 11)
+    if (11 != n)
     {
         return;
     }
@@ -224,7 +224,7 @@ static void update_side_event (side_event_t * event,
                                float roll,
                                float height_cm)
 {
-    if ((event->side != 0) && (side != event->side))
+    if ((0 != event->side) && (side != event->side))
     {
         finish_side_event(
                           event,
@@ -401,8 +401,8 @@ bool buddy4_configure (buddy4_imu_t * imu)
         (imu->config.centre_spacing_cm <= 0) ||
         (!isfinite(imu->config.pitch_offset_deg)) ||
         (!isfinite(imu->config.roll_offset_deg)) ||
-        (fabsf(imu->config.pitch_sign) != 1) ||
-        (fabsf(imu->config.roll_sign) != 1))
+        (1 != fabsf(imu->config.pitch_sign)) ||
+        (1 != fabsf(imu->config.roll_sign)))
     {
         goto fail;
     }
@@ -420,7 +420,7 @@ bool buddy4_configure (buddy4_imu_t * imu)
     if ((!read_registers(imu, LSM303D_REG_WHO_AM_I,
                          &imu->sensor_config.who_am_i,
                          1)) ||
-        (imu->sensor_config.who_am_i != LSM303D_WHO_AM_I_VALUE))
+        (LSM303D_WHO_AM_I_VALUE != imu->sensor_config.who_am_i))
     {
         goto fail;
     }
@@ -580,12 +580,12 @@ buddy4_result_t buddy4_poll (buddy4_imu_t * imu, uint64_t timestamp_us)
             BUDDY4_QUALITY_NON_GRAVITY : BUDDY4_QUALITY_GRAVITY_LIKE;
     output->tilt_valid = BUDDY4_QUALITY_GRAVITY_LIKE == output->quality;
 
-    if ((output->clipped_axes) && (output->clipped_samples != UINT32_MAX))
+    if ((output->clipped_axes) && (UINT32_MAX != output->clipped_samples))
     {
         ++output->clipped_samples;
     }
 
-    if ((!output->tilt_valid) && (output->unsuitable_samples != UINT32_MAX))
+    if ((!output->tilt_valid) && (UINT32_MAX != output->unsuitable_samples))
     {
         ++output->unsuitable_samples;
     }

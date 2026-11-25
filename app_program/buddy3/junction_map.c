@@ -52,7 +52,7 @@ int junction_map_apply (const char * codes, uint32_t length)
     uint8_t next[JUNCTION_MAP_LETTERS];
     uint32_t idx;
 
-    if ((0 == codes) || (length != JUNCTION_MAP_LETTERS))
+    if ((0 == codes) || (JUNCTION_MAP_LETTERS != length))
     {
         return -1;
     }

@@ -234,7 +234,7 @@ static void scan_task (INT stacd, void * exinf)
             /* Stopped by the operator: stay in MONITORING, centred, no
              * requests; keep
              * the heartbeat alive. */
-            if (servo != 0)
+            if (0 != servo)
             {
                 servo = 0;
                 servo_set_angle(0);
@@ -288,7 +288,7 @@ static void scan_task (INT stacd, void * exinf)
         {
             static b5_state_t prev_state = B5_MONITORING;
 
-            if ((B5_WAIT_STOP == core.state) && (prev_state != B5_WAIT_STOP))
+            if ((B5_WAIT_STOP == core.state) && (B5_WAIT_STOP != prev_state))
             {
                 ++obstacle_id;
                 rescans = 0;

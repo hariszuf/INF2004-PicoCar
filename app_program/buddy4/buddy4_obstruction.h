@@ -11,14 +11,15 @@ typedef struct
 {
     /* NEW coherent finite speed pair with qualified timing. */
     bool valid;
-    bool eligible;    /* Established command context: straight forward, no brake,
-                       * turn/fault/mode transition, usable flat-terrain
-                       * context. */
-    bool pause_motion; /* Fresh otherwise-eligible input, brief pitch guard only.
-                        * Cannot establish or accumulate slowdown while paused.
-                        */
-    uint64_t observation_us; /* Producer observation time; see SDK adapter contract.
-                             * Not necessarily encoder acquisition time. */
+    bool eligible;    /* Established command context: straight forward,
+                       * no brake, turn/fault/mode transition, usable
+                       * flat-terrain context. */
+    bool pause_motion; /* Fresh otherwise-eligible input, brief pitch guard
+                        * only. Cannot establish or accumulate slowdown
+                        * while paused. */
+    uint64_t observation_us; /* Producer observation time; see SDK adapter
+                              * contract. Not necessarily encoder acquisition
+                              * time. */
     uint64_t demand_id; /* Changes on every new drive/mode session. */
     float command_left_cm_s;
     float command_right_cm_s;

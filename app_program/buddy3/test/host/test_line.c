@@ -51,7 +51,8 @@ static run_result_t run (int max_ms, int verbose)
         if ((ms % (int)LINE_UPDATE_PERIOD_MS) == ((int)LINE_UPDATE_PERIOD_MS
                 - 1))
         {
-            if ((ms % (int)MOTION_UPDATE_PERIOD_MS) == ((int)MOTION_UPDATE_PERIOD_MS - 1))
+            if ((ms % (int)MOTION_UPDATE_PERIOD_MS)
+                == ((int)MOTION_UPDATE_PERIOD_MS - 1))
             {
                 motion_update();
             }

@@ -99,7 +99,7 @@ static double nearest (double x, double y, int * p_idx)
         }
     }
 
-    if (p_idx != 0)
+    if (0 != p_idx)
     {
         *p_idx = best_i;
     }

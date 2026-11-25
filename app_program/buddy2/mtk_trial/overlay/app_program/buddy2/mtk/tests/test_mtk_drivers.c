@@ -101,7 +101,7 @@ static void test_hw_init (void)
           "PWM and TIMER released from reset (atomic clear alias)");
     CHECK(REG(B2_WATCHDOG_TICK) == ((1u << 9) | 12u),
           "1 us timer tick started from 12 MHz XOSC");
-    CHECK((13u == s_def_intno) && (s_def_hdr != 0),
+    CHECK((13u == s_def_intno) && (0 != s_def_hdr),
           "IO_IRQ_BANK0 (IRQ 13) handler installed");
     CHECK(1 == s_enabled_level, "GPIO interrupt enabled at level 1");
     REG(B2_TIMER_RAWH) = 1u;
@@ -130,7 +130,7 @@ static void test_motor (void)
 
     for (pin = 8u; pin <= 11u; pin++)
     {
-        if (REG(B2_IO_GPIO_CTRL(pin)) != 4u)
+        if (4u != REG(B2_IO_GPIO_CTRL(pin)))
         {
             break;
         }
@@ -223,9 +223,9 @@ static void test_motion_end_to_end (void)
         motion_update();
     }
 
-    CHECK((cc(4) != 0u) && (0u == (cc(4) >> 16)),
+    CHECK((0u != cc(4)) && (0u == (cc(4) >> 16)),
           "left motor driven forward (GP8 PWM)");
-    CHECK((cc(5) != 0u) && (0u == (cc(5) >> 16)),
+    CHECK((0u != cc(5)) && (0u == (cc(5) >> 16)),
           "right motor driven forward (GP10 PWM)");
     motion_get_status(&st);
     CHECK((40 == st.left_count) && (40 == st.right_count)

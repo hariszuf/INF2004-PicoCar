@@ -49,8 +49,8 @@ static void test_windows (void)
 
     for (int span = 189999; span <= 210001; span++)
     {
-        if ((span != 189999) && (span != 190000) && (span != 210000)
-            && (span != 210001))
+        if ((189999 != span) && (190000 != span) && (210000 != span)
+            && (210001 != span))
         {
             continue;
         }

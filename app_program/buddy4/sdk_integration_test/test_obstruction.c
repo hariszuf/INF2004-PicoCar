@@ -28,11 +28,11 @@ static void reproduce_input (void)
     assert((foam[0].left > 3) && (foam[0].right > 3));
     assert((114960000 == foam[5].us) && (0.12f == foam[5].left));
     assert((115060000 == foam[10].us) && (0.004f == foam[10].right));
-    assert((foam[10].us < stop_us) && (stop_us - foam[5].us == 130000));
+    assert((foam[10].us < stop_us) && (130000 == stop_us - foam[5].us));
 
     for (uint32_t idx = 1; idx < sizeof(foam) / sizeof(foam[0]); idx++)
     {
-        assert(foam[idx].us - foam[idx - 1].us == 20000);
+        assert(20000 == foam[idx].us - foam[idx - 1].us);
         assert((foam[idx].left < foam[idx - 1].left)
                && (foam[idx].right < foam[idx - 1].right));
         assert(foam[idx].us < stop_us);

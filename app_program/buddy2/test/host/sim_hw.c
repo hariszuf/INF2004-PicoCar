@@ -91,6 +91,10 @@ static void step_wheel (motion_side_t side)
             /* gravity overcomes friction */
             target = effective * SIM_MAX_SPEED_CM_S * gain;
         }
+        else
+        {
+            /* no action required */
+        }
 
         s_speed[side] += (target - s_speed[side])
                 * (SIM_STEP_S / SIM_MOTOR_TAU_S);

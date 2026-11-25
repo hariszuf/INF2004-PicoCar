@@ -30,7 +30,7 @@ void motion_encoder_irq_handler (uint32_t gpio, uint32_t events)
 {
     uint32_t edges = events & edge_events();
     int32_t n = (edges == (B2_GPIO_EDGE_RISE | B2_GPIO_EDGE_FALL)) ? 2
-            : ((edges != 0u) ? 1 : 0);
+            : ((0u != edges) ? 1 : 0);
 
     if (MOTION_PIN_LEFT_ENCODER == gpio)
     {

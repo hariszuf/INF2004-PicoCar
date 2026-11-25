@@ -106,7 +106,7 @@ bool buddy3_barcode_latest (char * letter, uint32_t * read_ms)
 {
     *letter = s_letter;
     *read_ms = s_letter_ms;
-    return s_letter != 0;
+    return 0 != s_letter;
 }
 #endif
 
@@ -272,7 +272,7 @@ int main (void)
     for (int idx = 0; idx < 2000; idx++)
     {
         s_idle = true;
-        tick((idx % 3 == 0) ? 0u : BOTH);
+        tick((0 == idx % 3) ? 0u : BOTH);
 
         if (s_forward_calls || s_left_calls || s_right_calls || s_drive_calls)
         {

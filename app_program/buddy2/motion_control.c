@@ -20,7 +20,8 @@
 #if defined(MOTION_HOST_TEST)
 #include "host_platform.h"
 #elif defined(MOTION_USE_UTKERNEL)
-#include "motion_mtk_hw.h"    /* micro T-Kernel trial: app_program/buddy2/mtk_trial */
+/* micro T-Kernel trial: app_program/buddy2/mtk_trial */
+#include "motion_mtk_hw.h"
 #else
 #include "hardware/sync.h"
 #include "pico/time.h"
@@ -292,7 +293,7 @@ static void update_terrain (uint64_t now, float dt_s)
         }
 
         /* Hump / one-side ramp: slow down and help the raised wheel. */
-        if (input.roll_state != 0)
+        if (0 != input.roll_state)
         {
             motion_side_t raised =
                     (input.roll_state < 0) ? MOTION_SIDE_LEFT
@@ -385,7 +386,7 @@ static float wheel_control (motion_side_t side, float setpoint, float dt_s)
     if (abs_f(setpoint) <= ZERO_SPEED_CM_S)
     {
         if ((MOTION_PID_HOLD_INTEGRAL_ON_ZERO == 0u)
-            || (s_active.type != COMMAND_DRIVE))
+            || (COMMAND_DRIVE != s_active.type))
         {
             motion_pid_reset(&s_pid[side]);
         }
@@ -400,7 +401,7 @@ static float wheel_control (motion_side_t side, float setpoint, float dt_s)
 
     /* Continuous drive must be able to back off below the duty floor
        when a wheel has reached its requested speed. */
-    bool needs_min_duty = (s_active.type != COMMAND_DRIVE) ||
+    bool needs_min_duty = (COMMAND_DRIVE != s_active.type) ||
             (sign_f(setpoint)
              * s_speed_cm_s[side] < abs_f(setpoint));
 
@@ -511,7 +512,7 @@ static void start_command (const command_t * p_command)
         return;
     }
 
-    if (s_state != MOTION_STATE_EXECUTING)
+    if (MOTION_STATE_EXECUTING != s_state)
     {
         reset_controllers();
     }
@@ -805,8 +806,8 @@ void motion_update (void)
     read_sensors(dt_s);
     update_terrain(now, dt_s);
 
-    if ((MF(MF_ESTOP_REQUEST)) && ((s_state != MOTION_STATE_ERROR) ||
-                                   (s_fault != MOTION_FAULT_ESTOP)))
+    if ((MF(MF_ESTOP_REQUEST)) && ((MOTION_STATE_ERROR != s_state) ||
+                                   (MOTION_FAULT_ESTOP != s_fault)))
     {
         enter_error(MOTION_FAULT_ESTOP);
     }
@@ -817,7 +818,7 @@ void motion_update (void)
     robot_flags_clear_nl(&s_flags, MF_PENDING_VALID);
     critical_exit(saved);
 
-    if (have_command && (s_state != MOTION_STATE_ERROR))
+    if (have_command && (MOTION_STATE_ERROR != s_state))
     {
         start_command(&command);
     }
@@ -1037,7 +1038,7 @@ motion_result_t motion_reset (void)
         return MOTION_ERR_NOT_INIT;
     }
 
-    if (s_state != MOTION_STATE_ERROR)
+    if (MOTION_STATE_ERROR != s_state)
     {
         return MOTION_OK;
     }
@@ -1062,7 +1063,7 @@ motion_result_t motion_reset_odometry (void)
         return MOTION_ERR_NOT_INIT;
     }
 
-    if ((s_state != MOTION_STATE_IDLE) || (MF(MF_PENDING_VALID)))
+    if ((MOTION_STATE_IDLE != s_state) || (MF(MF_PENDING_VALID)))
     {
         return MOTION_ERR_BUSY;
     }

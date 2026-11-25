@@ -302,6 +302,10 @@ static void process_once (uint64_t now)
         has_speed = true;
         last_speed_us = speed.sample_us;
     }
+    else
+    {
+        /* no action required */
+    }
 
     buddy4_motion_output_t mo = buddy4_motion_get(&motion, acquired);
     buddy4_encoder_yaw_output_t yo = buddy4_encoder_yaw_get(&yaw, acquired);

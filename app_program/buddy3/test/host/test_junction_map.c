@@ -32,7 +32,7 @@ int main (void)
 
     /* Replace the whole table: A = L, B = S, C = R, D = U, the other 22 letters
      * = N. */
-    CHECK(junction_map_apply("LSRUNNNNNNNNNNNNNNNNNNNNNN", 26) == 0,
+    CHECK(0 == junction_map_apply("LSRUNNNNNNNNNNNNNNNNNNNNNN", 26),
           "apply valid map");
     CHECK(JUNCTION_LEFT == junction_action_for_letter('A'), "map A = LEFT");
     CHECK(JUNCTION_STRAIGHT == junction_action_for_letter('B'),
@@ -42,8 +42,8 @@ int main (void)
     CHECK(JUNCTION_NONE == junction_action_for_letter('W'), "map W = NONE");
 
     /* Bad input is rejected and leaves the table unchanged. */
-    CHECK(junction_map_apply("LSR", 3) == -1, "reject wrong length");
-    CHECK(junction_map_apply("LSRUNNNNNNNNNNNNNNNNNNNNNX", 26) == -1,
+    CHECK(-1 == junction_map_apply("LSR", 3), "reject wrong length");
+    CHECK(-1 == junction_map_apply("LSRUNNNNNNNNNNNNNNNNNNNNNX", 26),
           "reject bad character");
     CHECK(JUNCTION_STRAIGHT == junction_action_for_letter('B'),
           "table unchanged after rejects");
@@ -54,9 +54,9 @@ int main (void)
           && (JUNCTION_NONE == junction_action_for_letter('B')),
           "reset restores defaults");
 
-    CHECK(strcmp(junction_action_name(JUNCTION_RIGHT), "RIGHT") == 0,
+    CHECK(0 == strcmp(junction_action_name(JUNCTION_RIGHT), "RIGHT"),
           "name RIGHT");
-    CHECK(strcmp(junction_action_name(JUNCTION_NONE), "NONE") == 0,
+    CHECK(0 == strcmp(junction_action_name(JUNCTION_NONE), "NONE"),
           "name NONE");
 
     printf("%s\n", 0 == s_failures ? "ALL PASSED" : "SOME FAILED");

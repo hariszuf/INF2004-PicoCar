@@ -151,7 +151,7 @@ ER tk_unl_mtx (ID id)
 
 ID tk_opn_dev (UB *name, UINT mode)
 {
-    assert((strcmp((char*)name, "iica") == 0)
+    assert((0 == strcmp((char*)name, "iica"))
            && (mode == (TD_UPDATE | TD_EXCL)));
     return open_failure ? open_failure : 3;
 }
@@ -696,7 +696,7 @@ int main (void)
     tick(8000000);
     assert((!next.valid) && (!next.sensor_config_valid)
            && (next.io_errors == errors + 1));
-    assert((next.sensor_ctrl[2] != 0xc0) && (next.completed_events == completed)
+    assert((0xc0 != next.sensor_ctrl[2]) && (next.completed_events == completed)
            && (1 == next.impact_count));
     tick(9020000);
     assert((next.valid) && (next.sensor_config_valid) && (next.tilt_valid));

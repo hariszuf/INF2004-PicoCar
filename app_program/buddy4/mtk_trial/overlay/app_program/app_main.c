@@ -52,7 +52,7 @@ static void buddy4_decimal (char out[16], float value)
 
     hundredths = (unsigned int)(value * 100.0f + 0.5f);
 
-    if (negative && (hundredths != 0))
+    if (negative && (0 != hundredths))
     {
         out[pos++] = '-';
     }
@@ -70,7 +70,7 @@ static void buddy4_decimal (char out[16], float value)
         out[pos++] = (char)('0' + whole / divisor);
         whole %= divisor;
         divisor /= 10;
-    } while (divisor != 0);
+    } while (0 != divisor);
     out[pos++] = '.';
     out[pos++] = (char)('0' + (hundredths / 10) % 10);
     out[pos++] = (char)('0' + hundredths % 10);
@@ -219,7 +219,7 @@ static void buddy4_print_readable (const buddy4_task_snapshot_t * s)
                       : s->impact_valid
               ? "VALID" : "INVALID", (UINT)s->impact_count);
 
-    if (s->impact_count != 0)
+    if (0 != s->impact_count)
     {
         tm_printf((UB *)"     Saved latest possible-impact time: %u.%03u s "
                   "since boot | OBSERVATIONAL, NOT CONFIRMED COLLISION\n",

@@ -785,7 +785,7 @@ static void recorded_ramp (const char * name, uint32_t expected_rows, bool held)
             field[n++] = v;
         }
 
-        if (n != 69)
+        if (69 != n)
         {
             continue;
         }
@@ -798,13 +798,13 @@ static void recorded_ramp (const char * name, uint32_t expected_rows, bool held)
         }
 
         t = base + (stamp - first) - 20000;
-        control.running = held ? true : atoi(field[28]) != 0;
+        control.running = held ? true : 0 != atoi(field[28]);
         control.mode = (drive_mode_t)atoi(field[29]);
         motor.state =
                 held ? MOTION_STATE_EXECUTING : (motion_state_t)atoi(field[39]);
         motor.fault =
                 held ? MOTION_FAULT_NONE : (motion_fault_t)atoi(field[40]);
-        imu.output.valid = (atoi(field[3]) != 0) && (0 == atoi(field[2]));
+        imu.output.valid = (0 != atoi(field[3])) && (0 == atoi(field[2]));
         float x = strtof(field[9], NULL), y = strtof(field[10], NULL),
         z = strtof(field[11], NULL);
         float mag = hypotf(hypotf(x, y), z);
@@ -1052,13 +1052,13 @@ static void new_recorded_contact (const char * name, uint32_t expected_rows,
             field[n++] = v;
         }
 
-        if (n != 86)
+        if (86 != n)
         {
             continue;
         }
 
         t = strtoull(field[10], NULL, 10) - 20000;
-        control.running = atoi(field[34]) != 0;
+        control.running = 0 != atoi(field[34]);
         control.mode = (drive_mode_t)atoi(field[35]);
         motor.state = (motion_state_t)atoi(field[45]);
         motor.fault = (motion_fault_t)atoi(field[46]);
@@ -1066,9 +1066,9 @@ static void new_recorded_contact (const char * name, uint32_t expected_rows,
         motor.terrain_speed_scale = strtof(field[49], NULL);
         motor.left_terrain_duty = strtof(field[50], NULL);
         motor.right_terrain_duty = strtof(field[51], NULL);
-        imu.output.valid = atoi(field[3]) != 0;
-        imu.output.tilt_valid = atoi(field[4]) != 0;
-        imu.output.acceleration_valid = atoi(field[5]) != 0;
+        imu.output.valid = 0 != atoi(field[3]);
+        imu.output.tilt_valid = 0 != atoi(field[4]);
+        imu.output.acceleration_valid = 0 != atoi(field[5]);
         imu.output.clipped_axes = (uint8_t)atoi(field[7]);
         imu.output.pitch_deg = strtof(field[18], NULL);
         imu.output.roll_deg = strtof(field[19], NULL);

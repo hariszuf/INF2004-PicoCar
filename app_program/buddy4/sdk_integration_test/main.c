@@ -190,18 +190,59 @@ int main (void)
          * data. */
         if (usb && header)
         {
-            printf("# standalone_Pico_SDK,commands=M_manual_L_line_A_left_test_D_right_test_R_then_G_stop_S_or_space,serial_stop_is_not_hardware_estop\n");
-            printf("# calibration=buddy4_default_config,mounting_offsets_need_recalibration=%d,geometry_confirmed=%d\n",
+            printf("# standalone_Pico_SDK,"
+                   "commands=M_manual_L_line_A_left_test_D_right_test_"
+                   "R_then_G_stop_S_or_space,"
+                   "serial_stop_is_not_hardware_estop\n");
+            printf("# calibration=buddy4_default_config,"
+                   "mounting_offsets_need_recalibration=%d,"
+                   "geometry_confirmed=%d\n",
                    imu.config.mounting_offsets_need_recalibration,
                    imu.config.centre_spacing_confirmed);
-            printf("# possible_obstruction=SDK_update_observation_not_encoder_acquisition,manual_straight_flat_only,not_confirmed_collision,no_motor_action\n");
-            printf("seq,time_us,result,valid,tilt_valid,acceleration_valid,measurement_quality,clipped_axes,clipped_samples,unsuitable_samples,sample_us,imu_errors,raw_x,raw_y,raw_z,ax_g,ay_g,az_g,pitch_deg,roll_deg,pitch_filtered,roll_filtered,terrain,side,transient_g,bump,height_cm,event_side,peak_confirmed,peak_roll,peak_height,median_candidate_valid,median_candidate_roll_deg,median_candidate_height_cm,running,mode,line_state,line_mask,left_cmd,right_cmd,left_count,right_count,left_speed,right_speed,distance_cm,motor_state,motor_fault,stop_fault,terrain_mode,terrain_speed_scale,left_terrain_duty,right_terrain_duty,motor_skipped,line_skipped,imu_skipped,motor_late_us,line_late_us,imu_late_us,motor_runtime_us,line_runtime_us,imu_runtime_us,encoder_motion_state,encoder_motion_valid,encoder_motion_sample_us,possible_impact_valid,possible_impact_event,possible_impact_count,possible_impact_sample_us,possible_impact_event_us,possible_impact_magnitude_g,possible_impact_baseline_g,possible_impact_deviation_g,encoder_yaw_rate_estimate_rad_s,encoder_yaw_rate_estimate_deg_s,encoder_yaw_rate_estimate_valid,encoder_yaw_rate_estimate_sample_us,selected_target_left_cm_s,selected_target_right_cm_s,control_reason,possible_obstruction_valid,possible_obstruction_established,possible_obstruction_event,possible_obstruction_count,possible_obstruction_observation_us,possible_obstruction_event_us,possible_obstruction_slow_ms\n");
+            printf("# "
+                   "possible_obstruction=SDK_update_observation_"
+                   "not_encoder_acquisition,"
+                   "manual_straight_flat_only,not_confirmed_collision,"
+                   "no_motor_action\n");
+            printf("seq,time_us,result,valid,tilt_valid,acceleration_valid,"
+                   "measurement_quality,clipped_axes,clipped_samples,"
+                   "unsuitable_samples,sample_us,imu_errors,raw_x,raw_y,raw_z,"
+                   "ax_g,ay_g,az_g,pitch_deg,roll_deg,pitch_filtered,"
+                   "roll_filtered,terrain,side,transient_g,bump,height_cm,"
+                   "event_side,peak_confirmed,peak_roll,peak_height,"
+                   "median_candidate_valid,median_candidate_roll_deg,"
+                   "median_candidate_height_cm,running,mode,line_state,"
+                   "line_mask,left_cmd,right_cmd,left_count,right_count,"
+                   "left_speed,right_speed,distance_cm,motor_state,motor_fault,"
+                   "stop_fault,terrain_mode,terrain_speed_scale,"
+                   "left_terrain_duty,right_terrain_duty,motor_skipped,"
+                   "line_skipped,imu_skipped,motor_late_us,line_late_us,"
+                   "imu_late_us,motor_runtime_us,line_runtime_us,"
+                   "imu_runtime_us,encoder_motion_state,encoder_motion_valid,"
+                   "encoder_motion_sample_us,possible_impact_valid,"
+                   "possible_impact_event,possible_impact_count,"
+                   "possible_impact_sample_us,possible_impact_event_us,"
+                   "possible_impact_magnitude_g,possible_impact_baseline_g,"
+                   "possible_impact_deviation_g,"
+                   "encoder_yaw_rate_estimate_rad_s,"
+                   "encoder_yaw_rate_estimate_deg_s,"
+                   "encoder_yaw_rate_estimate_valid,"
+                   "encoder_yaw_rate_estimate_sample_us,"
+                   "selected_target_left_cm_s,selected_target_right_cm_s,"
+                   "control_reason,possible_obstruction_valid,"
+                   "possible_obstruction_established,"
+                   "possible_obstruction_event,possible_obstruction_count,"
+                   "possible_obstruction_observation_us,"
+                   "possible_obstruction_event_us,"
+                   "possible_obstruction_slow_ms\n");
             header = false;
         }
 
         if (usb && (control.event_pending))
         {
-            printf("# CONTROL,time_us=%llu,event=%s,original_fault=%lu,mode=%d,manual_speed_cm_s=%.2f,selected_target_left_cm_s=%.2f,selected_target_right_cm_s=%.2f,turn_test_limit_us=%lu\n",
+            printf("# CONTROL,time_us=%llu,event=%s,original_fault=%lu,mode=%d,"
+                   "manual_speed_cm_s=%.2f,selected_target_left_cm_s=%.2f,"
+                   "selected_target_right_cm_s=%.2f,turn_test_limit_us=%lu\n",
                    (unsigned long long)time_us_64(), control.reason,
                    (unsigned long)control.stop_fault, control.mode,
                    (double)MANUAL_SPEED_CM_S,
@@ -226,7 +267,11 @@ int main (void)
 
             if (o->event_ended)
             {
-                printf("# SIDE_EVENT_END,start_us=%llu,end_us=%llu,side=%d,confirmed=%d,peak_roll=%.3f,peak_height_cm=%.3f,median_candidate_valid=%d,median_candidate_roll_deg=%.3f,median_candidate_height_cm=%.3f\n",
+                printf("# SIDE_EVENT_END,start_us=%llu,end_us=%llu,side=%d,"
+                       "confirmed=%d,peak_roll=%.3f,peak_height_cm=%.3f,"
+                       "median_candidate_valid=%d,"
+                       "median_candidate_roll_deg=%.3f,"
+                       "median_candidate_height_cm=%.3f\n",
                        (unsigned long long)o->ended_event.start_us,
                        (unsigned long long)o->timestamp_us,
                        o->ended_event.side, o->ended_event.peak_confirmed,
@@ -237,7 +282,13 @@ int main (void)
                        o->ended_event.median_candidate_height_cm);
             }
 
-            printf("%lu,%llu,%d,%d,%d,%d,%s,%u,%lu,%lu,%llu,%lu,%d,%d,%d,%.4f,%.4f,%.4f,%.3f,%.3f,%.3f,%.3f,%d,%d,%.4f,%d,%.3f,%d,%d,%.3f,%.3f,%d,%.3f,%.3f,%d,%d,%d,%u,%.3f,%.3f,%ld,%ld,%.3f,%.3f,%.3f,%d,%d,%lu,%d,%.3f,%.3f,%.3f,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%s,%d,%llu,%d,%d,%lu,%llu,%llu,%.4f,%.4f,%.4f,%.5f,%.4f,%d,%llu,%.3f,%.3f,%s,%d,%d,%d,%lu,%llu,%llu,%lu\n",
+            printf("%lu,%llu,%d,%d,%d,%d,%s,%u,%lu,%lu,%llu,%lu,%d,%d,%d,%.4f,"
+                   "%.4f,%.4f,%.3f,%.3f,%.3f,%.3f,%d,%d,%.4f,%d,%.3f,%d,%d,"
+                   "%.3f,%.3f,%d,%.3f,%.3f,%d,%d,%d,%u,%.3f,%.3f,%ld,%ld,%.3f,"
+                   "%.3f,%.3f,%d,%d,%lu,%d,%.3f,%.3f,%.3f,%lu,%lu,%lu,%lu,%lu,"
+                   "%lu,%lu,%lu,%lu,%s,%d,%llu,%d,%d,%lu,%llu,%llu,%.4f,%.4f,"
+                   "%.4f,%.5f,%.4f,%d,%llu,%.3f,%.3f,%s,%d,%d,%d,%lu,%llu,%llu,"
+                   "%lu\n",
                    (unsigned long)seq++, (unsigned long long)time_us_64(),
                            result,
                    o->valid,
@@ -262,10 +313,10 @@ int main (void)
                    o->event.median_candidate_height_cm,
                    control.running, control.mode, l.state,
                    (unsigned)line_sensors_read(),
-                   control.mode != DRIVE_LINE
+                   DRIVE_LINE != control.mode
                    ? (control.running ? control.selected_left_cm_s : 0)
                    : l.left_cmd_cm_s,
-                   control.mode != DRIVE_LINE
+                   DRIVE_LINE != control.mode
                    ? (control.running ? control.selected_right_cm_s : 0)
                    : l.right_cmd_cm_s,
                    (long)m.left_count, (long)m.right_count, m.left_speed_cm_s,

@@ -30,7 +30,7 @@ typedef volatile uint32_t robot_flags_t;
 
 static inline bool robot_flags_test (const robot_flags_t * f, uint32_t mask)
 {
-    return ((*f) & mask) != 0u;
+    return 0u != ((*f) & mask);
 }
 
 static inline void robot_flags_set_nl (robot_flags_t * f, uint32_t mask)
@@ -87,7 +87,7 @@ static inline bool robot_flags_test_and_clear (robot_flags_t * f, uint32_t mask)
     ROBOT_FLAGS_IRQ_T s;
     bool was;
     ROBOT_FLAGS_LOCK(s);
-    was = ((*f) & mask) != 0u;
+    was = 0u != ((*f) & mask);
     *f &= ~mask;
     ROBOT_FLAGS_UNLOCK(s);
     return was;

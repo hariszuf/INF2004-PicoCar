@@ -87,6 +87,10 @@ void buddy4_lift_update (buddy4_lift_t * d, float x, float y, float z,
         {
             o->lifted = false; /* sensor gone: unknown is not "lifted" */
         }
+        else
+        {
+            /* no action required */
+        }
 
         return;
     }
@@ -143,6 +147,10 @@ void buddy4_lift_update (buddy4_lift_t * d, float x, float y, float z,
         {
             reason = BUDDY4_LIFT_MOTION;
         }
+        else
+        {
+            /* no action required */
+        }
 
         if (reason)
         {
@@ -150,7 +158,7 @@ void buddy4_lift_update (buddy4_lift_t * d, float x, float y, float z,
             o->reason = reason;
             o->since_us = sample_us;
 
-            if (o->count != UINT32_MAX)
+            if (UINT32_MAX != o->count)
             {
                 o->count++;
             }
@@ -177,6 +185,10 @@ void buddy4_lift_update (buddy4_lift_t * d, float x, float y, float z,
         {
             o->lifted = false;
             clear_pending(d);
+        }
+        else
+        {
+            /* no action required */
         }
     }
 }

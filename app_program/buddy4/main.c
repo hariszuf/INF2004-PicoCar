@@ -33,13 +33,18 @@ static void log_csv_header (const buddy4_config_t * config)
     printf("# preliminary_six_position,imperfect_orientation_alignment,"
            "mounting_offsets_need_recalibration=%d\n",
            config->mounting_offsets_need_recalibration);
-    printf("seq,poll_time_us,result,valid,tilt_valid,acceleration_valid,measurement_quality,clipped_axes,clipped_samples,unsuitable_samples,sample_time_us,error_count,"
-           "raw_x,raw_y,raw_z,ax_uncorrected_g,ay_uncorrected_g,az_uncorrected_g,"
+    printf("seq,poll_time_us,result,valid,tilt_valid,acceleration_valid,"
+           "measurement_quality,clipped_axes,clipped_samples,"
+           "unsuitable_samples,sample_time_us,error_count,"
+           "raw_x,raw_y,raw_z,ax_uncorrected_g,ay_uncorrected_g,"
+           "az_uncorrected_g,"
            "ax_corrected_g,ay_corrected_g,az_corrected_g,magnitude_g,"
            "pitch_deg,pitch_filtered_deg,roll_deg,roll_filtered_deg,"
            "terrain,side_tilt,transient_g,transient_event,"
            "wheel_height_cm,geometry_confirmed,side_event_active,"
-           "peak_confirmed,peak_roll_deg,peak_wheel_height_cm,median_candidate_valid,median_candidate_roll_deg,median_candidate_height_cm\n");
+           "peak_confirmed,peak_roll_deg,peak_wheel_height_cm,"
+           "median_candidate_valid,median_candidate_roll_deg,"
+           "median_candidate_height_cm\n");
 }
 
 /* Keep event metadata out of the fixed-column sample rows. */
@@ -47,7 +52,9 @@ static void log_side_event_summary (const buddy4_output_t * output)
 {
     const side_event_t * event = &output->ended_event;
     printf("# SIDE_EVENT_END,side=%s,reason=%s,start_us=%llu,end_us=%llu,"
-           "peak_confirmed=%d,peak_roll_deg=%.2f,peak_wheel_height_cm=%.2f,median_candidate_valid=%d,median_candidate_roll_deg=%.3f,median_candidate_height_cm=%.3f\n",
+           "peak_confirmed=%d,peak_roll_deg=%.2f,peak_wheel_height_cm=%.2f,"
+           "median_candidate_valid=%d,median_candidate_roll_deg=%.3f,"
+           "median_candidate_height_cm=%.3f\n",
            buddy4_side_name(event->side),
            output->side ? "SIDE_CHANGED" : "RETURNED_TO_LEVEL",
            (unsigned long long)event->start_us,
@@ -99,7 +106,7 @@ static void log_csv_sample (uint32_t sequence, uint64_t poll_time_us,
            output->transient_event,
            output->wheel_height_cm,
            output->height_geometry_confirmed,
-           output->event.side != 0,
+           0 != output->event.side,
            output->event.peak_confirmed,
            output->event.peak_roll_deg,
            output->event.peak_height_cm, output->event.median_candidate_valid,

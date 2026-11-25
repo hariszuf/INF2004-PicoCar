@@ -229,7 +229,7 @@ int main (void)
         for (int idx = 0; idx < 80; idx++)
         {
             /* all equal widths */
-            got |= barcode39_feed(&d, idx % 2 == 0, 20, &r);
+            got |= barcode39_feed(&d, 0 == idx % 2, 20, &r);
         }
 
         CHECK(!got, "uniform stripes should not decode");

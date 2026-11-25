@@ -814,7 +814,7 @@ static void recorded_short_impulses (const char * name, uint32_t expected_rows,
             field[n++] = v;
         }
 
-        if (n != 86)
+        if (86 != n)
         {
             continue;
         }

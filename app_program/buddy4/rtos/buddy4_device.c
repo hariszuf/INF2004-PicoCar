@@ -32,7 +32,7 @@ static int write_bus (void * context, uint8_t address, const uint8_t * data,
 
     if (no_stop)
     {
-        if (count != 1)
+        if (1 != count)
         {
             return -1;
         }

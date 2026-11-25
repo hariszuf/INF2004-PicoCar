@@ -25,7 +25,8 @@ void buddy4_obstruction_sdk_note_update (buddy4_obstruction_sdk_t * a,
     a->have_update = a->pending = true;
 }
 
-buddy4_obstruction_output_t buddy4_obstruction_sdk_poll (buddy4_obstruction_sdk_t * a,
+buddy4_obstruction_output_t buddy4_obstruction_sdk_poll (
+        buddy4_obstruction_sdk_t * a,
         const drive_control_t * c, const buddy4_imu_t * imu, bool usb,
                 uint64_t now)
 {
@@ -103,6 +104,10 @@ buddy4_obstruction_output_t buddy4_obstruction_sdk_poll (buddy4_obstruction_sdk_
             a->has_imu = true;
             a->last_imu_us = o->timestamp_us;
         }
+        else
+        {
+            /* no action required */
+        }
 
         /* Equal IMU timestamp is ordinary phase skew between two 20 ms tasks.
          * Keep the motor snapshot pending, without advancing evidence, until a
@@ -110,6 +115,10 @@ buddy4_obstruction_output_t buddy4_obstruction_sdk_poll (buddy4_obstruction_sdk_
          * getter expiry still apply on every poll. A second motor callback
          * while
          * waiting is unqualified by note_update(), never silently combined. */
+    }
+    else
+    {
+        /* no action required */
     }
 
     return buddy4_obstruction_get(&a->observer, now);

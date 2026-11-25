@@ -48,7 +48,8 @@ void buddy4_obstruction_sdk_note_update (buddy4_obstruction_sdk_t * a,
  * no new motor/IMU poll. A processed S therefore cancels before confirmation.
  * A pending motor observation can wait for the next NEW IMU sample while all
  * existing age/gap/skew limits hold. Waiting polls never advance evidence. */
-buddy4_obstruction_output_t buddy4_obstruction_sdk_poll (buddy4_obstruction_sdk_t * a,
+buddy4_obstruction_output_t buddy4_obstruction_sdk_poll (
+        buddy4_obstruction_sdk_t * a,
         const drive_control_t * control, const buddy4_imu_t * imu, bool usb,
         uint64_t now_us);
 #endif

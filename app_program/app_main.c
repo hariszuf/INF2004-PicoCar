@@ -28,7 +28,7 @@
 static INT start_application (void)
 {
     /* Phase 1: Initialise hardware and subsystem resources. */
-    if ((b5_platform_init() < E_OK) || (motion_init() != MOTION_OK))
+    if ((b5_platform_init() < E_OK) || (MOTION_OK != motion_init()))
     {
         return 1;
     }
@@ -135,7 +135,7 @@ EXPORT INT usermain (void)
 {
     INT result = start_application();
 
-    if (result != 0)
+    if (0 != result)
     {
         return result;
     }

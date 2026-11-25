@@ -99,7 +99,7 @@ static inline auto_start_result_t auto_start_request (auto_start_t * s,
         return s->last_start = START_REJECTED_FAULT;
     }
 
-    if (s->phase != AUTO_LATCHED)
+    if (AUTO_LATCHED != s->phase)
     {
         /* starting or running: do nothing */
         return s->last_start = START_ALREADY_ACTIVE;

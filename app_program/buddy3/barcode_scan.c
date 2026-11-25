@@ -95,6 +95,10 @@ void barcode_scan_update (bool black, uint32_t now_us)
         s_level_since = s_pending_since;
         s_last_edge_us = now_us;
     }
+    else
+    {
+        /* no action required */
+    }
 
     if ((s_decoder.n > 0u)
         && ((uint32_t)(now_us - s_last_edge_us) > BARCODE_IDLE_RESET_US))

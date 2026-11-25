@@ -161,7 +161,7 @@ void out_w (UW address, UW value)
 
     if ((address == I2C_ENABLE(0)) && (0 == value))
     {
-        if (command_count && (ll_devcb[0].state != I2C_STS_STOP))
+        if (command_count && (I2C_STS_STOP != ll_devcb[0].state))
         {
             disabled_before_stop++;
         }
@@ -207,7 +207,7 @@ void mock_restore_interrupts (UW mask)
     primask = mask;
 
     if ((!primask) && (!in_irq) && before_wait
-        && (ll_devcb[0].state != I2C_STS_STOP))
+        && (I2C_STS_STOP != ll_devcb[0].state))
     {
         before_wait = 0;
         pump();
@@ -302,6 +302,10 @@ static void bus_step (void)
             }
         }
     }
+    else
+    {
+        /* no action required */
+    }
 }
 
 static void service_step (void)
@@ -378,6 +382,10 @@ ER tk_wai_flg (ID id, UINT pattern, UINT mode, UINT *result, TMO timeout)
             pump();
             return E_TMOUT;
         }
+        else
+        {
+            /* no action required */
+        }
 
         if (raw_status() & *reg(I2C_INTR_MASK(0)))
         {
@@ -438,7 +446,7 @@ static void combined (uint32_t n)
         assert(rx[idx] == idx);
     }
 
-    assert((*reg(I2C_ENABLE(0)) == 0) && (*reg(I2C_INTR_MASK(0)) == 0));
+    assert((0 == *reg(I2C_ENABLE(0))) && (0 == *reg(I2C_INTR_MASK(0))));
 }
 
 static void recover (void)
@@ -458,12 +466,12 @@ int main (void)
 {
     T_I2C_DCB d = {0};
     assert(0 == dev_i2c_llinit(&d));
-    assert((*reg(GPIO_CTRL(16)) == 3) && (*reg(GPIO_CTRL(17)) == 3));
-    assert((*reg(GPIO_CTRL(8)) == 0) && (*reg(GPIO_CTRL(9)) == 0));
+    assert((3 == *reg(GPIO_CTRL(16))) && (3 == *reg(GPIO_CTRL(17))));
+    assert((0 == *reg(GPIO_CTRL(8))) && (0 == *reg(GPIO_CTRL(9))));
     assert(0 == dev_i2c_llctl(0, LLD_I2C_OPEN, 0, 0, NULL));
     assert(0 == (*reg(I2C_CON(0)) & I2C_CON_SPEED_FAST));
-    assert((*reg(I2C_SS_SCL_HCNT(0)) == 500)
-           && (*reg(I2C_SS_SCL_LCNT(0)) == 750));
+    assert((500 == *reg(I2C_SS_SCL_HCNT(0)))
+           && (750 == *reg(I2C_SS_SCL_LCNT(0))));
     UB tx[] = {0x20, 0x6f};
     reset_test();
     assert(2 == dev_i2c_llctl(0, LLD_I2C_WRITE, 0x1d, 2, (UW*)tx));
@@ -505,7 +513,7 @@ int main (void)
         assert(E_IO == dev_i2c_llctl(0, LLD_I2C_EXEC, 0, 0, (UW*) & ex));
         assert((1 == wait_calls) && (1 == flag_sets)
                && (1 == dispatch_requests));
-        assert((*reg(I2C_ENABLE(0)) == 0) && (*reg(I2C_INTR_MASK(0)) == 0));
+        assert((0 == *reg(I2C_ENABLE(0))) && (0 == *reg(I2C_INTR_MASK(0))));
         recover();
     }
 
@@ -513,11 +521,11 @@ int main (void)
     forced_timeout = 1;
     *reg(I2C_STATUS(0)) = 0x456;
     assert(E_TMOUT == dev_i2c_llctl(0, LLD_I2C_WRITE, 0x1d, 2, (UW*)tx));
-    assert((*reg(I2C_INTR_MASK(0)) == 0) && (*reg(I2C_ENABLE(0)) == 0));
+    assert((0 == *reg(I2C_INTR_MASK(0))) && (0 == *reg(I2C_ENABLE(0))));
     uint32_t trace[32] = {0};
     buddy4_i2c_timeout_trace(0, trace);
     assert((I2C_STS_SEND == trace[0]) && (0 == trace[1]) && (2 == trace[2]));
-    assert((I2C_INT_TX_EMPTY == trace[3]) && (trace[4] != 0)
+    assert((I2C_INT_TX_EMPTY == trace[3]) && (0 != trace[4])
            && (0x456 == trace[6]));
     assert((20000 == trace[8]) && (trace[9] == ~0u) && (0 == trace[10]));
     assert((trace[12] == ~0u) && (1 == trace[14]) && (1 == trace[15]));

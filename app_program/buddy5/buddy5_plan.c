@@ -208,7 +208,7 @@ void b5_plan_make (const b5_scan_t * scan, int32_t front_hint_mm,
     {
         int a = b5_slot_angle(idx);
 
-        if ((a < -10) || (a > 10) || (b5_scan_state(scan, idx) != B5_SCAN_ECHO))
+        if ((a < -10) || (a > 10) || (B5_SCAN_ECHO != b5_scan_state(scan, idx)))
         {
             continue;
         }
@@ -228,7 +228,7 @@ void b5_plan_make (const b5_scan_t * scan, int32_t front_hint_mm,
         out->face_dist_mm = face[0];
         out->face_valid = true;
     }
-    else if ((front_hint_mm > 0) && (front_hint_mm != B5_CLEAR_FRONT_MM))
+    else if ((front_hint_mm > 0) && (B5_CLEAR_FRONT_MM != front_hint_mm))
     {
         /* no echo straight ahead: only trust the stop-time reading if something
          * is
@@ -242,6 +242,10 @@ void b5_plan_make (const b5_scan_t * scan, int32_t front_hint_mm,
 #else
         out->face_valid = false;
 #endif
+    }
+    else
+    {
+        /* no action required */
     }
 
     if (!out->face_valid)
@@ -275,7 +279,7 @@ void b5_plan_make (const b5_scan_t * scan, int32_t front_hint_mm,
             continue;
         }
 
-        if (b5_scan_state(scan, idx) != B5_SCAN_ECHO)
+        if (B5_SCAN_ECHO != b5_scan_state(scan, idx))
         {
             continue;
         }
@@ -391,7 +395,7 @@ void b5_plan_make (const b5_scan_t * scan, int32_t front_hint_mm,
                 continue;
             }
 
-            if ((cls[idx] != RAY_NEAR) && (cls[idx] != RAY_FAR))
+            if ((RAY_NEAR != cls[idx]) && (RAY_FAR != cls[idx]))
             {
                 continue;
             }
@@ -430,7 +434,7 @@ void b5_plan_make (const b5_scan_t * scan, int32_t front_hint_mm,
         }
 
         out->offset_mm[s] = off;
-        bool blocked = (blocked_mask & (1u << s)) != 0;
+        bool blocked = 0 != (blocked_mask & (1u << s));
         out->feasible[s] = (!blocked) && (out->room_mm[s] >= B5_NEED_ROOM_MM)
                 && (off <= B5_MAX_OFFSET_MM);
         int32_t cost = off;

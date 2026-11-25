@@ -117,7 +117,7 @@ int main (void)
 
     CHECK((START_REJECTED_FAULT == s.last_start) && (s.start_count >= 1));
     printf(fails ? "FAILED (%d)\n" : "auto_start: all tests passed\n", fails);
-    return fails != 0;
+    return 0 != fails;
 }
 
 /*** end of file ***/

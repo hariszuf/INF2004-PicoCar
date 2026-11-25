@@ -50,7 +50,7 @@ int main (void)
 
     for (;;)
     {
-        bool black = (line_sensors_read() & LINE_SENSOR_BARCODE) != 0u;
+        bool black = 0u != (line_sensors_read() & LINE_SENSOR_BARCODE);
         uint32_t now_ms = to_ms_since_boot(get_absolute_time());
 
         barcode_scan_update(black, time_us_32());

@@ -51,7 +51,7 @@ static uint32_t slice_of (uint32_t pin)
  */
 static uint32_t cc_value (uint32_t pin, uint32_t level)
 {
-    return ((pin & 1u) != 0u) ? (level << 16) : level;
+    return (0u != (pin & 1u)) ? (level << 16) : level;
 }
 
 static void init_pin (uint32_t pin)

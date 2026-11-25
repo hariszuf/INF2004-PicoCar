@@ -86,14 +86,14 @@ void motion_mtk_gpio_isr (uint32_t intno)
     {
         status = B2_REG(B2_IO_PROC0_INTS(reg));
 
-        for (pin = reg * 8u; (status != 0u) && (pin < (reg * 8u) + 8u)
+        for (pin = reg * 8u; (0u != status) && (pin < (reg * 8u) + 8u)
              && (pin < B2_GPIO_COUNT); pin++)
         {
             shift = 4u * (pin % 8u);
             events = (status >> shift) & (B2_GPIO_EDGE_FALL
                                           | B2_GPIO_EDGE_RISE);
 
-            if (events != 0u)
+            if (0u != events)
             {
                 /* edge bits: write 1 to clear */
                 B2_REG(B2_IO_INTR(reg)) = events << shift;
@@ -163,7 +163,7 @@ int32_t motion_mtk_gpio_irq_register (uint32_t pin, uint32_t edges,
         return E_PAR;
     }
 
-    if ((s_owned & (1u << pin)) != 0u)
+    if (0u != (s_owned & (1u << pin)))
     {
         return E_OBJ;
     }

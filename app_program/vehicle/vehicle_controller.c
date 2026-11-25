@@ -123,7 +123,7 @@ void b5_line_command_received (uint32_t c)
 {
     UW irq;
 
-    if ((c != 'R') && (c != 'S') && (c != ' '))
+    if (('R' != c) && ('S' != c) && (' ' != c))
     {
         return;
     }
@@ -150,6 +150,10 @@ void b5_line_command_received (uint32_t c)
             commands[command_head] = (unsigned char)c;
             command_head = next;
         }
+    }
+    else
+    {
+        /* no action required */
     }
 
     EI(irq);
@@ -211,6 +215,10 @@ void b5_remote_command_intent (uint32_t c)
 #endif
             robot_flags_set_nl(&ctl_flags, CF_START_PENDING);
         }
+    }
+    else
+    {
+        /* no action required */
     }
 
     EI(irq);
@@ -286,7 +294,7 @@ static void halt (full_nav_t * nav, auto_start_t * start, const char * why)
             b++;
         }
 
-        if ((*a == 0) && (*b == 0))
+        if ((0 == *a) && (0 == *b))
         {
             code = (int32_t)idx + 1;
             break;
@@ -388,9 +396,9 @@ static void controller_task (INT stacd, void * exinf)
              * repeat STOP is not re-counted. */
             robot_flags_clear(&ctl_flags, CF_START_PENDING | CF_START_REJECTED);
 
-            if ((start.phase != AUTO_FAULTED)
-                && ((start.phase != AUTO_LATCHED)
-                    || (start.reason != B5_HALT_USER_STOP)))
+            if ((AUTO_FAULTED != start.phase)
+                && ((AUTO_LATCHED != start.phase)
+                    || (B5_HALT_USER_STOP != start.reason)))
             {
                 halt(&nav, &start, "user stop");
             }
@@ -565,6 +573,10 @@ static void controller_task (INT stacd, void * exinf)
         {
             guard = true;
         }
+        else
+        {
+            /* no action required */
+        }
 
         /* The side-looking scan can leave an old clear reading behind. Wait for
          * the servo to face forward and acquire a new reading before ADVANCE.
@@ -714,7 +726,7 @@ static void controller_task (INT stacd, void * exinf)
                 robot_flags_set(&ctl_flags, CF_FAULT_LATCHED);
             }
 
-            if ((CTL(CF_RUN_ENABLED)) && (motor.fault != MOTION_FAULT_NONE))
+            if ((CTL(CF_RUN_ENABLED)) && (MOTION_FAULT_NONE != motor.fault))
             {
                 halt(&nav, &start, "motor fault");
             }
@@ -769,7 +781,7 @@ static void controller_task (INT stacd, void * exinf)
                 && (!CTL(CF_FAULT_LATCHED));
 #if TM_WIFI_MQTT
         ready = ready && (mqtt_dashboard_ready_after_connect(10000u))
-                && (report_sequence != 0);
+                && (0 != report_sequence);
 #endif
 #if B5_HEADLESS
         /* A fast power-bank boot can otherwise reach AUTO_START before the
@@ -804,7 +816,7 @@ static void controller_task (INT stacd, void * exinf)
         {
             line_follow_stop();
 
-            if (motion_reset() != MOTION_OK)
+            if (MOTION_OK != motion_reset())
             {
                 halt(&nav, &start, "motor reset failed");
             }
@@ -959,10 +971,13 @@ static void controller_task (INT stacd, void * exinf)
                                            packed[1], report_sequence))
             {
                 (void)report_measurement(TELEMETRY_SOURCE_BUDDY3, 22, 0,
-                                         packed[2],
-                                         (int32_t)((uint32_t)junction_map_version()
-                        | ((uint32_t)buddy1_barcode_map_result() << 16)),
-                                         report_sequence);
+                    packed[2],
+                    (int32_t)(
+                    (uint32_t)junction_map_version()
+                    | ((uint32_t)
+                    buddy1_barcode_map_result()
+                    << 16)),
+                    report_sequence);
                 last_map_report = now;
             }
         }
@@ -1051,7 +1066,8 @@ static void controller_task (INT stacd, void * exinf)
                         | ((uint32_t)(scan.rescans & 15u) << 24);
                 uint32_t edges =
                         ((uint32_t)(int32_t)pr->left_edge_mm & 0xFFFFu)
-                        | (((uint32_t)(-(int32_t)pr->right_edge_mm) & 0xFFFFu) << 16);
+                        | (((uint32_t)(-(int32_t)pr->right_edge_mm)
+                            & 0xFFFFu) << 16);
                 report_measurement(5, 51, 0, pr->width_mm, pr->depth_high_mm,
                                    b5_seq);
 #if !B5_SCAN_ONLY
@@ -1130,7 +1146,8 @@ static void controller_task (INT stacd, void * exinf)
 
                 if (buddy4_task_get(&imu) >= E_OK)
                 {
-#if TM_WIFI_MQTT && !B5_SCAN_ONLY   /* measuring build: keep the telemetry channel free for Buddy 5 */
+/* measuring build: keep the telemetry channel free for Buddy 5 */
+#if TM_WIFI_MQTT && !B5_SCAN_ONLY
                     /* Tilt (4/7) goes first: the dashboard calls the IMU stale
                      * when it is
                      * older than 3 s, and the last packets of a
@@ -1154,7 +1171,7 @@ static void controller_task (INT stacd, void * exinf)
                                                : (int32_t)imu.sample_age_ms,
                                        imu.io_errors, report_sequence);
 
-                    if (report_sequence % 5u == 0u)
+                    if (0u == report_sequence % 5u)
                     /* counters change slowly: every 5th report keeps the queue
                      * short */
                     {
@@ -1170,8 +1187,8 @@ static void controller_task (INT stacd, void * exinf)
                                        (imu.motion_valid ? 1 : 0)
                                                | (imu.yaw_valid ? 2 : 0),
                                        imu.motion_state, imu.yaw_valid
-                                       ? (int32_t)(imu.encoder_yaw_deg_s * 100)
-                                       : 0, report_sequence);
+                                        ? (int32_t)(imu.encoder_yaw_deg_s * 100)
+                                                   : 0, report_sequence);
                     report_measurement(4, 15, (imu.valid)
                                        && (imu.tilt_valid) ? 1 : 0,
                                        /* right wheel up: hump height fixed at
@@ -1183,18 +1200,20 @@ static void controller_task (INT stacd, void * exinf)
                                                report_sequence);
 
                     /* saved ramp results: every 5th report */
-                    if (report_sequence % 5u == 0u)
+                    if (0u == report_sequence % 5u)
                     {
                         report_measurement(4, 16,
                                            (imu.last_event.stable_valid ? 1 : 0)
                                            | (imu.last_event.median_valid ? 2
                                               : 0),
                                            imu.last_event.stable_valid
-                                                   ? (int32_t)(imu.last_event.stable_cm * 10)
-                                           : 0,
+                                            ? (int32_t)(imu.last_event.stable_cm
+                                                   * 10)
+                                               : 0,
                                            imu.last_event.median_valid
-                                                   ? (int32_t)(imu.last_event.median_cm * 10)
-                                           : 0, report_sequence);
+                                            ? (int32_t)(imu.last_event.median_cm
+                                                   * 10)
+                                               : 0, report_sequence);
                         report_measurement(4, 17, imu.last_event.end_us ? 1 : 0,
                                            imu.last_event.side,
                                            (int32_t)(imu.last_event.end_us
@@ -1202,7 +1221,9 @@ static void controller_task (INT stacd, void * exinf)
                         report_measurement(4, TELEMETRY_TYPE_HIGHEST_HUMP,
                                            imu.highest_hump_valid ? 1 : 0,
                                            imu.highest_hump_valid
-                                                   ? (int32_t)(imu.highest_hump_cm * 10) : 0,
+                                               ? (int32_t)(imu.highest_hump_cm
+                                                   * 10)
+                                               : 0,
                                            (int32_t)imu.run_id,
                                                    report_sequence);
                     }
@@ -1247,7 +1268,9 @@ static void controller_task (INT stacd, void * exinf)
              * mean the link cannot keep up. */
             report_measurement(6, 58, 0,
                                (int32_t)buddy1_telemetry_get_dropped_count(),
-                               (int32_t)buddy1_mqtt_telemetry_get_dropped_count(), report_sequence);
+                               (int32_t)
+                               buddy1_mqtt_telemetry_get_dropped_count(),
+                               report_sequence);
             report_measurement(TELEMETRY_SOURCE_BUDDY2, TELEMETRY_TYPE_ODOMETRY,
                                0,
                                (int32_t)(motor.distance_cm * 10), motor.fault,

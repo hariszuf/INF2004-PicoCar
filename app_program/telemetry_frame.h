@@ -132,12 +132,12 @@ static inline uint32_t tf_encode_telemetry (uint8_t * out, uint8_t source,
     uint32_t c1 = tf_size_class(value_1), c2 = tf_size_class(value_2);
     uint32_t n = 5u;
     out[0] = (uint8_t)(TF_BINARY_MARK | ((source & 7u) << 4) | (c1 << 2) | c2);
-    out[1] = (uint8_t)((type & 63u) | (flags != 0u ? 0x40u : 0u));
+    out[1] = (uint8_t)((type & 63u) | (0u != flags ? 0x40u : 0u));
     out[2] = (uint8_t)sequence;
     out[3] = (uint8_t)(sequence >> 8);
     out[4] = (uint8_t)(sequence >> 16);
 
-    if (flags != 0u)
+    if (0u != flags)
     {
         out[n++] = (uint8_t)flags;
         out[n++] = (uint8_t)(flags >> 8);
@@ -154,13 +154,13 @@ static inline bool tf_decode_telemetry (const uint8_t * in, uint32_t len,
                                         tf_telemetry_t * out)
 {
     if ((len < 5u) || (0u == (in[0] & TF_BINARY_MARK))
-        || ((in[1] & 0x80u) != 0u))
+        || (0u != (in[1] & 0x80u)))
     {
         return false;
     }
 
     uint32_t c1 = (in[0] >> 2) & 3u, c2 = in[0] & 3u;
-    bool has_flags = (in[1] & 0x40u) != 0u;
+    bool has_flags = 0u != (in[1] & 0x40u);
     uint32_t n = 5u + (has_flags ? 2u : 0u);
 
     if (len != n + tf_class_bytes(c1) + tf_class_bytes(c2))

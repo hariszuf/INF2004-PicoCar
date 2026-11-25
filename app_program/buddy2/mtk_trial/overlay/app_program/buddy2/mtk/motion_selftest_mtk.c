@@ -146,7 +146,7 @@ static bool wait_idle (uint32_t timeout_ms, uint32_t start_ms)
         if ((MOTION_STATE_ERROR == s.state) || (motion_is_idle()))
         {
             table_row(start_ms + t);
-            return s.state != MOTION_STATE_ERROR;
+            return MOTION_STATE_ERROR != s.state;
         }
 
         if (0u == ((start_ms + t) % PRINT_MS))

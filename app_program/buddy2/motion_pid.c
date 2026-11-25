@@ -68,7 +68,7 @@ float motion_pid_update (motion_pid_t * p_pid, float setpoint,
     p_pid->integral = clamp_f(p_pid->integral, -p_pid->integral_limit,
                               p_pid->integral_limit);
 
-    if (p_pid->primed != 0)
+    if (0 != p_pid->primed)
     {
         derivative = -(measurement - p_pid->previous_measurement) / dt_s;
     }

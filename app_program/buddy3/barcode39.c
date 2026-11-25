@@ -119,7 +119,7 @@ static char classify_block (const uint32_t * b, uint8_t ratio_x10,
 static bool decode_dir (const uint32_t * w, uint8_t n, uint8_t ratio_x10,
                         char * text, uint8_t * len)
 {
-    if (n % 10 != 9)
+    if (9 != n % 10)
     {
         s_last_fail = B39_FAIL_LENGTH;
         return false;
@@ -153,7 +153,7 @@ static bool decode_dir (const uint32_t * w, uint8_t n, uint8_t ratio_x10,
         }
     }
 
-    if ((ch[0] != '*') || (ch[blocks - 1] != '*'))
+    if (('*' != ch[0]) || ('*' != ch[blocks - 1]))
     {
         s_last_fail = B39_FAIL_ENDS;
         return false;
@@ -265,7 +265,7 @@ bool barcode39_decode_elements (const uint32_t * w, uint8_t count,
      * the
        '*' ends, the code is probably backwards and the reverse reason is the
        real one. */
-    if (fwd_fail != B39_FAIL_ENDS)
+    if (B39_FAIL_ENDS != fwd_fail)
     {
         s_last_fail = fwd_fail;
     }

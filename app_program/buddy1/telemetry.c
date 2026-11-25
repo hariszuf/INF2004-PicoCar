@@ -147,7 +147,7 @@ LOCAL void telemetry_task (INT stacd, void * exinf)
                                      TMO_POL
                                      );
 
-            if (send_result != E_OK)
+            if (E_OK != send_result)
             {
                 mqtt_outbox_dropped_count++;
             }
@@ -348,7 +348,7 @@ int32_t buddy1_mqtt_telemetry_fetch (
 
     result = buddy1_mqtt_telemetry_receive(&message);
 
-    if (result != E_OK)
+    if (E_OK != result)
     {
         return (int32_t)result;
     }
