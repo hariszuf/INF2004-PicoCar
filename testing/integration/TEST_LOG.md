@@ -1,18 +1,24 @@
-﻿# Integration Testing
+# Integration — test log
 
-## Test Cases
+**Subsystem:** interfaces between subsystems (TEAM.md section 5)  ·  **Student ID:** _add student ID_  ·  **Code:** `app_program/integration_test/`
 
-| ID | Test | Procedure | Expected Result |
-|---|---|---|---|
-| INT-01 | TBD | TBD | TBD |
+See `testing/README.md` for how to run tests and record results.
 
-## Test Results
+## Test cases
 
-| Date | Test ID | Commit | Tester | Result | Evidence |
+Define a test here before running it. Test IDs never change.
+
+| ID | What is tested | Requirement / interface | Method | Steps / how | Expected result |
 |---|---|---|---|---|---|
-| | | | | | |
+| INT-01 | TBD | IF-01 | TBD | TBD | TBD |
 
-## Notes
+*Method:* **auto** = `TEST_CHECK` or host program, result printed on the console;
+**manual** = a person observes the result (LED, scope, meter, phone app...).
 
-Document test procedures and results.
-Store evidence under logs/.
+## Results
+
+Add a new row for every run. Never edit or delete old rows.
+
+| Date | Test ID | Commit | Tester | Result | Log / evidence | Notes |
+|---|---|---|---|---|---|---|
+| YYYY-MM-DD | INT-01 | `abc1234` | | PASS / FAIL | `logs/YYYY-MM-DD_….txt` | |

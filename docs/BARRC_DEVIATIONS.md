@@ -31,7 +31,7 @@ left of `==`, `else` at the end of every `else if` chain).
 |---|---|---|
 | `controller_task` | `app_program/vehicle/vehicle_controller.c` | 998 |
 | `full_nav_update` | `app_program/vehicle/support/vehicle_nav.c` | 813 |
-| `veh_step` | `testing/buddy5/new_logic/sim_b5.c` | 398 |
+| `veh_step` | `testing/subsystem5/new_logic/sim_b5.c` | 398 |
 | `b5_core_update` | `app_program/buddy5/buddy5_core.c` | 329 |
 | `main` | `app_program/buddy4/sdk_integration_test/main.c` | 312 |
 | `b5_plan_make` | `app_program/buddy5/buddy5_plan.c` | 304 |
@@ -45,8 +45,8 @@ left of `==`, `else` at the end of every `else if` chain).
 | `test_measurement_quality` | `app_program/buddy4/tests/test_imu.c` | 195 |
 | `network_status_task` | `app_program/buddy1/network.c` | 173 |
 | `imu_quality_reproduction` | `app_program/buddy4/sdk_integration_test/test_drive_control.c` | 164 |
-| `run` | `testing/buddy5/new_logic/sim_b5.c` | 162 |
-| `main` | `testing/buddy5/new_logic/sim_b5.c` | 162 |
+| `run` | `testing/subsystem5/new_logic/sim_b5.c` | 162 |
+| `main` | `testing/subsystem5/new_logic/sim_b5.c` | 162 |
 | `brief_pitch_pause_safety` | `app_program/buddy4/sdk_integration_test/test_obstruction_sdk.c` | 156 |
 | `process_once` | `app_program/buddy4/rtos/buddy4_task.c` | 156 |
 | `timing_and_invalid` | `app_program/buddy4/sdk_integration_test/test_obstruction_sdk.c` | 144 |

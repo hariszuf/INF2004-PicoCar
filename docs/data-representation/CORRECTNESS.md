@@ -7,7 +7,7 @@
 
 ## Stage 2: Buddy 5 structs
 - Host test `testing/system/test_bitpack.c`: 9 checks pass (all widths 1..32, 13 scan slots independent, clamp).
-- Behaviour unchanged: the host simulation (`testing/buddy5/new_logic/run_tests.sh 2`) and the scan-only run
+- Behaviour unchanged: the host simulation (`testing/subsystem5/new_logic/run_tests.sh 2`) and the scan-only run
   (`run_scanonly.sh`) print byte-for-byte identical output before and after the change (diff is empty).
 - On-car check: passed on the final firmware (see Stage 4 section): obstacle bypass works as before.
 

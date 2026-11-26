@@ -32,7 +32,7 @@ The saved ELF/map and original image remain preserved outside tracked source:
 
 Local Wi-Fi/MQTT configuration remains ignored and is not committed. The UF2
 is also ignored by repository policy; its exact hash and evidence are tracked
-under `testing/buddy1/finalization/2026-10-29/`. Nothing is pushed or merged.
+under `testing/subsystem1/finalization/2026-10-29/`. Nothing is pushed or merged.
 
 ## Troubleshooting change inventory
 

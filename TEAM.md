@@ -16,11 +16,11 @@ subsystem, ask its owner or open a pull request for them to review.
 
 | # | Subsystem (what it does) | Student ID | GitHub username | Code | Tests |
 |---|---|---|---|---|---|
-| 1 | Buddy 1: Wi-Fi, MQTT, remote commands, telemetry and heartbeat | _add student ID_ | `hariszuf` | `app_program/buddy1/` | `testing/buddy1/` |
-| 2 | Buddy 2: motion control (motor PWM, wheel encoders, PID) | _add student ID_ | `AfiqDanial2003` | `app_program/buddy2/` | `testing/buddy2/` |
-| 3 | Buddy 3: line following, junction map and Code 39 barcode reading | _add student ID_ | `waayyne` | `app_program/buddy3/` | `testing/buddy3/` |
-| 4 | Buddy 4: IMU, tilt, hump and terrain measurement | _add student ID_ | `Ignatius-Pang` | `app_program/buddy4/` | `testing/buddy4/` |
-| 5 | Buddy 5: obstacle detection (ultrasonic + servo scan) and bypass | _add student ID_ | `CBKia222` | `app_program/buddy5/` | `testing/buddy5/` |
+| 1 | Buddy 1: Wi-Fi, MQTT, remote commands, telemetry and heartbeat | _add student ID_ | `hariszuf` | `app_program/buddy1/` | `testing/subsystem1/` |
+| 2 | Buddy 2: motion control (motor PWM, wheel encoders, PID) | _add student ID_ | `AfiqDanial2003` | `app_program/buddy2/` | `testing/subsystem2/` |
+| 3 | Buddy 3: line following, junction map and Code 39 barcode reading | _add student ID_ | `waayyne` | `app_program/buddy3/` | `testing/subsystem3/` |
+| 4 | Buddy 4: IMU, tilt, hump and terrain measurement | _add student ID_ | `Ignatius-Pang` | `app_program/buddy4/` | `testing/subsystem4/` |
+| 5 | Buddy 5: obstacle detection (ultrasonic + servo scan) and bypass | _add student ID_ | `CBKia222` | `app_program/buddy5/` | `testing/subsystem5/` |
 
 Shared files (`app_program/app_main.c`, `app_program/robot_*.h`,
 `app_program/telemetry_frame.h`, `app_program/vehicle/` and this file)
